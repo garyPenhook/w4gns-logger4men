@@ -25,6 +25,11 @@ func validateQSO(q qso) error {
 	if strings.TrimSpace(q.band) == "" {
 		return fmt.Errorf("band is required")
 	}
+	if strings.TrimSpace(q.frequency) != "" {
+		if err := validateBandFrequency(q.band, q.frequency); err != nil {
+			return err
+		}
+	}
 	if !strings.EqualFold(strings.TrimSpace(q.mode), "CW") {
 		return fmt.Errorf("mode must be CW")
 	}

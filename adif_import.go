@@ -89,12 +89,30 @@ func qsoFromADI(record map[string]string, profileID int64) (qso, bool) {
 		mode:      "CW",
 		rstSent:   record["RST_SENT"],
 		rstRcvd:   record["RST_RCVD"],
+		frequency: strings.TrimSpace(record["FREQ"]),
+		name:      strings.TrimSpace(record["NAME"]),
+		qth:       strings.TrimSpace(record["QTH"]),
+		grid:      strings.TrimSpace(record["GRIDSQUARE"]),
+		state:     strings.TrimSpace(record["STATE"]),
+		comment:   strings.TrimSpace(record["COMMENT"]),
+		potaRef:   adifPOTAReference(record),
+		contestID: strings.TrimSpace(record["CONTEST_ID"]),
+		stx:       strings.TrimSpace(record["STX"]),
+		stxString: strings.TrimSpace(record["STX_STRING"]),
+		srx:       strings.TrimSpace(record["SRX"]),
 		exchange:  record["SRX_STRING"],
 		srxString: record["SRX_STRING"],
 		time:      start.UTC(),
 		timeOff:   end.UTC(),
 		profileID: profileID,
 	}, true
+}
+
+func adifPOTAReference(record map[string]string) string {
+	if !strings.EqualFold(strings.TrimSpace(record["SIG"]), "POTA") {
+		return ""
+	}
+	return strings.TrimSpace(record["SIG_INFO"])
 }
 
 func parseADIRecords(data []byte) ([]map[string]string, error) {

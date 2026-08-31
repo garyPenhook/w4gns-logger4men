@@ -16,11 +16,11 @@ Keep routine CW logging fast in a small terminal while making optional QSO and c
 
 ## F1 — QSO Entry
 
-Field order is Call, RST Sent, RST Received, Band, Mode. This page displays UTC and local time, QSO timer state, 15-minute call-and-band dupe warning, and all prior contacts for the entered callsign. The active QSO never appears in the prior-contact list until saved.
+Field order is Call, RST Sent, RST Received, Band, Frequency, Mode. Band is a closed selector; `Left`/`Right` or `Up`/`Down` chooses one of the supported CW bands and supplies a valid default frequency. Frequency is entered in MHz beside Band and is validated against conservative international band edges. Operators remain responsible for their national licence, regional allocation, and band-plan limits. This page displays UTC and local time, QSO timer state, 15-minute call-and-band dupe warning, and all prior contacts for the entered callsign. The active QSO never appears in the prior-contact list until saved.
 
 ## F6 — QSO Details
 
-Optional fields are frequency, name, QTH, grid square, state/province, POTA reference, and notes. These map to the corresponding ADIF-shaped QSO columns: `FREQ`, `NAME`, `QTH`, `GRIDSQUARE`, `STATE`, `SIG`/`SIG_INFO`, and `COMMENT`. A POTA reference is populated only when a matching callsign appears in the previous 15 minutes in the local DX-cluster spot history or POTA active-spot feed. The network lookup has a bounded timeout and never blocks logging.
+Optional fields are name, QTH, grid square, state/province, POTA reference, and notes. Frequency is an entry-row field. These map to the corresponding ADIF-shaped QSO columns: `FREQ`, `NAME`, `QTH`, `GRIDSQUARE`, `STATE`, `SIG`/`SIG_INFO`, and `COMMENT`. A POTA reference is populated only when a matching callsign appears in the previous 15 minutes in the local DX-cluster spot history or POTA active-spot feed. The network lookup has a bounded timeout and never blocks logging.
 
 ## F7 — Contest Entry
 

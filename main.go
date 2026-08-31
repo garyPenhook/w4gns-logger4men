@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ const (
 	fieldRSTSent
 	fieldRSTRcvd
 	fieldBand
+	fieldFrequency
 	fieldMode
 	fieldCount
 )
@@ -35,8 +37,7 @@ const (
 )
 
 const (
-	detailFrequency = iota
-	detailName
+	detailName = iota
 	detailQTH
 	detailGrid
 	detailState
@@ -45,7 +46,7 @@ const (
 	detailFieldCount
 )
 
-var detailLabels = [detailFieldCount]string{"Frequency", "Name", "QTH", "Grid", "State", "POTA Ref", "Notes"}
+var detailLabels = [detailFieldCount]string{"Name", "QTH", "Grid", "State", "POTA Ref", "Notes"}
 
 const (
 	contestName = iota
@@ -93,11 +94,12 @@ var clusterFilterLabels = [clusterFilterFieldCount]string{
 }
 
 var fieldLabels = [fieldCount]string{
-	fieldCall:    "Call",
-	fieldRSTSent: "RST Sent",
-	fieldRSTRcvd: "RST Rcvd",
-	fieldBand:    "Band",
-	fieldMode:    "Mode",
+	fieldCall:      "Call",
+	fieldRSTSent:   "RST Sent",
+	fieldRSTRcvd:   "RST Rcvd",
+	fieldBand:      "Band",
+	fieldFrequency: "Freq MHz",
+	fieldMode:      "Mode",
 }
 
 type qso struct {
@@ -211,10 +213,12 @@ func initialModel(st *store) model {
 	fields[fieldRSTRcvd] = newTextInput("599", 6)
 	fields[fieldBand] = newTextInput("20M", 6)
 	fields[fieldBand].SetValue("20M")
+	fields[fieldFrequency] = newTextInput("14.025", 9)
+	fields[fieldFrequency].SetValue("14.025")
 	fields[fieldMode] = newTextInput("CW", 4)
 	fields[fieldMode].SetValue("CW")
 	details := []textinput.Model{
-		newTextInput("14.025", 10), newTextInput("Operator name", 20), newTextInput("City / QTH", 20),
+		newTextInput("Operator name", 20), newTextInput("City / QTH", 20),
 		newTextInput("Grid square", 10), newTextInput("State / province", 12), newTextInput("US-0000", 12), newTextInput("QSO notes", 36),
 	}
 	contests := []textinput.Model{
@@ -467,6 +471,23 @@ func (m model) qsoMode() string {
 	return strings.ToUpper(strings.TrimSpace(m.fields[fieldMode].Value()))
 }
 
+func (m model) qsoFrequency() string {
+	return strings.TrimSpace(m.fields[fieldFrequency].Value())
+}
+
+func (m *model) selectBand(direction int) {
+	index := bandIndex(m.qsoBand())
+	if index < 0 {
+		index = 0
+	}
+	index = (index + direction + len(amateurBands)) % len(amateurBands)
+	band := amateurBands[index]
+	m.fields[fieldBand].SetValue(band.Name)
+	m.fields[fieldFrequency].SetValue(band.DefaultMHz)
+	m.checkDupe()
+	m.statusMsg = fmt.Sprintf("%s selected — frequency %s MHz", band.Name, band.DefaultMHz)
+}
+
 func (m *model) showWorkedCall(call string) {
 	contacts, err := m.store.qsosByCall(call)
 	if err != nil {
@@ -548,6 +569,10 @@ func (m model) logCurrentQSO() model {
 		m.statusMsg = "callsign required"
 		return m
 	}
+	if err := validateBandFrequency(m.qsoBand(), m.qsoFrequency()); err != nil {
+		m.statusMsg = err.Error()
+		return m
+	}
 	if m.dupeWarning {
 		m.statusMsg = fmt.Sprintf("DUPE: %s already worked on %s — not logged", call, m.qsoBand())
 		return m
@@ -568,7 +593,7 @@ func (m model) logCurrentQSO() model {
 		rstSent:   m.fields[fieldRSTSent].Value(),
 		rstRcvd:   m.fields[fieldRSTRcvd].Value(),
 		exchange:  "",
-		frequency: strings.TrimSpace(m.detailFields[detailFrequency].Value()),
+		frequency: m.qsoFrequency(),
 		name:      strings.TrimSpace(m.detailFields[detailName].Value()),
 		qth:       strings.TrimSpace(m.detailFields[detailQTH].Value()),
 		grid:      strings.TrimSpace(m.detailFields[detailGrid].Value()),
@@ -688,12 +713,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "f7":
 			m.openQSOContest()
 			return m, nil
+		case "left", "down":
+			if m.focusIdx == fieldBand {
+				m.selectBand(-1)
+				return m, nil
+			}
+		case "right", "up":
+			if m.focusIdx == fieldBand {
+				m.selectBand(1)
+				return m, nil
+			}
+		}
+		if m.focusIdx == fieldBand {
+			// Band is intentionally a closed selector. This prevents an invalid or
+			// unsupported band label from being entered into a QSO, while allowing
+			// non-key messages (such as textinput cursor-blink ticks) through.
+			return m, nil
 		}
 	}
 
 	var cmd tea.Cmd
 	m.fields[m.focusIdx], cmd = m.fields[m.focusIdx].Update(msg)
-	if m.focusIdx == fieldCall || m.focusIdx == fieldBand {
+	if m.focusIdx == fieldCall {
 		m.checkDupe()
 	}
 	return m, cmd
@@ -1161,6 +1202,10 @@ func screenHotkeys(current screen) string {
 }
 
 func main() {
+	if exportPath, ok := adifExportPath(os.Args[1:]); ok {
+		runADIFExport(exportPath)
+		return
+	}
 	if importPath, ok := adifImportPath(os.Args[1:]); ok {
 		runADIFImport(importPath)
 		return
@@ -1201,6 +1246,64 @@ func adifImportPath(args []string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func adifExportPath(args []string) (string, bool) {
+	for index, arg := range args {
+		if arg == "--export-adif" && index+1 < len(args) {
+			return args[index+1], true
+		}
+	}
+	return "", false
+}
+
+func runADIFExport(path string) {
+	dbPath := os.Getenv("W4GNS_DB")
+	if dbPath == "" {
+		dbPath = "w4gns.db"
+	}
+	if pathsReferToSameFile(path, dbPath) {
+		fmt.Fprintln(os.Stderr, "ADIF export path must not be the SQLite database")
+		os.Exit(1)
+	}
+	st, err := openStore(dbPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error opening database: %v\n", err)
+		os.Exit(1)
+	}
+	defer st.Close()
+	profile, err := st.activeStationProfile()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error loading station profile: %v\n", err)
+		os.Exit(1)
+	}
+	file, err := os.Create(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error creating ADIF file: %v\n", err)
+		os.Exit(1)
+	}
+	count, err := exportADIF(context.Background(), file, profile.ID, st)
+	if err != nil {
+		file.Close()
+		fmt.Fprintf(os.Stderr, "ADIF export failed: %v\n", err)
+		os.Exit(1)
+	}
+	if err := file.Close(); err != nil {
+		fmt.Fprintf(os.Stderr, "error closing ADIF file: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("ADIF export complete: %d QSOs written to %s\n", count, path)
+}
+
+func pathsReferToSameFile(first, second string) bool {
+	firstInfo, firstErr := os.Stat(first)
+	secondInfo, secondErr := os.Stat(second)
+	if firstErr == nil && secondErr == nil && os.SameFile(firstInfo, secondInfo) {
+		return true
+	}
+	firstPath, firstErr := filepath.Abs(first)
+	secondPath, secondErr := filepath.Abs(second)
+	return firstErr == nil && secondErr == nil && firstPath == secondPath
 }
 
 func runADIFImport(path string) {

@@ -52,13 +52,44 @@ func TestQSOEntryTabOrder(t *testing.T) {
 	defer st.Close()
 
 	m := initialModel(st)
-	want := []int{fieldRSTSent, fieldRSTRcvd, fieldBand, fieldMode}
+	want := []int{fieldRSTSent, fieldRSTRcvd, fieldBand, fieldFrequency, fieldMode}
 	for _, field := range want {
 		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
 		m = updated.(model)
 		if m.focusIdx != field {
 			t.Fatalf("focus after Tab = %d, want %d", m.focusIdx, field)
 		}
+	}
+}
+
+func TestBandSelectorSetsValidDefaultFrequency(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	m := initialModel(st)
+	m.focusField(fieldBand)
+	m.selectBand(1)
+	if m.qsoBand() != "17M" || m.qsoFrequency() != "18.080" {
+		t.Fatalf("selected band/frequency = %s/%s, want 17M/18.080", m.qsoBand(), m.qsoFrequency())
+	}
+}
+
+func TestADIFExportPath(t *testing.T) {
+	path, ok := adifExportPath([]string{"--in-current-terminal", "--export-adif", "log.adi"})
+	if !ok || path != "log.adi" {
+		t.Fatalf("adifExportPath = %q, %t", path, ok)
+	}
+	if _, ok := adifExportPath([]string{"--export-adif"}); ok {
+		t.Fatal("adifExportPath accepted a missing path")
+	}
+}
+
+func TestPathsReferToSameFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "logger.db")
+	if !pathsReferToSameFile(path, path) {
+		t.Fatal("identical paths were not recognized")
 	}
 }
 

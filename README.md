@@ -36,7 +36,9 @@ Your log is stored locally in `w4gns.db` by default. Set `W4GNS_DB` to use anoth
 ## QSO entry
 
 - CW QSOs are logged with callsign, band, mode, and sent/received RST.
-- The initial entry sequence is Call, RST Sent, RST Received, Band, then Mode.
+- The initial entry sequence is Call, RST Sent, RST Received, Band, Frequency, then Mode.
+- Band is a selector: use `Left`/`Right` or `Up`/`Down` while it is selected. Selecting a band supplies a valid default CW frequency; enter frequency in MHz.
+- Frequency is checked against the selected band’s international amateur allocation. Always follow the narrower rules of your licence and country.
 - Callsigns are normalized to uppercase.
 - While a callsign is being entered, the **Stations Worked** area shows that station's earlier contacts from the log. The QSO being entered is excluded until it is saved.
 - Duplicate callsign-and-band contacts are flagged before logging.
@@ -46,7 +48,7 @@ Your log is stored locally in `w4gns.db` by default. Set `W4GNS_DB` to use anoth
 
 ## QSO Details and Contest Entry
 
-Press `F6` for optional QSO details: frequency, operator name, QTH, grid square, state or province, POTA reference, and notes. Press `F7` for contest fields: contest name, sent and received serial numbers, and sent and received exchanges. These pages retain their values until the QSO is logged from the main QSO Entry screen. When you leave the callsign field, a POTA reference is filled automatically when the station appeared in the last 15 minutes in a received cluster spot or the POTA active-spot feed.
+Press `F6` for optional QSO details: operator name, QTH, grid square, state or province, POTA reference, and notes. Press `F7` for contest fields: contest name, sent and received serial numbers, and sent and received exchanges. These pages retain their values until the QSO is logged from the main QSO Entry screen. When you leave the callsign field, a POTA reference is filled automatically when the station appeared in the last 15 minutes in a received cluster spot or the POTA active-spot feed.
 
 ## Station Setup
 
@@ -97,6 +99,16 @@ Import an ADIF file directly into the active station profile:
 ```
 
 The importer accepts CW records, preserves QSO times when present, and reports skipped records. Non-CW or incomplete records are skipped.
+
+## Export ADIF
+
+Export every QSO from the active station profile as ADIF 3 records:
+
+```bash
+./bin/w4gns-logger --export-adif path/to/log.adi
+```
+
+The export preserves the QSO's CW fields, frequency, details, POTA metadata, contest fields, and UTC start/end times. The export path must not be the SQLite database file.
 
 ## License
 
