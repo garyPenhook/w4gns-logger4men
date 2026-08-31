@@ -1,6 +1,6 @@
 # W4GNS Logger 4 Men
 
-A CW-only amateur-radio logging application for the terminal.
+CW only logger, life is too short for QRM.
 
 ## Start
 
