@@ -97,3 +97,7 @@ Import an ADIF file directly into the active station profile:
 ```
 
 The importer accepts CW records, preserves QSO times when present, and reports skipped records. Non-CW or incomplete records are skipped.
+
+## License
+
+Copyright © 2026 Gary Penhook. W4GNS Logger 4 Men is licensed under the GNU General Public License, version 3 or any later version (GPL-3.0-or-later). See [LICENSE](LICENSE).
