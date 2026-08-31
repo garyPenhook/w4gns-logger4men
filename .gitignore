@@ -1,0 +1,11 @@
+# Local build artifacts
+/bin/
+/w4gns-logger
+
+# Local log databases and SQLite sidecar files
+*.db
+*.db-shm
+*.db-wal
+
+# Editor and operating-system files
+.DS_Store
