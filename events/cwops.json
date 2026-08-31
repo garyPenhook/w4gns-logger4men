@@ -1,0 +1,41 @@
+[
+  {
+    "id": "CWT",
+    "name": "CWops Test (CWT)",
+    "organizer": "CWops",
+    "kind": "weekly event",
+    "schedule": "Wed 1300-1400 and 1900-2000 UTC; Thu 0300-0400 and 0700-0800 UTC",
+    "bands": ["160M", "80M", "40M", "20M", "15M", "10M"],
+    "sent_serial": false,
+    "sent_exchange_hint": "Your name + CWops # (or state/province/DX prefix)",
+    "received_exchange_hint": "Name + CWops # (or state/province/DX prefix)",
+    "dupe_scope": "call+band+session",
+    "rules_url": "https://cwops.org/cwops-tests/",
+    "score_submission_url": "https://www.3830scores.com/",
+    "sessions": [
+      {"id": "1300", "label": "CWT-1300", "schedule": "Wednesday 1300-1400 UTC"},
+      {"id": "1900", "label": "CWT-1900", "schedule": "Wednesday 1900-2000 UTC"},
+      {"id": "0300", "label": "CWT-0300", "schedule": "Thursday 0300-0400 UTC"},
+      {"id": "0700", "label": "CWT-0700", "schedule": "Thursday 0700-0800 UTC"}
+    ]
+  },
+  {
+    "id": "CW-OPEN",
+    "name": "CW Open",
+    "organizer": "CWops",
+    "kind": "annual contest",
+    "schedule": "First Saturday in September; three sessions: 0000-0359, 1200-1559, and 2000-2359 UTC",
+    "bands": ["160M", "80M", "40M", "20M", "15M", "10M"],
+    "sent_serial": true,
+    "sent_exchange_hint": "Given name",
+    "received_exchange_hint": "Given name",
+    "dupe_scope": "call+band+session",
+    "rules_url": "https://cwops.org/cwops-tests/cw-open/",
+    "score_submission_url": "https://cwops.contesting.com/",
+    "sessions": [
+      {"id": "1", "label": "Session 1", "schedule": "0000-0359 UTC"},
+      {"id": "2", "label": "Session 2", "schedule": "1200-1559 UTC"},
+      {"id": "3", "label": "Session 3", "schedule": "2000-2359 UTC"}
+    ]
+  }
+]

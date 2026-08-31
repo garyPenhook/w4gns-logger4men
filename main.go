@@ -32,6 +32,7 @@ const (
 	clusterScreen
 	clusterFiltersScreen
 	adifImportScreen
+	eventCatalogScreen
 	qsoDetailsScreen
 	qsoContestScreen
 )
@@ -163,6 +164,10 @@ type model struct {
 	detailFocusIdx      int
 	contestFields       []textinput.Model
 	contestFocusIdx     int
+	events              []eventDefinition
+	eventFocus          int
+	eventSessionFocus   int
+	exchangeChoiceFocus int
 }
 
 var (
@@ -206,6 +211,10 @@ func newTextInput(placeholder string, width int) textinput.Model {
 }
 
 func initialModel(st *store) model {
+	events, err := loadEventCatalog()
+	if err != nil {
+		panic(err)
+	}
 	fields := make([]textinput.Model, fieldCount)
 	fields[fieldCall] = newTextInput("W1AW", 14)
 	fields[fieldRSTSent] = newTextInput("599", 6)
@@ -247,6 +256,7 @@ func initialModel(st *store) model {
 		clusterFilters: defaultClusterFilters(),
 		detailFields:   details,
 		contestFields:  contests,
+		events:         events,
 	}
 	profile, err := st.activeStationProfile()
 	if err != nil {
@@ -535,6 +545,55 @@ func (m *model) openQSOContest() {
 	focusTextFields(m.contestFields, m.contestFocusIdx)
 }
 
+func (m *model) openEventCatalog() {
+	m.screen = eventCatalogScreen
+	m.eventFocus = 0
+	m.eventSessionFocus = 0
+}
+
+func (m *model) selectEvent(event eventDefinition, session eventSession) {
+	for index := range m.contestFields {
+		m.contestFields[index].SetValue("")
+	}
+	m.contestFields[contestName].SetValue(event.ID + "-" + session.ID)
+	if event.SentSerial {
+		m.contestFields[contestSerialSent].SetValue("001")
+	}
+	m.contestFields[contestExchangeSent].Placeholder = event.SentExchangeHint
+	m.contestFields[contestExchangeRcvd].Placeholder = event.RcvdExchangeHint
+	m.statusMsg = event.Name + " selected"
+	m.exchangeChoiceFocus = -1
+	m.openQSOContest()
+}
+
+func (m model) eventForContestID() (eventDefinition, bool) {
+	id := m.contestFields[contestName].Value()
+	for _, event := range m.events {
+		if strings.HasPrefix(id, event.ID+"-") {
+			return event, true
+		}
+	}
+	return eventDefinition{}, false
+}
+
+func (m model) exchangeChoices() []exchangeOption {
+	if m.contestFocusIdx != contestExchangeRcvd {
+		return nil
+	}
+	event, ok := m.eventForContestID()
+	if !ok {
+		return nil
+	}
+	prefix := strings.ToUpper(strings.TrimSpace(m.contestFields[contestExchangeRcvd].Value()))
+	var matches []exchangeOption
+	for _, option := range event.ReceivedExchangeOptions {
+		if prefix == "" || strings.HasPrefix(strings.ToUpper(option.Code), prefix) || strings.HasPrefix(strings.ToUpper(option.Name), prefix) {
+			matches = append(matches, option)
+		}
+	}
+	return matches
+}
+
 func (m *model) startQSOClockIfLeavingCall() {
 	if m.focusIdx != fieldCall || !m.qsoStartedAt.IsZero() || strings.TrimSpace(m.fields[fieldCall].Value()) == "" {
 		return
@@ -658,6 +717,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.screen == adifImportScreen {
 		return m.updateADIFImport(msg)
 	}
+	if m.screen == eventCatalogScreen {
+		return m.updateEventCatalog(msg)
+	}
 	if m.screen == qsoDetailsScreen {
 		return m.updateQSODetails(msg)
 	}
@@ -711,7 +773,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.openQSODetails()
 			return m, nil
 		case "f7":
-			m.openQSOContest()
+			m.openEventCatalog()
 			return m, nil
 		case "left", "down":
 			if m.focusIdx == fieldBand {
@@ -750,7 +812,7 @@ func (m model) updateQSODetails(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focusField(fieldCall)
 			return m, nil
 		case "f7":
-			m.openQSOContest()
+			m.openEventCatalog()
 			return m, nil
 		case "tab", "enter":
 			m.detailFocusIdx = (m.detailFocusIdx + 1) % len(m.detailFields)
@@ -769,6 +831,7 @@ func (m model) updateQSODetails(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) updateQSOContest(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if key, ok := msg.(tea.KeyMsg); ok {
+		choices := m.exchangeChoices()
 		switch key.String() {
 		case "ctrl+c":
 			return m, tea.Quit
@@ -779,7 +842,25 @@ func (m model) updateQSOContest(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "f6":
 			m.openQSODetails()
 			return m, nil
+		case "f7":
+			m.openEventCatalog()
+			return m, nil
+		case "up":
+			if len(choices) > 0 {
+				m.exchangeChoiceFocus = (m.exchangeChoiceFocus - 1 + len(choices)) % len(choices)
+				return m, nil
+			}
+		case "down":
+			if len(choices) > 0 {
+				m.exchangeChoiceFocus = (m.exchangeChoiceFocus + 1) % len(choices)
+				return m, nil
+			}
 		case "tab", "enter":
+			if key.String() == "enter" && m.exchangeChoiceFocus >= 0 && m.exchangeChoiceFocus < len(choices) {
+				m.contestFields[contestExchangeRcvd].SetValue(choices[m.exchangeChoiceFocus].Code)
+				m.exchangeChoiceFocus = -1
+				return m, nil
+			}
 			m.contestFocusIdx = (m.contestFocusIdx + 1) % len(m.contestFields)
 			focusTextFields(m.contestFields, m.contestFocusIdx)
 			return m, nil
@@ -791,7 +872,45 @@ func (m model) updateQSOContest(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	var cmd tea.Cmd
 	m.contestFields[m.contestFocusIdx], cmd = m.contestFields[m.contestFocusIdx].Update(msg)
+	m.exchangeChoiceFocus = -1
 	return m, cmd
+}
+
+func (m model) updateEventCatalog(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if key, ok := msg.(tea.KeyMsg); ok {
+		switch key.String() {
+		case "ctrl+c":
+			return m, tea.Quit
+		case "esc", "f1":
+			m.screen = qsoEntryScreen
+			m.focusField(fieldCall)
+			return m, nil
+		case "f6":
+			m.openQSODetails()
+			return m, nil
+		case "up", "k":
+			m.eventFocus = (m.eventFocus - 1 + len(m.events)) % len(m.events)
+			m.eventSessionFocus = 0
+			return m, nil
+		case "down", "j":
+			m.eventFocus = (m.eventFocus + 1) % len(m.events)
+			m.eventSessionFocus = 0
+			return m, nil
+		case "left", "h":
+			sessions := m.events[m.eventFocus].Sessions
+			m.eventSessionFocus = (m.eventSessionFocus - 1 + len(sessions)) % len(sessions)
+			return m, nil
+		case "right", "l":
+			sessions := m.events[m.eventFocus].Sessions
+			m.eventSessionFocus = (m.eventSessionFocus + 1) % len(sessions)
+			return m, nil
+		case "enter":
+			event := m.events[m.eventFocus]
+			m.selectEvent(event, event.Sessions[m.eventSessionFocus])
+			return m, nil
+		}
+	}
+	return m, nil
 }
 
 func (m model) updateCluster(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -1007,6 +1126,9 @@ func (m model) View() string {
 	if m.screen == qsoContestScreen {
 		return m.qsoContestView()
 	}
+	if m.screen == eventCatalogScreen {
+		return m.eventCatalogView()
+	}
 	var b strings.Builder
 	b.WriteString(screenHotkeys(qsoEntryScreen))
 	b.WriteString("\n")
@@ -1159,7 +1281,67 @@ func (m model) qsoDetailsView() string {
 }
 
 func (m model) qsoContestView() string {
-	return m.qsoPageView("Contest Entry", contestLabels[:], m.contestFields, m.contestFocusIdx, "F1/Esc: QSO Entry  •  F6: QSO Details  •  Tab: next field")
+	view := m.qsoPageView("Contest Entry", contestLabels[:], m.contestFields, m.contestFocusIdx, "F1/Esc: QSO Entry  •  F6: QSO Details  •  F7: Events  •  Tab: next field")
+	choices := m.exchangeChoices()
+	if len(choices) == 0 {
+		return view
+	}
+	var b strings.Builder
+	b.WriteString(view)
+	b.WriteString("\nCounty matches: ")
+	for index, choice := range choices {
+		item := choice.Code + " " + choice.Name
+		if index == m.exchangeChoiceFocus {
+			item = focusedFieldBoxStyle.Render(item)
+		}
+		b.WriteString(item + "  ")
+		if index == 5 {
+			break
+		}
+	}
+	b.WriteString("\n")
+	b.WriteString(helpStyle.Render("Up/Down: choose county  •  Enter: insert county code"))
+	return b.String()
+}
+
+func (m model) eventCatalogView() string {
+	var b strings.Builder
+	b.WriteString(screenHotkeys(eventCatalogScreen))
+	b.WriteString("\n")
+	b.WriteString(headerStyle.Render(fmt.Sprintf("W4GNS Logger 4 Men  |  Events & Contests (%d)", len(m.events))))
+	b.WriteString("\n\n")
+	const visibleEvents = 10
+	start := m.eventFocus - visibleEvents/2
+	if start < 0 {
+		start = 0
+	}
+	if end := start + visibleEvents; end > len(m.events) {
+		start = len(m.events) - visibleEvents
+		if start < 0 {
+			start = 0
+		}
+	}
+	end := start + visibleEvents
+	if end > len(m.events) {
+		end = len(m.events)
+	}
+	for index := start; index < end; index++ {
+		event := m.events[index]
+		line := fmt.Sprintf("%s — %s", event.Name, event.Schedule)
+		if index == m.eventFocus {
+			line = focusedFieldBoxStyle.Render(line)
+		}
+		b.WriteString(line + "\n")
+	}
+	if len(m.events) > 0 {
+		event := m.events[m.eventFocus]
+		session := event.Sessions[m.eventSessionFocus]
+		b.WriteString("\n")
+		b.WriteString(statusBarStyle.Render(session.Label + " — " + session.Schedule + "  •  " + event.Kind + "  •  exchange: " + event.RcvdExchangeHint))
+	}
+	b.WriteString("\n")
+	b.WriteString(helpStyle.Render("Up/Down: event  •  Left/Right: session  •  Enter: use session  •  F1/Esc: QSO Entry"))
+	return b.String()
 }
 
 func (m model) qsoPageView(title string, labels []string, fields []textinput.Model, focus int, help string) string {
@@ -1195,10 +1377,10 @@ func screenHotkeys(current screen) string {
 		escape = "Esc: Cluster"
 	} else if current == adifImportScreen {
 		escape = "Esc: QSO Entry"
-	} else if current == qsoDetailsScreen || current == qsoContestScreen {
+	} else if current == qsoDetailsScreen || current == qsoContestScreen || current == eventCatalogScreen {
 		escape = "Esc: QSO Entry"
 	}
-	return helpStyle.Render("F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF  •  F6: QSO Details  •  F7: Contest Entry  •  " + escape)
+	return helpStyle.Render("F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF  •  F6: QSO Details  •  F7: Events  •  " + escape)
 }
 
 func main() {

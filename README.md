@@ -28,7 +28,7 @@ Your log is stored locally in `w4gns.db` by default. Set `W4GNS_DB` to use anoth
 | `F4` | Cluster Filters |
 | `F5` | Import ADIF from QSO Entry |
 | `F6` | QSO Details |
-| `F7` | Contest Entry |
+| `F7` | Events & Contests |
 | `Tab` / `Shift+Tab` | Move between entry fields |
 | `Enter` | Move to the next field; save a QSO from the final field |
 | `Esc` | Quit from QSO Entry; cancel Station Setup; return to QSO Entry from DX Cluster |
@@ -46,9 +46,11 @@ Your log is stored locally in `w4gns.db` by default. Set `W4GNS_DB` to use anoth
 - The final `Enter` saves UTC start and end times, then clears the form for the next QSO.
 - UTC and local time are displayed in the logger header.
 
-## QSO Details and Contest Entry
+## QSO Details and Events & Contests
 
-Press `F6` for optional QSO details: operator name, QTH, grid square, state or province, POTA reference, and notes. Press `F7` for contest fields: contest name, sent and received serial numbers, and sent and received exchanges. These pages retain their values until the QSO is logged from the main QSO Entry screen. When you leave the callsign field, a POTA reference is filled automatically when the station appeared in the last 15 minutes in a received cluster spot or the POTA active-spot feed.
+Press `F6` for optional QSO details: operator name, QTH, grid square, state or province, POTA reference, and notes. Press `F7` for the Events & Contests page. Select an event with `Up`/`Down`, select its UTC session with `Left`/`Right`, then press `Enter`; the session-specific ID and exchange templates populate Contest Entry. The catalog shows a scrollable window, so it accommodates hundreds of definitions. The built-in CWops definitions cover all four weekly CWT sessions and the three CW Open sessions. Each definition can include a score-submission URL; CWT points to 3830scores.com. Events are JSON files embedded from `events/`, so definitions can be added without modifying Go code. These pages retain their values until the QSO is logged from the main QSO Entry screen.
+
+TNQP is configured for an out-of-state operator. Its received-exchange field offers Tennessee county codes as you type; use `Up`/`Down` and `Enter` to insert the official four-letter county abbreviation.
 
 ## Station Setup
 
