@@ -46,7 +46,7 @@ Your log is stored locally in `w4gns.db` by default. Set `W4GNS_DB` to use anoth
 
 ## QSO Details and Contest Entry
 
-Press `F6` for optional QSO details: frequency, operator name, QTH, grid square, state or province, and notes. Press `F7` for contest fields: contest name, sent and received serial numbers, and sent and received exchanges. These pages retain their values until the QSO is logged from the main QSO Entry screen.
+Press `F6` for optional QSO details: frequency, operator name, QTH, grid square, state or province, POTA reference, and notes. Press `F7` for contest fields: contest name, sent and received serial numbers, and sent and received exchanges. These pages retain their values until the QSO is logged from the main QSO Entry screen. When you leave the callsign field, a POTA reference is filled automatically when the station appeared in the last 15 minutes in a received cluster spot or the POTA active-spot feed.
 
 ## Station Setup
 

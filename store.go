@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS qso (
     dxcc INTEGER,
     cqz INTEGER,
     ituz INTEGER,
+	sig TEXT,
+	sig_info TEXT,
     comment TEXT,
     qsl_sent TEXT DEFAULT 'N',
     qsl_rcvd TEXT DEFAULT 'N',
@@ -79,6 +81,13 @@ type store struct {
 
 const importBatchSize = 1_000
 const dupeWindow = 15 * time.Minute
+
+func potaSignal(reference string) string {
+	if strings.TrimSpace(reference) == "" {
+		return ""
+	}
+	return "POTA"
+}
 
 func openStore(path string) (*store, error) {
 	db, err := sql.Open("sqlite", path)
@@ -140,6 +149,8 @@ func (s *store) migrate() error {
 		{name: "profile_id", definition: "INTEGER"},
 		{name: "qso_date_off", definition: "TEXT"},
 		{name: "time_off", definition: "TEXT"},
+		{name: "sig", definition: "TEXT"},
+		{name: "sig_info", definition: "TEXT"},
 	} {
 		exists, err := s.qsoColumnExists(column.name)
 		if err != nil {
@@ -234,8 +245,8 @@ func (s *store) insertQSO(q qso) (int64, error) {
 	utcTime := q.time.UTC()
 	utcTimeOff := q.timeOff.UTC()
 	res, err := s.db.Exec(
-		`INSERT INTO qso (call, qso_date, time_on, qso_date_off, time_off, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, comment, contest_id, stx, stx_string, srx, srx_string, profile_id)
-			 VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO qso (call, qso_date, time_on, qso_date_off, time_off, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, sig, sig_info, comment, contest_id, stx, stx_string, srx, srx_string, profile_id)
+			 VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?)`,
 		q.call,
 		utcTime.Format("20060102"),
 		utcTime.Format("150405"),
@@ -250,6 +261,8 @@ func (s *store) insertQSO(q qso) (int64, error) {
 		q.qth,
 		q.grid,
 		q.state,
+		potaSignal(q.potaRef),
+		q.potaRef,
 		q.comment,
 		q.contestID,
 		q.stx,
@@ -295,15 +308,15 @@ func (s *store) insertQSOChunk(ctx context.Context, qsos []qso) error {
 		return fmt.Errorf("begin import transaction: %w", err)
 	}
 	defer tx.Rollback()
-	statement, err := tx.PrepareContext(ctx, `INSERT INTO qso (call, qso_date, time_on, qso_date_off, time_off, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, comment, contest_id, stx, stx_string, srx, srx_string, profile_id)
-		VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	statement, err := tx.PrepareContext(ctx, `INSERT INTO qso (call, qso_date, time_on, qso_date_off, time_off, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, sig, sig_info, comment, contest_id, stx, stx_string, srx, srx_string, profile_id)
+		VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return fmt.Errorf("prepare import insert: %w", err)
 	}
 	defer statement.Close()
 	for index, q := range qsos {
 		start, end := q.time.UTC(), q.timeOff.UTC()
-		if _, err := statement.ExecContext(ctx, q.call, start.Format("20060102"), start.Format("150405"), end.Format("20060102"), end.Format("150405"), q.band, q.frequency, q.mode, q.rstSent, q.rstRcvd, q.name, q.qth, q.grid, q.state, q.comment, q.contestID, q.stx, q.stxString, q.srx, q.srxString, q.profileID); err != nil {
+		if _, err := statement.ExecContext(ctx, q.call, start.Format("20060102"), start.Format("150405"), end.Format("20060102"), end.Format("150405"), q.band, q.frequency, q.mode, q.rstSent, q.rstRcvd, q.name, q.qth, q.grid, q.state, potaSignal(q.potaRef), q.potaRef, q.comment, q.contestID, q.stx, q.stxString, q.srx, q.srxString, q.profileID); err != nil {
 			return fmt.Errorf("insert record %d: %w", index+1, err)
 		}
 	}

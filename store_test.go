@@ -131,15 +131,16 @@ func TestInsertQSOPersistsDetailAndContestFields(t *testing.T) {
 	defer st.Close()
 	q := validTestQSO()
 	q.frequency, q.name, q.qth, q.grid, q.state, q.comment = "14.025", "Pat", "Raleigh", "FM05", "NC", "Great signal"
+	q.potaRef = "US-1234"
 	q.contestID, q.stx, q.stxString, q.srx, q.srxString = "NAQP", "001", "NC", "014", "VA"
 	if _, err := st.insertQSO(q); err != nil {
 		t.Fatal(err)
 	}
-	var frequency, name, qth, grid, state, comment, contest, stx, stxString, srx, srxString string
-	if err := st.db.QueryRow(`SELECT freq, name, qth, gridsquare, state, comment, contest_id, stx, stx_string, srx, srx_string FROM qso`).Scan(&frequency, &name, &qth, &grid, &state, &comment, &contest, &stx, &stxString, &srx, &srxString); err != nil {
+	var frequency, name, qth, grid, state, sig, sigInfo, comment, contest, stx, stxString, srx, srxString string
+	if err := st.db.QueryRow(`SELECT freq, name, qth, gridsquare, state, sig, sig_info, comment, contest_id, stx, stx_string, srx, srx_string FROM qso`).Scan(&frequency, &name, &qth, &grid, &state, &sig, &sigInfo, &comment, &contest, &stx, &stxString, &srx, &srxString); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := []string{frequency, name, qth, grid, state, comment, contest, stx, stxString, srx, srxString}, []string{"14.025", "Pat", "Raleigh", "FM05", "NC", "Great signal", "NAQP", "001", "NC", "014", "VA"}; strings.Join(got, "|") != strings.Join(want, "|") {
+	if got, want := []string{frequency, name, qth, grid, state, sig, sigInfo, comment, contest, stx, stxString, srx, srxString}, []string{"14.025", "Pat", "Raleigh", "FM05", "NC", "POTA", "US-1234", "Great signal", "NAQP", "001", "NC", "014", "VA"}; strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("stored detail fields = %#v, want %#v", got, want)
 	}
 }

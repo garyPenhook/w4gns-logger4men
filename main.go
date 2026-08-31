@@ -40,11 +40,12 @@ const (
 	detailQTH
 	detailGrid
 	detailState
+	detailPOTARef
 	detailNotes
 	detailFieldCount
 )
 
-var detailLabels = [detailFieldCount]string{"Frequency", "Name", "QTH", "Grid", "State", "Notes"}
+var detailLabels = [detailFieldCount]string{"Frequency", "Name", "QTH", "Grid", "State", "POTA Ref", "Notes"}
 
 const (
 	contestName = iota
@@ -112,6 +113,7 @@ type qso struct {
 	grid      string
 	state     string
 	comment   string
+	potaRef   string
 	contestID string
 	stx       string
 	stxString string
@@ -213,7 +215,7 @@ func initialModel(st *store) model {
 	fields[fieldMode].SetValue("CW")
 	details := []textinput.Model{
 		newTextInput("14.025", 10), newTextInput("Operator name", 20), newTextInput("City / QTH", 20),
-		newTextInput("Grid square", 10), newTextInput("State / province", 12), newTextInput("QSO notes", 36),
+		newTextInput("Grid square", 10), newTextInput("State / province", 12), newTextInput("US-0000", 12), newTextInput("QSO notes", 36),
 	}
 	contests := []textinput.Model{
 		newTextInput("Contest name", 20), newTextInput("001", 8), newTextInput("Sent exchange", 16),
@@ -520,6 +522,18 @@ func (m *model) startQSOClockIfLeavingCall() {
 	m.statusMsg = "QSO timer started"
 }
 
+func (m *model) autoFillPOTAReference() tea.Cmd {
+	call := strings.ToUpper(strings.TrimSpace(m.fields[fieldCall].Value()))
+	if call == "" {
+		return nil
+	}
+	if reference, ok := recentClusterPOTAReference(m.clusterSpots, call, time.Now()); ok && strings.TrimSpace(m.detailFields[detailPOTARef].Value()) == "" {
+		m.detailFields[detailPOTARef].SetValue(reference)
+		m.statusMsg = "POTA " + reference + " from recent cluster spot"
+	}
+	return lookupPOTASpot(call, time.Now())
+}
+
 func (m *model) resetQSOClockIfReturningToCall(nextFocus int) {
 	if nextFocus != fieldCall || m.qsoStartedAt.IsZero() {
 		return
@@ -559,6 +573,7 @@ func (m model) logCurrentQSO() model {
 		qth:       strings.TrimSpace(m.detailFields[detailQTH].Value()),
 		grid:      strings.TrimSpace(m.detailFields[detailGrid].Value()),
 		state:     strings.TrimSpace(m.detailFields[detailState].Value()),
+		potaRef:   strings.ToUpper(strings.TrimSpace(m.detailFields[detailPOTARef].Value())),
 		comment:   strings.TrimSpace(m.detailFields[detailNotes].Value()),
 		contestID: strings.TrimSpace(m.contestFields[contestName].Value()),
 		stx:       strings.TrimSpace(m.contestFields[contestSerialSent].Value()),
@@ -591,6 +606,21 @@ func (m model) logCurrentQSO() model {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if message, ok := msg.(potaLookupMsg); ok {
+		call := strings.ToUpper(strings.TrimSpace(m.fields[fieldCall].Value()))
+		if message.call != call {
+			return m, nil
+		}
+		if message.err != nil {
+			m.statusMsg = "POTA lookup unavailable: " + message.err.Error()
+			return m, nil
+		}
+		if message.reference != "" && strings.TrimSpace(m.detailFields[detailPOTARef].Value()) == "" {
+			m.detailFields[detailPOTARef].SetValue(message.reference)
+			m.statusMsg = "POTA " + message.reference + " from recent POTA spot"
+		}
+		return m, nil
+	}
 	if m.screen == stationSetupScreen {
 		return m.updateStationSetup(msg)
 	}
@@ -615,10 +645,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "esc":
 			return m, tea.Quit
 		case "tab":
+			leavingCall := m.focusIdx == fieldCall
 			m.startQSOClockIfLeavingCall()
 			nextFocus := (m.focusIdx + 1) % len(m.fields)
 			m.resetQSOClockIfReturningToCall(nextFocus)
 			m.focusField(nextFocus)
+			if leavingCall {
+				return m, m.autoFillPOTAReference()
+			}
 			return m, nil
 		case "shift+tab":
 			nextFocus := (m.focusIdx - 1 + len(m.fields)) % len(m.fields)
@@ -630,8 +664,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m = m.logCurrentQSO()
 				return m, nil
 			}
+			leavingCall := m.focusIdx == fieldCall
 			m.startQSOClockIfLeavingCall()
 			m.focusField(m.focusIdx + 1)
+			if leavingCall {
+				return m, m.autoFillPOTAReference()
+			}
 			return m, nil
 		case "f2":
 			m.openStationSetup()

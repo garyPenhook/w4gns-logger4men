@@ -20,7 +20,7 @@ Field order is Call, RST Sent, RST Received, Band, Mode. This page displays UTC 
 
 ## F6 — QSO Details
 
-Optional fields are frequency, name, QTH, grid square, state/province, and notes. These map to the corresponding ADIF-shaped QSO columns: `FREQ`, `NAME`, `QTH`, `GRIDSQUARE`, `STATE`, and `COMMENT`.
+Optional fields are frequency, name, QTH, grid square, state/province, POTA reference, and notes. These map to the corresponding ADIF-shaped QSO columns: `FREQ`, `NAME`, `QTH`, `GRIDSQUARE`, `STATE`, `SIG`/`SIG_INFO`, and `COMMENT`. A POTA reference is populated only when a matching callsign appears in the previous 15 minutes in the local DX-cluster spot history or POTA active-spot feed. The network lookup has a bounded timeout and never blocks logging.
 
 ## F7 — Contest Entry
 
