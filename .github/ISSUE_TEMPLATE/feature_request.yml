@@ -1,0 +1,21 @@
+name: Feature request
+description: Suggest a CW-logging feature or workflow improvement.
+labels: [enhancement, needs-triage]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Operating need
+      description: Describe the on-air workflow or logging problem this would solve.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

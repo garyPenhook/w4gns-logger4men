@@ -1,0 +1,32 @@
+name: Bug report
+description: Report a reproducible problem in W4GNS Logger 4 Men.
+labels: [bug, needs-triage]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Include the command or screen where the problem occurred.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start the logger
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Run `git rev-parse --short HEAD` when building from source.

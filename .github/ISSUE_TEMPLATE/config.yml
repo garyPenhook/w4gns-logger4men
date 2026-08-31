@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and operating discussion
+    url: https://github.com/garyPenhook/w4gns-logger4men/discussions
+    about: Use Discussions for questions that are not bug reports or feature requests.
