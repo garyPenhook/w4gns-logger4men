@@ -3368,5 +3368,224 @@
         "schedule": "mid-April, typically the 2nd weekend"
       }
     ]
+  },
+  {
+    "id": "CANADA-WINTER",
+    "name": "RAC Winter Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "0000Z-2359Z, Dec 27",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M",
+      "6M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: VE: RS(T) + (province/territory) non-VE and VE0: RS(T) + Serial No.",
+    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: VE: RS(T) + (province/territory) non-VE and VE0: RS(T) + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.rac.ca/contesting-results/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0000Z2359ZDec27",
+        "label": "RAC Winter Contest",
+        "schedule": "0000Z-2359Z, Dec 27"
+      }
+    ]
+  },
+  {
+    "id": "BC-QSO-PARTY",
+    "name": "British Columbia QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1600Z, Feb 6 to 2400Z, Feb 7",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: BC: RS(T) + District non-BC: RS(T) + (state/province/\"DX\")",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: BC: RS(T) + District non-BC: RS(T) + (state/province/\"DX\")",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.orcadxcc.org/bcqp_rules.html",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1600ZFeb6",
+        "label": "British Columbia QSO Party",
+        "schedule": "1600Z, Feb 6 to 2400Z, Feb 7"
+      }
+    ]
+  },
+  {
+    "id": "NSARA-CONTEST",
+    "name": "NSARA Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1200Z-2200Z, Mar 7",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, SSB, Digital contest \u2014 CW exchange: Nova Scotia: RS(T) + county non-NS: RS(T) + QSO No.",
+    "received_exchange_hint": "CW, SSB, Digital contest \u2014 CW exchange: Nova Scotia: RS(T) + county non-NS: RS(T) + QSO No.",
+    "dupe_scope": "call+band",
+    "rules_url": "http://nsara.ca",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1200Z2200ZMar7",
+        "label": "NSARA Contest",
+        "schedule": "1200Z-2200Z, Mar 7"
+      }
+    ]
+  },
+  {
+    "id": "ON-QSO-PARTY",
+    "name": "Ontario QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1800Z, Apr 17 to 1800Z, Apr 18",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M",
+      "6M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: ON: RS(T) + county non-ON: RST + (state/province/country)",
+    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: ON: RS(T) + county non-ON: RST + (state/province/country)",
+    "dupe_scope": "call+band",
+    "rules_url": "http://www.va3cco.com/oqp/rules.htm",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1800ZApr17",
+        "label": "Ontario QSO Party",
+        "schedule": "1800Z, Apr 17 to 1800Z, Apr 18"
+      }
+    ]
+  },
+  {
+    "id": "QC-QSO-PARTY",
+    "name": "Quebec QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1300Z-2400Z, Apr 18",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M",
+      "6M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: QC: RS(T) + QC zone non-QC: RST + (state/province/'DX')",
+    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: QC: RS(T) + QC zone non-QC: RST + (state/province/'DX')",
+    "dupe_scope": "call+band",
+    "rules_url": "https://quebecqsoparty.org/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1300Z2400ZApr18",
+        "label": "Quebec QSO Party",
+        "schedule": "1300Z-2400Z, Apr 18"
+      }
+    ]
+  },
+  {
+    "id": "CP-QSO-PARTY",
+    "name": "Canadian Prairies QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1700Z, May 8 to 0300Z, May 9",
+    "bands": [
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: VE4/5/6: RS(T) + district code Non-VE4/5/6: RST + (state/province/\"DX\")",
+    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: VE4/5/6: RS(T) + district code Non-VE4/5/6: RST + (state/province/\"DX\")",
+    "dupe_scope": "call+band",
+    "rules_url": "https://cpqp.ve6hams.ca/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1700ZMay8",
+        "label": "Canadian Prairies QSO Party",
+        "schedule": "1700Z, May 8 to 0300Z, May 9"
+      }
+    ]
+  },
+  {
+    "id": "AC-QSO-PARTY",
+    "name": "Atlantic Canada QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z, Jun 6 to 0100Z, Jun 7",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: VE1/9,VO1/2,VY2: RS(T) + province + county/division Non-VE1/9,VO1/2,VY2: RS(T) + (state/province/\"DX\")",
+    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: VE1/9,VO1/2,VY2: RS(T) + province + county/division Non-VE1/9,VO1/2,VY2: RS(T) + (state/province/\"DX\")",
+    "dupe_scope": "call+band",
+    "rules_url": "https://acqp.ca/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400ZJun6",
+        "label": "Atlantic Canada QSO Party",
+        "schedule": "1400Z, Jun 6 to 0100Z, Jun 7"
+      }
+    ]
+  },
+  {
+    "id": "CANADA-DAY",
+    "name": "RAC Canada Day Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "0000Z-2359Z, Jul 1",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M",
+      "6M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: VE: RS(T) + province/territory non-VE: RS(T) + Serial No.",
+    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: VE: RS(T) + province/territory non-VE: RS(T) + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.rac.ca/contesting-results/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0000Z2359ZJul1",
+        "label": "RAC Canada Day Contest",
+        "schedule": "0000Z-2359Z, Jul 1"
+      }
+    ]
   }
 ]
