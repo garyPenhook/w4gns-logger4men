@@ -294,10 +294,18 @@ func initialModel(st *store) model {
 		{Title: "Sent", Width: 6},
 		{Title: "Rcvd", Width: 6},
 	}
+	// table.DefaultStyles() bolds and recolors whichever row sits at the
+	// cursor (row 0 by default — the most recent QSO, since recentQSOs
+	// returns newest-first) regardless of WithFocused(false). This table
+	// isn't an interactive selector, so nothing should look "selected";
+	// give Selected the same style as an ordinary cell.
+	tableStyles := table.DefaultStyles()
+	tableStyles.Selected = tableStyles.Cell
 	t := table.New(
 		table.WithColumns(cols),
 		table.WithFocused(false),
 		table.WithHeight(10),
+		table.WithStyles(tableStyles),
 	)
 
 	m := model{

@@ -371,6 +371,10 @@ Press `F8` at any time to back up immediately, and every shutdown backs up autom
 
 ## Changelog
 
+### v1.3.2
+
+- Fixed the Recent QSOs table always rendering its top row (the most recent QSO) bold and pink: that was `bubbles/table`'s default cursor-highlight style leaking through even though the table isn't an interactive selector. All rows now render identically.
+
 ### v1.3.1
 
 - Removed the Mode field from QSO entry and the header: this is a CW-only logger, so mode is always CW and no longer needs its own input. The initial entry sequence is now Call, RST Sent, RST Received, Band, then Frequency.
