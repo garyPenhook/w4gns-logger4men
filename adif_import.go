@@ -157,12 +157,26 @@ func adifPOTAReference(record map[string]string) string {
 	return strings.TrimSpace(firstNonEmpty(record["SIG_INFO_INTL"], record["SIG_INFO"]))
 }
 
+// Bounds on a single ADIF field/tag, generous relative to any real ADIF
+// record but well short of what an attacker could use to exhaust memory: a
+// declared field length like <CALL:1000000000> would otherwise attempt a
+// ~1GB allocation, and an unterminated or field-less blob of input would
+// otherwise buffer without limit while scanning for '<' or '>'.
+const (
+	maxADIFTagLength       = 256      // "FIELDNAME:12345:T" is a handful of bytes in practice
+	maxADIFFieldBytes      = 10 << 20 // 10 MiB; far larger than any real ADIF field
+	maxADIFFieldsPerRecord = 2000     // a real ADIF record has a few dozen fields at most
+)
+
 // parseADIRecords streams reader for ADIF records and invokes onRecord for
 // each one as soon as its <EOR> is seen. Memory use is bounded by one
 // buffered tag/field at a time (plus whatever onRecord itself retains, e.g.
 // importADIF's batch), not by the size of the source file: ADIF's explicit
 // byte-length-prefixed fields let each field be read with a single
-// io.ReadFull instead of requiring the whole file in memory up front.
+// io.ReadFull instead of requiring the whole file in memory up front. See
+// the maxADIF* constants for the per-field/per-record limits that keep a
+// malformed or hostile file from exhausting memory despite the streaming
+// design.
 func parseADIRecords(reader io.Reader, onRecord func(map[string]string) error) error {
 	br := bufio.NewReaderSize(reader, 64*1024)
 	record := make(map[string]string)
@@ -170,15 +184,23 @@ func parseADIRecords(reader io.Reader, onRecord func(map[string]string) error) e
 	// field unless an explicit <EOH> resets the accumulated header fields.
 	inRecords := true
 	for {
-		if _, err := br.ReadBytes('<'); err != nil {
+		if _, err := readUntil(br, '<', maxADIFTagLength); err != nil {
 			if err == io.EOF {
+				if inRecords && len(record) > 0 {
+					// Fields were parsed but the file ended before a
+					// closing <EOR>: a truncated download or a file cut
+					// off mid-write. Silently succeeding here would drop
+					// the trailing record with no indication it ever
+					// existed.
+					return fmt.Errorf("ADIF file ends with an unterminated record (missing <EOR>)")
+				}
 				return nil
 			}
 			return fmt.Errorf("read ADIF: %w", err)
 		}
-		tag, err := br.ReadBytes('>')
+		tag, err := readUntil(br, '>', maxADIFTagLength)
 		if err != nil {
-			return fmt.Errorf("ADIF tag is unterminated: %w", err)
+			return fmt.Errorf("ADIF tag is unterminated or exceeds %d bytes: %w", maxADIFTagLength, err)
 		}
 		descriptor := strings.TrimSpace(string(tag[:len(tag)-1]))
 		switch strings.ToUpper(descriptor) {
@@ -203,12 +225,39 @@ func parseADIRecords(reader io.Reader, onRecord func(map[string]string) error) e
 		if err != nil {
 			return fmt.Errorf("invalid ADIF field length for %q", parts[0])
 		}
+		if length > maxADIFFieldBytes {
+			return fmt.Errorf("ADIF field %q declares length %d, exceeding the %d-byte limit", parts[0], length, maxADIFFieldBytes)
+		}
 		value := make([]byte, length)
 		if _, err := io.ReadFull(br, value); err != nil {
 			return fmt.Errorf("invalid ADIF field length for %q", parts[0])
 		}
 		if inRecords {
+			if len(record) >= maxADIFFieldsPerRecord {
+				return fmt.Errorf("ADIF record exceeds %d fields", maxADIFFieldsPerRecord)
+			}
 			record[strings.ToUpper(strings.TrimSpace(parts[0]))] = string(value)
+		}
+	}
+}
+
+// readUntil reads from br up to and including delim, erroring out if delim
+// isn't found within max bytes. bufio.Reader.ReadBytes has no such limit
+// and will buffer arbitrarily large input (e.g. a huge file with no '<' at
+// all, or a single absurdly long tag), which readUntil exists to prevent.
+func readUntil(br *bufio.Reader, delim byte, max int) ([]byte, error) {
+	buf := make([]byte, 0, 32)
+	for {
+		b, err := br.ReadByte()
+		if err != nil {
+			return buf, err
+		}
+		buf = append(buf, b)
+		if b == delim {
+			return buf, nil
+		}
+		if len(buf) >= max {
+			return buf, fmt.Errorf("no %q found within %d bytes", delim, max)
 		}
 	}
 }

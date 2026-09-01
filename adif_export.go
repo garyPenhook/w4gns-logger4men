@@ -36,29 +36,35 @@ func adifContestID(internal string) string {
 	return internal
 }
 
-// exportADIF writes the active station profile's QSOs as ADIF records.
+// exportADIF writes the active station profile's QSOs as ADIF records,
+// streaming one row at a time from the database rather than materializing
+// the whole profile in memory first — a large log otherwise held its
+// entire QSO history as a []qso for the duration of every export, including
+// the shutdown backup, which must complete promptly.
 func exportADIF(ctx context.Context, writer io.Writer, profileID int64, st *store) (int, error) {
-	qsos, err := st.qsosForProfile(ctx, profileID)
-	if err != nil {
-		return 0, err
-	}
 	if _, err := io.WriteString(writer, "W4GNS Logger ADIF export\n<ADIF_VER:"+strconv.Itoa(len(adifVersion))+">"+adifVersion+"<PROGRAMID:12>W4GNS Logger<EOH>\n"); err != nil {
 		return 0, fmt.Errorf("write ADIF header: %w", err)
 	}
-	for _, q := range qsos {
+	count := 0
+	err := st.forEachQSOForProfile(ctx, profileID, func(q qso) error {
 		for _, field := range adifQSOFields(q) {
 			if strings.TrimSpace(field.value) == "" {
 				continue
 			}
 			if err := writeADIFField(writer, field.name, field.value); err != nil {
-				return 0, err
+				return err
 			}
 		}
 		if _, err := io.WriteString(writer, "<EOR>\n"); err != nil {
-			return 0, fmt.Errorf("write ADIF record terminator: %w", err)
+			return fmt.Errorf("write ADIF record terminator: %w", err)
 		}
+		count++
+		return nil
+	})
+	if err != nil {
+		return 0, err
 	}
-	return len(qsos), nil
+	return count, nil
 }
 
 // adifQSOFields lists the ADIF fields for one QSO in export order. Shared by
@@ -148,8 +154,10 @@ func writeADIFField(writer io.Writer, name, value string) error {
 	return nil
 }
 
-// qsosForProfile returns every QSO for one station profile in chronological order.
-func (s *store) qsosForProfile(ctx context.Context, profileID int64) ([]qso, error) {
+// forEachQSOForProfile streams every QSO for one station profile in
+// chronological order, invoking fn for each one instead of materializing
+// them all in memory. fn's error, if any, stops iteration and is returned.
+func (s *store) forEachQSOForProfile(ctx context.Context, profileID int64, fn func(qso) error) error {
 	rows, err := s.db.QueryContext(ctx, `SELECT call, qso_date, time_on, COALESCE(qso_date_off, ''), COALESCE(time_off, ''), band,
 		COALESCE(freq, ''), mode, COALESCE(rst_sent, ''), COALESCE(rst_rcvd, ''), COALESCE(name, ''), COALESCE(qth, ''),
 		COALESCE(gridsquare, ''), COALESCE(state, ''), COALESCE(country, ''), COALESCE(CAST(dxcc AS TEXT), ''), COALESCE(CAST(cqz AS TEXT), ''), COALESCE(CAST(ituz AS TEXT), ''),
@@ -159,10 +167,9 @@ func (s *store) qsosForProfile(ctx context.Context, profileID int64) ([]qso, err
 		COALESCE(my_rig, ''), COALESCE(my_antenna, ''), COALESCE(tx_pwr, '')
 		FROM qso WHERE profile_id = ? ORDER BY qso_date, time_on, id`, profileID)
 	if err != nil {
-		return nil, fmt.Errorf("query QSOs for ADIF export: %w", err)
+		return fmt.Errorf("query QSOs for ADIF export: %w", err)
 	}
 	defer rows.Close()
-	var qsos []qso
 	for rows.Next() {
 		var q qso
 		var date, timeOn, dateOff, timeOff string
@@ -170,14 +177,28 @@ func (s *store) qsosForProfile(ctx context.Context, profileID int64) ([]qso, err
 			&q.name, &q.qth, &q.grid, &q.state, &q.country, &q.dxccNumber, &q.cqZone, &q.ituZone, &q.potaRef, &q.comment, &q.contestID,
 			&q.stx, &q.stxString, &q.srx, &q.srxString,
 			&q.myGridSquare, &q.stationCallsign, &q.operatorName, &q.myRig, &q.myAntenna, &q.txPower); err != nil {
-			return nil, fmt.Errorf("scan QSO for ADIF export: %w", err)
+			return fmt.Errorf("scan QSO for ADIF export: %w", err)
 		}
 		q.time, _ = time.Parse("20060102150405", date+timeOn)
 		q.timeOff, _ = time.Parse("20060102150405", dateOff+timeOff)
 		if q.timeOff.IsZero() {
 			q.timeOff = q.time
 		}
-		qsos = append(qsos, q)
+		if err := fn(q); err != nil {
+			return err
+		}
 	}
-	return qsos, rows.Err()
+	return rows.Err()
+}
+
+// qsosForProfile returns every QSO for one station profile in chronological
+// order. Prefer forEachQSOForProfile for anything that doesn't specifically
+// need every row in memory at once (e.g. ADIF export).
+func (s *store) qsosForProfile(ctx context.Context, profileID int64) ([]qso, error) {
+	var qsos []qso
+	err := s.forEachQSOForProfile(ctx, profileID, func(q qso) error {
+		qsos = append(qsos, q)
+		return nil
+	})
+	return qsos, err
 }

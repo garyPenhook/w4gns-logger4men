@@ -9,6 +9,79 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// TestEventForContestIDPrefersLongestMatchingEventID guards against a real
+// collision in the live event catalog: "UBA-SPRING-CONTEST" is itself a
+// prefix-match of "UBA-SPRING-CONTEST-2" (and there are several other such
+// pairs — AGCW-QRP/AGCW-QRP-CONTEST, K1USNSST/K1USNSST-OPEN,
+// SKCC-SPRINT/SKCC-SPRINT-EUROPE). Selecting the longer event must resolve
+// back to itself, not the shorter ancestor, or the wrong bands/dupe_scope
+// get used.
+func TestEventForContestIDPrefersLongestMatchingEventID(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	longer := m.events[eventIndex(t, m.events, "UBA-SPRING-CONTEST-2")]
+	m.selectEvent(longer, longer.Sessions[0])
+
+	resolved, ok := m.eventForContestID()
+	if !ok {
+		t.Fatal("eventForContestID did not resolve a match")
+	}
+	if resolved.ID != "UBA-SPRING-CONTEST-2" {
+		t.Fatalf("eventForContestID resolved %q, want %q (the exact event selected, not the shorter prefix ancestor)", resolved.ID, "UBA-SPRING-CONTEST-2")
+	}
+}
+
+// TestADIFImportResultSurfacesAfterLeavingImportScreen guards against
+// losing the async import's result: pressing Esc to leave the Import ADIF
+// screen while the import is still running must not prevent its eventual
+// adifImportedMsg from updating the status bar and Recent QSOs table once
+// it arrives, even though the screen has already changed.
+func TestADIFImportResultSurfacesAfterLeavingImportScreen(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.screen = adifImportScreen
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updated.(model)
+	if m.screen != qsoEntryScreen {
+		t.Fatalf("screen after Esc = %v, want qsoEntryScreen", m.screen)
+	}
+
+	updated, _ = m.Update(adifImportedMsg{result: adifImportResult{Imported: 3, Skipped: 1}})
+	m = updated.(model)
+	if !strings.Contains(m.statusMsg, "3 CW QSOs") {
+		t.Fatalf("statusMsg = %q, want it to report the import result even after leaving the import screen", m.statusMsg)
+	}
+}
+
+// TestQSOEntryHeaderUsesStationProfileTimezone guards against the header's
+// "Local" time always reflecting the host machine's timezone instead of
+// the configured station profile's — an operator running on a
+// differently-configured host still wants their station's own local time.
+func TestQSOEntryHeaderUsesStationProfileTimezone(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.activeStation.Timezone = "Pacific/Kiritimati" // UTC+14, unlikely to be the host's zone
+	view := m.View()
+	if !strings.Contains(view, "Pacific/Kiritimati") {
+		t.Fatalf("View() header does not mention the configured station timezone Pacific/Kiritimati:\n%s", view)
+	}
+}
+
 func TestEnterLeavingCallStartsQSOTimer(t *testing.T) {
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {
@@ -409,6 +482,33 @@ func TestADIFExportPath(t *testing.T) {
 	}
 	if _, ok := adifExportPath([]string{"--export-adif"}); ok {
 		t.Fatal("adifExportPath accepted a missing path")
+	}
+}
+
+// TestValidateArgsRejectsUnrecognizedAndIncompleteFlags guards against a
+// typo'd flag (e.g. --export-adiff) or a dropped path argument silently
+// falling through to launching the TUI instead of reporting a usage error.
+func TestValidateArgsRejectsUnrecognizedAndIncompleteFlags(t *testing.T) {
+	for _, args := range [][]string{
+		{"--export-adiff", "log.adi"},
+		{"--exprot-adif", "log.adi"},
+		{"--export-adif"},
+		{"--import-adif"},
+	} {
+		if err := validateArgs(args); err == nil {
+			t.Errorf("validateArgs(%v) returned no error", args)
+		}
+	}
+	for _, args := range [][]string{
+		nil,
+		{"--export-adif", "log.adi"},
+		{"--import-adif", "log.adi"},
+		{"--in-current-terminal"},
+		{"--terminal-child"},
+	} {
+		if err := validateArgs(args); err != nil {
+			t.Errorf("validateArgs(%v) returned error: %v", args, err)
+		}
 	}
 }
 

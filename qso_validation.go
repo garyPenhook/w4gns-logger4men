@@ -13,6 +13,24 @@ func normalizeCall(call string) string {
 	return strings.ToUpper(strings.TrimSpace(call))
 }
 
+// validateCallsignChars rejects characters a callsign never legitimately
+// contains (only letters, digits, and "/" for portable/multi-prefix
+// operation) and enforces a generous length cap. A callsign can end up sent
+// as a raw line to the DX cluster's TCP connection (see connectK3LR in
+// cluster.go); without this check, an embedded CR/LF or other control
+// character could inject extra lines into that session.
+func validateCallsignChars(call string) error {
+	if len(call) > 20 {
+		return fmt.Errorf("callsign exceeds 20 characters")
+	}
+	for _, r := range call {
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '/' {
+			return fmt.Errorf("callsign contains an unsupported character %q", r)
+		}
+	}
+	return nil
+}
+
 // validateQSO protects the database boundary. UI validation improves the
 // operator experience, but every caller must pass through this check before a
 // QSO is persisted or sent to a future external service.
@@ -21,13 +39,8 @@ func validateQSO(q qso) error {
 	if call == "" {
 		return fmt.Errorf("callsign is required")
 	}
-	if len(call) > 20 {
-		return fmt.Errorf("callsign exceeds 20 characters")
-	}
-	for _, r := range call {
-		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '/' {
-			return fmt.Errorf("callsign contains an unsupported character %q", r)
-		}
+	if err := validateCallsignChars(call); err != nil {
+		return err
 	}
 	if strings.TrimSpace(q.band) == "" {
 		return fmt.Errorf("band is required")

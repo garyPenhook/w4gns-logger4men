@@ -89,10 +89,30 @@ func parseClusterSpot(line string, received time.Time) (clusterSpot, bool) {
 		return clusterSpot{}, false
 	}
 	return clusterSpot{
-		Spotter:   spotter,
-		Frequency: fields[3],
-		Callsign:  strings.ToUpper(fields[4]),
-		Comment:   strings.Join(fields[5:], " "),
+		Spotter:   sanitizeClusterText(spotter),
+		Frequency: sanitizeClusterText(fields[3]),
+		Callsign:  strings.ToUpper(sanitizeClusterText(fields[4])),
+		Comment:   sanitizeClusterText(strings.Join(fields[5:], " ")),
 		Received:  received.UTC(),
 	}, true
+}
+
+// sanitizeClusterText strips ASCII control characters (C0, DEL) and Unicode
+// C1 controls from cluster-sourced text before it's stored or rendered.
+// Spots originate from other operators on the DX cluster network (or
+// anyone able to reach it) and are rendered directly to the terminal;
+// without this, an ANSI escape or OSC sequence smuggled into a callsign or
+// comment could reposition the cursor, spoof UI text, or trigger terminal
+// features such as an OSC 52 clipboard write.
+func sanitizeClusterText(s string) string {
+	return strings.Map(func(r rune) rune {
+		switch {
+		case r == '\t':
+			return ' '
+		case r < 0x20, r == 0x7f, r >= 0x80 && r <= 0x9f:
+			return -1
+		default:
+			return r
+		}
+	}, s)
 }

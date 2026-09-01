@@ -13,7 +13,13 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const schema = `
+// schemaTables creates every table if missing, but never an index: a
+// genuinely old database (predating a column migrate() adds, e.g.
+// profile_id) must have that column added before any index referencing it
+// is created, or CREATE INDEX fails outright and openStore never reaches
+// migrate() at all. See schemaIndexes, applied after migrate() in
+// openStore.
+const schemaTables = `
 CREATE TABLE IF NOT EXISTS qso (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     call TEXT NOT NULL,
@@ -55,14 +61,6 @@ CREATE TABLE IF NOT EXISTS qso (
     profile_id INTEGER
 );
 
-CREATE INDEX IF NOT EXISTS idx_call ON qso(call);
-CREATE INDEX IF NOT EXISTS idx_call_band ON qso(call, band);
-CREATE INDEX IF NOT EXISTS idx_dupe_window ON qso(call, band, qso_date, time_on);
-CREATE INDEX IF NOT EXISTS idx_date ON qso(qso_date);
-CREATE INDEX IF NOT EXISTS idx_date_time ON qso(qso_date, time_on);
-CREATE INDEX IF NOT EXISTS idx_contest ON qso(contest_id);
-CREATE INDEX IF NOT EXISTS idx_profile_date ON qso(profile_id, qso_date, time_on);
-
 CREATE TABLE IF NOT EXISTS station_profile (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
@@ -79,6 +77,18 @@ CREATE TABLE IF NOT EXISTS station_profile (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+`
+
+// schemaIndexes must run after migrate() has added any column an index
+// here references (profile_id in particular — see schemaTables).
+const schemaIndexes = `
+CREATE INDEX IF NOT EXISTS idx_call ON qso(call);
+CREATE INDEX IF NOT EXISTS idx_call_band ON qso(call, band);
+CREATE INDEX IF NOT EXISTS idx_dupe_window ON qso(call, band, qso_date, time_on);
+CREATE INDEX IF NOT EXISTS idx_date ON qso(qso_date);
+CREATE INDEX IF NOT EXISTS idx_date_time ON qso(qso_date, time_on);
+CREATE INDEX IF NOT EXISTS idx_contest ON qso(contest_id);
+CREATE INDEX IF NOT EXISTS idx_profile_date ON qso(profile_id, qso_date, time_on);
 `
 
 type store struct {
@@ -108,7 +118,7 @@ func openStore(path string) (*store, error) {
 		db.Close()
 		return nil, err
 	}
-	if _, err := db.Exec(schema); err != nil {
+	if _, err := db.Exec(schemaTables); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("apply schema: %w", err)
 	}
@@ -116,6 +126,10 @@ func openStore(path string) (*store, error) {
 	if err := s.migrate(); err != nil {
 		db.Close()
 		return nil, err
+	}
+	if _, err := db.Exec(schemaIndexes); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("apply schema indexes: %w", err)
 	}
 	if err := s.ensureDefaultProfile(); err != nil {
 		db.Close()
@@ -125,7 +139,31 @@ func openStore(path string) (*store, error) {
 		db.Close()
 		return nil, err
 	}
+	tightenDBFilePermissions(path)
 	return s, nil
+}
+
+// dbFilePermBits is the maximum permission bits a healthy database file (or
+// its WAL/SHM sidecars) should have: owner read/write only. This app stores
+// private QSO data, and the default file-create permissions (subject to the
+// OS umask) can otherwise leave it group- or world-readable.
+const dbFilePermBits = 0o600
+
+// tightenDBFilePermissions best-effort chmods the database file and its WAL/
+// SHM sidecars, mirroring tightenQRZKeyFilePermissions in qrz.go. Sidecar
+// files that don't exist (e.g. WAL checkpointed away) are silently skipped.
+func tightenDBFilePermissions(path string) {
+	for _, p := range []string{path, path + "-wal", path + "-shm"} {
+		info, err := os.Stat(p)
+		if err != nil {
+			continue
+		}
+		if info.Mode().Perm()&^dbFilePermBits != 0 {
+			if err := os.Chmod(p, dbFilePermBits); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: could not restrict %s to owner-only permissions: %v\n", p, err)
+			}
+		}
+	}
 }
 
 func configureSQLite(db *sql.DB) error {
@@ -592,9 +630,13 @@ func (s *store) deleteQSO(id int64) error {
 // qsosByCall returns every previously logged contact for a callsign, newest
 // first. The active entry is not in SQLite yet, so it is never shown here until
 // the operator explicitly saves it.
+// qsosByCall returns a callsign's prior contacts, newest first, with id
+// populated so this list can also back the Recent QSOs table's F9
+// browse/edit/delete selection while it's showing call history instead of
+// the default recent list (see showWorkedCall).
 func (s *store) qsosByCall(call string) ([]qso, error) {
 	rows, err := s.db.Query(
-		`SELECT call, band, mode, rst_sent, rst_rcvd, srx_string, qso_date, time_on
+		`SELECT id, call, band, mode, rst_sent, rst_rcvd, srx_string, qso_date, time_on
 		 FROM qso WHERE call = ? ORDER BY qso_date DESC, time_on DESC, id DESC`,
 		call,
 	)
@@ -606,7 +648,7 @@ func (s *store) qsosByCall(call string) ([]qso, error) {
 	for rows.Next() {
 		var q qso
 		var qsoDate, timeOn string
-		if err := rows.Scan(&q.call, &q.band, &q.mode, &q.rstSent, &q.rstRcvd, &q.exchange, &qsoDate, &timeOn); err != nil {
+		if err := rows.Scan(&q.id, &q.call, &q.band, &q.mode, &q.rstSent, &q.rstRcvd, &q.exchange, &qsoDate, &timeOn); err != nil {
 			return nil, fmt.Errorf("scan call history: %w", err)
 		}
 		if timestamp, err := time.Parse("20060102150405", qsoDate+timeOn); err == nil {

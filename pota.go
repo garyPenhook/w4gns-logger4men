@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"regexp"
 	"strings"
@@ -11,7 +12,14 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const potaSpotAPI = "https://api.pota.app/spot/"
+// potaSpotAPI is a var (not const) so tests can point it at a local server.
+var potaSpotAPI = "https://api.pota.app/spot/"
+
+// maxPOTAResponseBytes bounds how much of the response this reads. The live
+// POTA spot feed is at most a few thousand small JSON records; this is far
+// larger than that, just enough to stop an unbounded read if the endpoint
+// (or a MITM) ever returns something huge.
+const maxPOTAResponseBytes = 5 << 20
 
 var potaReferencePattern = regexp.MustCompile(`(?i)\b[A-Z]{1,3}-\d{1,6}\b`)
 
@@ -44,7 +52,7 @@ func lookupPOTASpot(call string, now time.Time) tea.Cmd {
 			return potaLookupMsg{call: call, err: fmt.Errorf("query POTA spots: %s", response.Status)}
 		}
 		var spots []potaSpot
-		if err := json.NewDecoder(response.Body).Decode(&spots); err != nil {
+		if err := json.NewDecoder(io.LimitReader(response.Body, maxPOTAResponseBytes)).Decode(&spots); err != nil {
 			return potaLookupMsg{call: call, err: fmt.Errorf("decode POTA spots: %w", err)}
 		}
 		reference, ok := recentPOTAReference(spots, call, now)
@@ -76,10 +84,13 @@ func recentPOTAReference(spots []potaSpot, call string, now time.Time) (string, 
 	return reference, reference != ""
 }
 
+// recentClusterPOTAReference scans spots (newest-first, per
+// model.addClusterSpot which prepends each new spot) for the most recent
+// spot for call within the dupe window, returning its POTA reference if
+// its comment has one. A forward scan finds that newest match first.
 func recentClusterPOTAReference(spots []clusterSpot, call string, now time.Time) (string, bool) {
 	cutoff := now.UTC().Add(-dupeWindow)
-	for index := len(spots) - 1; index >= 0; index-- {
-		spot := spots[index]
+	for _, spot := range spots {
 		if !strings.EqualFold(spot.Callsign, call) || spot.Received.Before(cutoff) {
 			continue
 		}

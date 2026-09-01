@@ -62,6 +62,11 @@ func (s *store) saveStationProfile(profile stationProfile) (stationProfile, erro
 	if profile.Name == "" {
 		return stationProfile{}, fmt.Errorf("station profile name is required")
 	}
+	if profile.Callsign != "" {
+		if err := validateCallsignChars(profile.Callsign); err != nil {
+			return stationProfile{}, fmt.Errorf("invalid station callsign: %w", err)
+		}
+	}
 	if profile.Timezone == "" {
 		return stationProfile{}, fmt.Errorf("station timezone is required")
 	}

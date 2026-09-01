@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -14,6 +15,11 @@ import (
 const (
 	solarFetchTimeout    = 10 * time.Second
 	solarRefreshInterval = 30 * time.Minute
+	// maxSolarResponseBytes bounds how much of the response this reads. The
+	// real feed is a small, fixed-shape XML document; this is far larger
+	// than that, just enough to stop an unbounded read if the endpoint (or
+	// a MITM) ever returns something huge.
+	maxSolarResponseBytes = 1 << 20
 )
 
 // solarDataURL is a var (not const) so tests can point it at a local server.
@@ -105,7 +111,7 @@ func fetchSolarIndices(parent context.Context) (solarIndices, error) {
 		return solarIndices{}, fmt.Errorf("fetch solar data: %s", response.Status)
 	}
 	var feed solarXMLFeed
-	if err := xml.NewDecoder(response.Body).Decode(&feed); err != nil {
+	if err := xml.NewDecoder(io.LimitReader(response.Body, maxSolarResponseBytes)).Decode(&feed); err != nil {
 		return solarIndices{}, fmt.Errorf("parse solar data: %w", err)
 	}
 	indices := solarIndices{

@@ -77,4 +77,16 @@ func TestSaveStationProfileRejectsInvalidSettings(t *testing.T) {
 			t.Fatalf("saveStationProfile accepted power = %q", bad)
 		}
 	}
+	profile.PowerWatts = ""
+
+	// A callsign later gets sent as a raw line to the DX cluster's TCP
+	// connection (see connectK3LR in cluster.go); an embedded CR/LF or
+	// other control character must be rejected here rather than reaching
+	// that connection unfiltered.
+	for _, bad := range []string{"W4GNS\r\nDX DE FAKE", "W4GNS\ninjected", "W4GNS;rm -rf"} {
+		profile.Callsign = bad
+		if _, err := st.saveStationProfile(profile); err == nil {
+			t.Fatalf("saveStationProfile accepted callsign = %q", bad)
+		}
+	}
 }

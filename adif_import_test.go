@@ -132,6 +132,42 @@ func TestImportADIFRejectsMalformedFiveCharTime(t *testing.T) {
 	}
 }
 
+// TestParseADIRecordsRejectsOversizedFieldLength guards against memory
+// exhaustion from a malformed or hostile file: a declared field length like
+// 1000000000 would otherwise attempt a ~1GB allocation for a single field.
+func TestParseADIRecordsRejectsOversizedFieldLength(t *testing.T) {
+	adi := `<CALL:1000000000>W1AW<EOR>`
+	err := parseADIRecords(strings.NewReader(adi), func(map[string]string) error { return nil })
+	if err == nil {
+		t.Fatal("parseADIRecords accepted a field declaring a ~1GB length")
+	}
+}
+
+// TestParseADIRecordsRejectsUnterminatedTag guards against unbounded memory
+// use scanning for a '<' or '>' that never arrives (e.g. non-ADIF garbage,
+// or a truncated file): bufio.Reader.ReadBytes has no length limit of its
+// own.
+func TestParseADIRecordsRejectsUnterminatedTag(t *testing.T) {
+	huge := strings.Repeat("x", maxADIFTagLength*4)
+	err := parseADIRecords(strings.NewReader("<"+huge), func(map[string]string) error { return nil })
+	if err == nil {
+		t.Fatal("parseADIRecords accepted a tag far exceeding maxADIFTagLength with no '>'")
+	}
+}
+
+// TestParseADIRecordsRejectsTooManyFieldsInOneRecord guards against a
+// record that never reaches <EOR>, accumulating fields without bound.
+func TestParseADIRecordsRejectsTooManyFieldsInOneRecord(t *testing.T) {
+	var b strings.Builder
+	for i := 0; i <= maxADIFFieldsPerRecord; i++ {
+		fmt.Fprintf(&b, "<F%d:1>x", i)
+	}
+	err := parseADIRecords(strings.NewReader(b.String()), func(map[string]string) error { return nil })
+	if err == nil {
+		t.Fatal("parseADIRecords accepted a record with more than maxADIFFieldsPerRecord fields")
+	}
+}
+
 // TestImportADIFStreamsAcrossMultipleBatches exercises the streaming
 // parser/insert path across several importBatchSize-sized batches (rather
 // than one giant in-memory slice of every parsed record) and confirms every
@@ -225,5 +261,43 @@ func TestImportADIFAcceptsFileWithoutHeader(t *testing.T) {
 	}
 	if result.Imported != 1 {
 		t.Fatalf("result = %#v", result)
+	}
+}
+
+// TestParseADIRecordsReportsTruncatedTrailingRecord guards against silently
+// dropping a record cut off by a truncated download or a file that stopped
+// mid-write: fields were parsed but the file ended before a closing <EOR>.
+// Returning success with those fields simply discarded would lose the
+// record with no indication it ever existed.
+func TestParseADIRecordsReportsTruncatedTrailingRecord(t *testing.T) {
+	adi := `<CALL:3>W1A<QSO_DATE:8>20260831<TIME_ON:6>120000<BAND:3>20M<MODE:2>CW`
+	var seen int
+	err := parseADIRecords(strings.NewReader(adi), func(map[string]string) error {
+		seen++
+		return nil
+	})
+	if err == nil {
+		t.Fatal("parseADIRecords returned no error for a file truncated mid-record")
+	}
+	if seen != 0 {
+		t.Fatalf("onRecord was called %d times for a truncated record, want 0", seen)
+	}
+}
+
+// TestImportADIFReportsTruncatedFileInsteadOfSilentSuccess covers the same
+// scenario through importADIF's public surface.
+func TestImportADIFReportsTruncatedFileInsteadOfSilentSuccess(t *testing.T) {
+	st, err := openStore(t.TempDir() + "/logger.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	profile, err := st.activeStationProfile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	adi := `<CALL:3>W1A<QSO_DATE:8>20260831<TIME_ON:6>120000<BAND:3>20M<MODE:2>CW`
+	if _, err := importADIF(context.Background(), strings.NewReader(adi), profile.ID, st); err == nil {
+		t.Fatal("importADIF returned no error for a file truncated mid-record")
 	}
 }

@@ -30,7 +30,7 @@ It opens in its own terminal window. To run it in the terminal you launched it f
 ./bin/w4gns-logger --in-current-terminal
 ```
 
-Your log is stored locally in `w4gns.db` by default. Set `W4GNS_DB` to use another database path.
+Your log is stored locally. If a `w4gns.db` already exists in the directory you launch from, that file keeps being used (so an existing install that always launches from one directory is unaffected); otherwise the database defaults to a stable, working-directory-independent path under `$XDG_DATA_HOME/w4gns-logger/w4gns.db` (usually `~/.local/share/w4gns-logger/w4gns.db`) — since the installed command is on `PATH` and can be launched from anywhere, a plain relative `./w4gns.db` would otherwise silently start a second, empty log if you ran it from an unfamiliar directory. Set `W4GNS_DB` to use another path explicitly. The database file (and its `-wal`/`-shm` sidecars) are kept at owner-read/write-only (`0600`) permissions, self-healing on every startup if the umask left them more permissive.
 
 ## Screens and controls
 
@@ -363,7 +363,7 @@ The numeric ADIF `DXCC` field (the entity code) is populated from `data/arrl_dxc
 
 Every QSO logged from QSO Entry is uploaded to your [QRZ Logbook](https://www.qrz.com/docs/logbook/QRZLogbookAPI.html) in the background as soon as it saves locally.
 
-- Put your QRZ Logbook API key in a file named `qrz.comAPIkey` in the directory you run the app from (one line, no quotes), or set the `W4GNS_QRZ_KEY` environment variable. The key file is listed in `.gitignore`, which keeps it out of `git add -A`/`git status` by default — but `.gitignore` is only a convention respected by Git; it doesn't stop a `git add -f`, doesn't restrict which local accounts can read the file, and doesn't help if the key ends up in a screenshot or shared archive. On every startup the app also checks the key file's permissions and tightens them to owner-read/write only (`0600`) if it finds the default umask left it group- or world-readable.
+- Put your QRZ Logbook API key in a file named `qrz.comAPIkey` (one line, no quotes), or set the `W4GNS_QRZ_KEY` environment variable. Like the database, an existing `qrz.comAPIkey` in the directory you launch from keeps being used; otherwise the app looks for it at a stable path under `$XDG_CONFIG_HOME/w4gns-logger/qrz.comAPIkey` (usually `~/.config/w4gns-logger/qrz.comAPIkey`), so QRZ upload doesn't silently stop working just because you launched from a different directory than usual. A key file kept alongside the repository is listed in `.gitignore`, which keeps it out of `git add -A`/`git status` by default — but `.gitignore` is only a convention respected by Git; it doesn't stop a `git add -f`, doesn't restrict which local accounts can read the file, and doesn't help if the key ends up in a screenshot or shared archive. On every startup the app also checks the key file's permissions and tightens them to owner-read/write only (`0600`) if it finds the default umask left it group- or world-readable.
 - If neither is set, QRZ upload is silently skipped — local logging is unaffected.
 - The upload runs asynchronously and never blocks or delays logging the next QSO.
 - The status bar reports `QRZ upload OK for <call> (LOGID ...)` on success or `QRZ upload failed for <call>: ...` on failure (invalid key, no active subscription, duplicate QSO, network error, etc.). A failed upload never removes the QSO from your local log.
@@ -380,6 +380,33 @@ Press `F8` at any time to back up immediately, and every shutdown backs up autom
 - Backups are serialized: pressing `F8` again while one is already running is ignored (the status bar shows "backup already in progress…"), and the mandatory backup-on-exit waits for any backup still in flight instead of racing it. This avoids two backups writing to the same second-resolution filenames or running `VACUUM INTO` concurrently.
 
 ## Changelog
+
+### v1.5.0
+
+Addresses an external code review of data-correctness, reliability, and security issues.
+
+**High severity**
+- Fixed F9 browse/edit/delete acting on the wrong QSO while the table was showing a callsign's history instead of the default Recent QSOs list (typing a callsign into Call swaps the table's display without updating what F9 selects from).
+- Fixed database startup failing outright on a genuinely old database: schema indexes were created before missing columns were migrated in, so `CREATE INDEX` on a not-yet-added column (e.g. `profile_id`) could fail before migration ever ran.
+- Bounded ADIF import against a malformed or hostile file: a declared field length like `<CALL:1000000000>` no longer attempts a ~1GB allocation, and per-tag, per-field, and per-record limits stop unbounded memory use from a file with no `<`/`>` or from a record that never closes.
+- The database and QRZ API key now default to stable, working-directory-independent paths (under `$XDG_DATA_HOME`/`$XDG_CONFIG_HOME`) instead of the current directory, so launching the installed command from a different directory than usual no longer silently starts a second, empty log or disables QRZ uploads. An existing `./w4gns.db` or `./qrz.comAPIkey` keeps being used unchanged.
+
+**Medium severity**
+- Fixed a real collision in the event catalog (e.g. `UBA-SPRING-CONTEST` vs `UBA-SPRING-CONTEST-2`) that could resolve a selected contest to the wrong, shorter event, using its bands/dupe_scope instead of the correct one's.
+- A truncated ADIF file (cut off mid-record, no closing `<EOR>`) now reports an error instead of silently dropping the trailing record.
+- Fixed the async ADIF import's result being silently lost if `Esc` left the Import ADIF screen before the import finished.
+- Fixed the database and ADIF halves of one backup being able to represent different states: ADIF is now exported from the staged `VACUUM INTO` snapshot instead of the live database, which the UI doesn't block while a backup runs.
+- DX cluster spot text (spotter, frequency, callsign, comment) is now stripped of ANSI escape/control characters before being stored or rendered — spots come from other operators on the cluster network and were previously rendered to the terminal unescaped.
+- QRZ, POTA, and solar-data HTTP responses are now read through a size limit, guarding against an unbounded read from a misbehaving endpoint or a MITM.
+- CLI ADIF export now writes to a temporary file and renames it into place, so a failure partway through no longer truncates/destroys an existing file at the target path.
+- ADIF export now streams QSOs directly from the database instead of loading a station profile's entire history into memory first.
+- The 100k-QSO import benchmark test no longer re-runs under `-race` in CI (the plain test run already covers it at full scale; race instrumentation doesn't test anything additional about a larger input).
+
+**Lower priority**
+- Fixed the cluster-spot POTA autofill preferring the oldest matching spot in the 15-minute window instead of the newest.
+- The QSO-entry header's "Local" time now reflects the configured station profile's timezone instead of always the host machine's.
+- Station callsigns are now validated the same way QSO callsigns are (letters/digits/`/` only), since a callsign is later sent as a raw line to the DX cluster's TCP connection.
+- Unrecognized command-line flags and `--export-adif`/`--import-adif` missing their path argument now report a usage error instead of silently launching the TUI.
 
 ### v1.4.0
 

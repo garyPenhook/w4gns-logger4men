@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"os/exec"
@@ -246,6 +247,62 @@ func TestRunBackupReturnsErrorOnPartialUploadFailure(t *testing.T) {
 	}
 	if sawADIF {
 		t.Error("the deliberately-failed ADIF upload exists in the fake remote")
+	}
+}
+
+// TestBackupExportsFromSnapshotNotLiveDatabase guards against the DB and
+// ADIF halves of one backup representing different states: VACUUM INTO
+// takes a point-in-time snapshot, but the UI isn't blocked while a backup
+// runs in the background, so exporting ADIF from the live database instead
+// of that snapshot could pick up a QSO logged in between — a .adi file
+// that doesn't match the .db snapshot uploaded alongside it. This exercises
+// the exact mechanism runBackup now uses: open the staged snapshot file
+// (not the live *store) and export from that.
+func TestBackupExportsFromSnapshotNotLiveDatabase(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	profile, err := st.activeStationProfile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := validTestQSO()
+	before.call, before.profileID = "W1AW", profile.ID
+	if _, err := st.insertQSO(before); err != nil {
+		t.Fatal(err)
+	}
+
+	snapshotPath := filepath.Join(t.TempDir(), "snapshot.db")
+	if _, err := st.db.Exec(`VACUUM INTO ?`, snapshotPath); err != nil {
+		t.Fatal(err)
+	}
+
+	// Simulate a QSO logged in the window between VACUUM INTO and the ADIF
+	// export — this must not appear in a backup taken from the snapshot.
+	after := validTestQSO()
+	after.call, after.profileID = "K1ABC", profile.ID
+	if _, err := st.insertQSO(after); err != nil {
+		t.Fatal(err)
+	}
+
+	snapshotDB, err := sql.Open("sqlite", snapshotPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer snapshotDB.Close()
+	snapshotStore := &store{db: snapshotDB}
+
+	var adif strings.Builder
+	if _, err := exportADIF(context.Background(), &adif, profile.ID, snapshotStore); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(adif.String(), "W1AW") {
+		t.Error("snapshot export is missing the QSO logged before VACUUM INTO")
+	}
+	if strings.Contains(adif.String(), "K1ABC") {
+		t.Error("snapshot export includes a QSO logged after VACUUM INTO — DB and ADIF backups would disagree")
 	}
 }
 

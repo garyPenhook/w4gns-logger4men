@@ -24,6 +24,7 @@ func TestLoadQRZAPIKeyTightensLoosePermissions(t *testing.T) {
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)
 	}
+	const qrzKeyFile = "qrz.comAPIkey"
 	if err := os.WriteFile(qrzKeyFile, []byte("ABCD-1234\n"), 0o664); err != nil {
 		t.Fatal(err)
 	}

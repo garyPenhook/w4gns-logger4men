@@ -713,6 +713,16 @@ func (m *model) showWorkedCall(call string) {
 		rows = append(rows, table.Row{q.time.Format("2006-01-02 15:04"), q.call, q.band, q.rstSent, q.rstRcvd})
 	}
 	m.table.SetRows(rows)
+	// recentQSOs backs whatever the table currently displays, not just the
+	// default Recent QSOs list — F9 resolves a selected row through this
+	// slice, and it must match what's on screen or edit/delete would act on
+	// the wrong QSO.
+	m.recentQSOs = contacts
+	if len(rows) > 0 {
+		if cur := m.table.Cursor(); cur < 0 || cur >= len(rows) {
+			m.table.SetCursor(0)
+		}
+	}
 	m.workedCall = call
 }
 
@@ -774,14 +784,24 @@ func (m *model) selectEvent(event eventDefinition, session eventSession) {
 	m.checkDupe()
 }
 
+// eventForContestID resolves the free-typed/catalog-selected contest name
+// back to its catalog event, preferring the longest matching event.ID. The
+// catalog has real cases where one event's ID is itself a prefix of
+// another's (e.g. "UBA-SPRING-CONTEST" and "UBA-SPRING-CONTEST-2"): taking
+// the first prefix match in catalog order could resolve a
+// "UBA-SPRING-CONTEST-2-<session>" contest name to the wrong, shorter
+// event, using its bands/dupe_scope instead of the correct one's.
 func (m model) eventForContestID() (eventDefinition, bool) {
 	id := m.contestFields[contestName].Value()
+	var best eventDefinition
+	found := false
 	for _, event := range m.events {
-		if strings.HasPrefix(id, event.ID+"-") {
-			return event, true
+		if strings.HasPrefix(id, event.ID+"-") && (!found || len(event.ID) > len(best.ID)) {
+			best = event
+			found = true
 		}
 	}
-	return eventDefinition{}, false
+	return best, found
 }
 
 func (m model) exchangeChoices() []exchangeOption {
@@ -1044,6 +1064,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.statusMsg = fmt.Sprintf("backed up to Google Drive: %s, %s", message.result.dbName, message.result.adifName)
 		}
+		return m, nil
+	}
+	// Handled globally, not only within updateADIFImport: the import runs
+	// as an async tea.Cmd, so pressing Esc to leave the Import ADIF screen
+	// before it finishes must not cause this result to be silently dropped
+	// when it later arrives on a different screen.
+	if message, ok := msg.(adifImportedMsg); ok {
+		if message.err != nil {
+			m.statusMsg = fmt.Sprintf("ADIF import failed: %v", message.err)
+			return m, nil
+		}
+		m.refreshTableRows()
+		if m.screen == adifImportScreen {
+			m.screen = qsoEntryScreen
+			m.focusField(fieldCall)
+		}
+		m.statusMsg = fmt.Sprintf("ADIF imported: %d CW QSOs; %d skipped", message.result.Imported, message.result.Skipped)
 		return m, nil
 	}
 	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "f8" {
@@ -1398,9 +1435,11 @@ func (m model) updateClusterFilters(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) updateADIFImport(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch message := msg.(type) {
-	case tea.KeyMsg:
-		switch message.String() {
+	// adifImportedMsg (the async import's result) is handled globally in
+	// Update, not here, so it isn't lost if Esc leaves this screen before
+	// the import finishes.
+	if key, ok := msg.(tea.KeyMsg); ok {
+		switch key.String() {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "esc":
@@ -1416,16 +1455,6 @@ func (m model) updateADIFImport(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMsg = "Importing ADIF…"
 			return m, m.importADIFFile(path)
 		}
-	case adifImportedMsg:
-		if message.err != nil {
-			m.statusMsg = fmt.Sprintf("ADIF import failed: %v", message.err)
-			return m, nil
-		}
-		m.refreshTableRows()
-		m.screen = qsoEntryScreen
-		m.focusField(fieldCall)
-		m.statusMsg = fmt.Sprintf("ADIF imported: %d CW QSOs; %d skipped", message.result.Imported, message.result.Skipped)
-		return m, nil
 	}
 	var cmd tea.Cmd
 	m.adifPathField, cmd = m.adifPathField.Update(msg)
@@ -1508,13 +1537,22 @@ func (m model) View() string {
 	b.WriteString("\n")
 
 	now := time.Now()
+	// "Local" reflects the configured station profile's timezone, not
+	// necessarily the host machine's — an operator running on a remote or
+	// differently-configured host still wants their station's own local
+	// time. Fall back to the host's local time if the stored zone somehow
+	// fails to load.
+	localNow := now
+	if loc, err := time.LoadLocation(m.activeStation.Timezone); err == nil {
+		localNow = now.In(loc)
+	}
 	header := fmt.Sprintf(
 		"%s  |  %s  |  UTC %s  |  Local %s (%s)",
 		m.contestName,
 		m.qsoBand(),
 		now.UTC().Format("15:04:05Z"),
-		now.Format("15:04:05 -07:00"),
-		now.Location(),
+		localNow.Format("15:04:05 -07:00"),
+		localNow.Location(),
 	)
 	b.WriteString(headerStyle.Render(header))
 	b.WriteString("\n")
@@ -1785,6 +1823,10 @@ func screenHotkeys(current screen) string {
 }
 
 func main() {
+	if err := validateArgs(os.Args[1:]); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\nusage: %s [--export-adif PATH | --import-adif PATH]\n", err, filepath.Base(os.Args[0]))
+		os.Exit(2)
+	}
 	if exportPath, ok := adifExportPath(os.Args[1:]); ok {
 		runADIFExport(exportPath)
 		return
@@ -1801,7 +1843,7 @@ func main() {
 		return
 	}
 
-	dbPath := "w4gns.db"
+	dbPath := defaultDBPath()
 	if v := os.Getenv("W4GNS_DB"); v != "" {
 		dbPath = v
 	}
@@ -1867,6 +1909,33 @@ func main() {
 	}
 }
 
+// recognizedArgs lists every command-line flag main understands.
+var recognizedArgs = map[string]bool{
+	"--export-adif":      true,
+	"--import-adif":      true,
+	terminalChildArg:     true,
+	inCurrentTerminalArg: true,
+}
+
+// validateArgs rejects an unrecognized flag or one of --export-adif/
+// --import-adif missing its required path, instead of silently falling
+// through to launching the TUI — which would otherwise hide a typo'd flag
+// (e.g. --export-adiff) or an accidentally dropped path argument.
+func validateArgs(args []string) error {
+	for i, arg := range args {
+		if !strings.HasPrefix(arg, "--") {
+			continue
+		}
+		if !recognizedArgs[arg] {
+			return fmt.Errorf("unrecognized flag %q", arg)
+		}
+		if (arg == "--export-adif" || arg == "--import-adif") && i+1 >= len(args) {
+			return fmt.Errorf("%s requires a file path argument", arg)
+		}
+	}
+	return nil
+}
+
 func adifImportPath(args []string) (string, bool) {
 	for index, arg := range args {
 		if arg == "--import-adif" && index+1 < len(args) {
@@ -1888,7 +1957,7 @@ func adifExportPath(args []string) (string, bool) {
 func runADIFExport(path string) {
 	dbPath := os.Getenv("W4GNS_DB")
 	if dbPath == "" {
-		dbPath = "w4gns.db"
+		dbPath = defaultDBPath()
 	}
 	if pathsReferToSameFile(path, dbPath) {
 		fmt.Fprintln(os.Stderr, "ADIF export path must not be the SQLite database")
@@ -1905,19 +1974,41 @@ func runADIFExport(path string) {
 		fmt.Fprintf(os.Stderr, "error loading station profile: %v\n", err)
 		os.Exit(1)
 	}
-	file, err := os.Create(path)
+	// Write to a temporary file in the target's own directory and rename it
+	// into place only after a full, successful export. os.Create(path)
+	// alone would truncate any existing file at path immediately, so a
+	// failure partway through the export (a DB read error, the process
+	// being killed) would destroy it and leave nothing usable behind.
+	dir := filepath.Dir(path)
+	tempFile, err := os.CreateTemp(dir, ".w4gns-export-*.adi.tmp")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error creating ADIF file: %v\n", err)
+		fmt.Fprintf(os.Stderr, "error creating temporary export file: %v\n", err)
 		os.Exit(1)
 	}
-	count, err := exportADIF(context.Background(), file, profile.ID, st)
+	tempPath := tempFile.Name()
+	cleanup := func() { os.Remove(tempPath) }
+
+	count, err := exportADIF(context.Background(), tempFile, profile.ID, st)
 	if err != nil {
-		file.Close()
+		tempFile.Close()
+		cleanup()
 		fmt.Fprintf(os.Stderr, "ADIF export failed: %v\n", err)
 		os.Exit(1)
 	}
-	if err := file.Close(); err != nil {
+	if err := tempFile.Sync(); err != nil {
+		tempFile.Close()
+		cleanup()
+		fmt.Fprintf(os.Stderr, "error syncing ADIF file: %v\n", err)
+		os.Exit(1)
+	}
+	if err := tempFile.Close(); err != nil {
+		cleanup()
 		fmt.Fprintf(os.Stderr, "error closing ADIF file: %v\n", err)
+		os.Exit(1)
+	}
+	if err := os.Rename(tempPath, path); err != nil {
+		cleanup()
+		fmt.Fprintf(os.Stderr, "error finalizing ADIF export: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Printf("ADIF export complete: %d QSOs written to %s\n", count, path)
@@ -1943,7 +2034,7 @@ func runADIFImport(path string) {
 	defer file.Close()
 	dbPath := os.Getenv("W4GNS_DB")
 	if dbPath == "" {
-		dbPath = "w4gns.db"
+		dbPath = defaultDBPath()
 	}
 	st, err := openStore(dbPath)
 	if err != nil {

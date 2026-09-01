@@ -14,9 +14,13 @@ import (
 )
 
 const (
-	qrzKeyFile       = "qrz.comAPIkey"
 	qrzUserAgent     = "W4GNS-Logger/1.0 (amateur radio contact logger)"
 	qrzUploadTimeout = 15 * time.Second
+	// maxQRZResponseBytes bounds how much of the response this reads: QRZ's
+	// reply is a short "RESULT=OK&LOGID=...&COUNT=1" line, so this is far
+	// larger than any real response, just enough to stop an unbounded read
+	// if the endpoint (or a MITM) ever returns something huge.
+	maxQRZResponseBytes = 64 * 1024
 )
 
 // qrzLogbookAPI is a var (not const) so tests can point it at a local server.
@@ -34,8 +38,9 @@ func loadQRZAPIKey() string {
 	if key := strings.TrimSpace(os.Getenv("W4GNS_QRZ_KEY")); key != "" {
 		return key
 	}
-	tightenQRZKeyFilePermissions()
-	contents, err := os.ReadFile(qrzKeyFile)
+	keyFile := defaultQRZKeyPath()
+	tightenQRZKeyFilePermissions(keyFile)
+	contents, err := os.ReadFile(keyFile)
 	if err != nil {
 		return ""
 	}
@@ -47,14 +52,14 @@ func loadQRZAPIKey() string {
 // nothing about other local accounts reading the file directly, so this
 // self-heals a too-permissive mode (e.g. the default umask leaving it
 // group/world readable) on every startup.
-func tightenQRZKeyFilePermissions() {
-	info, err := os.Stat(qrzKeyFile)
+func tightenQRZKeyFilePermissions(keyFile string) {
+	info, err := os.Stat(keyFile)
 	if err != nil {
 		return
 	}
 	if info.Mode().Perm()&^qrzKeyFilePermBits != 0 {
-		if err := os.Chmod(qrzKeyFile, qrzKeyFilePermBits); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not restrict %s to owner-only permissions: %v\n", qrzKeyFile, err)
+		if err := os.Chmod(keyFile, qrzKeyFilePermBits); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not restrict %s to owner-only permissions: %v\n", keyFile, err)
 		}
 	}
 }
@@ -107,7 +112,10 @@ func uploadQSOToQRZ(ctx context.Context, apiKey string, q qso) (string, error) {
 	if response.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("upload QSO to QRZ: %s", response.Status)
 	}
-	body, err := io.ReadAll(response.Body)
+	// QRZ's response is a short key=value line; a cap far larger than any
+	// real response guards against an unbounded read if the endpoint (or a
+	// MITM) ever returns something huge.
+	body, err := io.ReadAll(io.LimitReader(response.Body, maxQRZResponseBytes))
 	if err != nil {
 		return "", fmt.Errorf("read QRZ response: %w", err)
 	}

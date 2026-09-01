@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"os/exec"
@@ -67,11 +68,22 @@ func runBackup(ctx context.Context, st *store, profileID int64) (backupResult, e
 		return backupResult{}, fmt.Errorf("snapshot database: %w", err)
 	}
 
+	// Export from the staged snapshot, not the live database: the UI isn't
+	// blocked while a backup runs in the background, so a QSO logged
+	// between VACUUM INTO and the export would otherwise appear in the
+	// .adi file but not in the .db snapshot uploaded alongside it.
+	snapshotDB, err := sql.Open("sqlite", dbStaged)
+	if err != nil {
+		return backupResult{}, fmt.Errorf("open staged database snapshot: %w", err)
+	}
+	defer snapshotDB.Close()
+	snapshotStore := &store{db: snapshotDB}
+
 	adifFile, err := os.Create(adifStaged)
 	if err != nil {
 		return backupResult{}, fmt.Errorf("create staged ADIF backup: %w", err)
 	}
-	if _, err := exportADIF(ctx, adifFile, profileID, st); err != nil {
+	if _, err := exportADIF(ctx, adifFile, profileID, snapshotStore); err != nil {
 		adifFile.Close()
 		return backupResult{}, fmt.Errorf("export ADIF backup: %w", err)
 	}

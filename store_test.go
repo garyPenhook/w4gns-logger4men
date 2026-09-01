@@ -3,12 +3,39 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 )
+
+// TestOpenStoreTightensDatabaseFilePermissions guards against the database
+// file being left group- or world-readable by the OS's default create
+// permissions (subject to umask): this app stores private QSO data, and
+// openStore should self-heal a too-loose mode the same way the QRZ API key
+// file does.
+func TestOpenStoreTightensDatabaseFilePermissions(t *testing.T) {
+	oldUmask := setUmask(0o022) // deliberately loose, like a typical default
+	defer setUmask(oldUmask)
+
+	dbPath := filepath.Join(t.TempDir(), "logger.db")
+	st, err := openStore(dbPath)
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	info, err := os.Stat(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != dbFilePermBits {
+		t.Errorf("database file permissions = %o, want %o", info.Mode().Perm(), dbFilePermBits)
+	}
+}
 
 func TestOpenStoreCreatesStationProfileAndCurrentColumns(t *testing.T) {
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
@@ -75,6 +102,58 @@ func TestBackfillAssignsLegacyQSOsToDefaultProfile(t *testing.T) {
 	}
 }
 
+// TestOpenStoreMigratesDatabaseMissingIndexedColumn guards against a
+// regression where schema application created indexes (including one on
+// profile_id) before migrate() had a chance to add columns a genuinely old
+// database predates: CREATE INDEX on a nonexistent column fails outright,
+// so openStore would error out before migrate() ever ran. This builds a
+// qso table shaped like the pre-profile_id schema directly (bypassing
+// openStore) and confirms opening it through openStore still succeeds.
+func TestOpenStoreMigratesDatabaseMissingIndexedColumn(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "logger.db")
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE qso (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		call TEXT NOT NULL,
+		qso_date TEXT NOT NULL,
+		time_on TEXT NOT NULL,
+		band TEXT NOT NULL,
+		mode TEXT DEFAULT 'CW',
+		rst_sent TEXT,
+		rst_rcvd TEXT,
+		contest_id TEXT
+	)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(`INSERT INTO qso (call, qso_date, time_on, band, mode) VALUES (?, ?, ?, ?, ?)`,
+		"W4GNS", "20260101", "120000", "20M", "CW"); err != nil {
+		t.Fatal(err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	st, err := openStore(dbPath)
+	if err != nil {
+		t.Fatalf("openStore on a database predating profile_id returned error: %v", err)
+	}
+	defer st.Close()
+
+	exists, err := st.qsoColumnExists("profile_id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !exists {
+		t.Fatal("profile_id column was not added by migrate()")
+	}
+	if count, err := st.count(); err != nil || count != 1 {
+		t.Fatalf("count = %d, err = %v, want 1 (the pre-existing legacy row)", count, err)
+	}
+}
+
 // TestBackfillMissingProfileIDSkipsWriteWhenNoOrphans guards the steady-state
 // startup path: once every row has a profile_id, backfillMissingProfileID
 // must not issue an UPDATE at all (it should short-circuit on the EXISTS
@@ -125,6 +204,42 @@ func TestQSOsForProfileToleratesNullEndTime(t *testing.T) {
 	}
 	if exported[0].timeOff.Before(exported[0].time) {
 		t.Fatalf("timeOff %v is before time %v", exported[0].timeOff, exported[0].time)
+	}
+}
+
+// TestForEachQSOForProfileStopsOnCallbackError guards the streaming
+// contract exportADIF relies on: forEachQSOForProfile must invoke fn once
+// per row (not accumulate them into a slice first) and stop as soon as fn
+// returns an error, propagating it.
+func TestForEachQSOForProfileStopsOnCallbackError(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+	profile, err := st.activeStationProfile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, call := range []string{"W1AW", "K1ABC", "N4XYZ"} {
+		q := validTestQSO()
+		q.call, q.profileID = call, profile.ID
+		if _, err := st.insertQSO(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	sentinel := fmt.Errorf("stop after first row")
+	seen := 0
+	err = st.forEachQSOForProfile(context.Background(), profile.ID, func(qso) error {
+		seen++
+		return sentinel
+	})
+	if err != sentinel {
+		t.Fatalf("forEachQSOForProfile returned %v, want the callback's sentinel error", err)
+	}
+	if seen != 1 {
+		t.Fatalf("callback was invoked %d times, want 1 (iteration should stop on the first error)", seen)
 	}
 }
 

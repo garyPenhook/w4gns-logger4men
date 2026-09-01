@@ -77,6 +77,30 @@ func TestFetchSolarIndicesReportsHTTPFailure(t *testing.T) {
 	}
 }
 
+// TestFetchSolarIndicesBoundsResponseSize guards against an unbounded read
+// from the solar-data endpoint (or a MITM) returning an excessively large
+// response: xml.Decode must fail on the truncated body from io.LimitReader
+// rather than buffering the whole thing.
+func TestFetchSolarIndicesBoundsResponseSize(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("<solar><solardata><solarflux>107</solarflux><comment>"))
+		padding := strings.Repeat("x", 1024)
+		for n := 0; n < maxSolarResponseBytes/len(padding)+10; n++ {
+			w.Write([]byte(padding))
+		}
+		w.Write([]byte("</comment></solardata></solar>"))
+	}))
+	defer srv.Close()
+
+	old := solarDataURL
+	solarDataURL = srv.URL
+	defer func() { solarDataURL = old }()
+
+	if _, err := fetchSolarIndices(context.Background()); err == nil {
+		t.Fatal("fetchSolarIndices returned no error for a response exceeding maxSolarResponseBytes")
+	}
+}
+
 func TestSolarLineFormatsIndicesOrFallsBack(t *testing.T) {
 	var m model
 	if got := m.solarLine(); got != "Solar: loading…" {
