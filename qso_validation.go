@@ -37,7 +37,7 @@ func validateQSO(q qso) error {
 			return err
 		}
 	}
-	if !strings.EqualFold(strings.TrimSpace(q.mode), "CW") {
+	if !strings.EqualFold(strings.TrimSpace(q.mode), cwMode) {
 		return fmt.Errorf("mode must be CW")
 	}
 	if q.time.IsZero() {

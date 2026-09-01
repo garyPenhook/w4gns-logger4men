@@ -23,9 +23,13 @@ const (
 	fieldRSTRcvd
 	fieldBand
 	fieldFrequency
-	fieldMode
 	fieldCount
 )
+
+// cwMode is the only mode this logger supports — see "CW only logger, life
+// is too short for QRM." in README.md. There is no Mode field in the
+// QSO-entry UI; validateQSO still enforces it on every insert.
+const cwMode = "CW"
 
 type screen int
 
@@ -108,7 +112,6 @@ var fieldLabels = [fieldCount]string{
 	fieldRSTRcvd:   "RST Rcvd",
 	fieldBand:      "Band",
 	fieldFrequency: "Freq MHz",
-	fieldMode:      "Mode",
 }
 
 type qso struct {
@@ -269,8 +272,6 @@ func initialModel(st *store) model {
 	fields[fieldBand].SetValue("20M")
 	fields[fieldFrequency] = newTextInput("14.025", 9)
 	fields[fieldFrequency].SetValue("14.025")
-	fields[fieldMode] = newTextInput("CW", 4)
-	fields[fieldMode].SetValue("CW")
 	details := []textinput.Model{
 		newTextInput("Operator name", 20), newTextInput("City / QTH", 20),
 		newTextInput("Grid square", 10), newTextInput("State / province", 12), newTextInput("US-0000", 12), newTextInput("QSO notes", 36),
@@ -568,10 +569,6 @@ func (m model) qsoBand() string {
 	return strings.ToUpper(strings.TrimSpace(m.fields[fieldBand].Value()))
 }
 
-func (m model) qsoMode() string {
-	return strings.ToUpper(strings.TrimSpace(m.fields[fieldMode].Value()))
-}
-
 func (m model) qsoFrequency() string {
 	return strings.TrimSpace(m.fields[fieldFrequency].Value())
 }
@@ -758,7 +755,7 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 	logged := qso{
 		call:      call,
 		band:      m.qsoBand(),
-		mode:      m.qsoMode(),
+		mode:      cwMode,
 		profileID: m.activeStation.ID,
 		rstSent:   m.fields[fieldRSTSent].Value(),
 		rstRcvd:   m.fields[fieldRSTRcvd].Value(),
@@ -1297,10 +1294,9 @@ func (m model) View() string {
 
 	now := time.Now()
 	header := fmt.Sprintf(
-		"%s  |  %s %s  |  UTC %s  |  Local %s (%s)",
+		"%s  |  %s  |  UTC %s  |  Local %s (%s)",
 		m.contestName,
 		m.qsoBand(),
-		m.qsoMode(),
 		now.UTC().Format("15:04:05Z"),
 		now.Format("15:04:05 -07:00"),
 		now.Location(),

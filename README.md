@@ -50,8 +50,8 @@ Your log is stored locally in `w4gns.db` by default. Set `W4GNS_DB` to use anoth
 
 ## QSO entry
 
-- CW QSOs are logged with callsign, band, mode, and sent/received RST.
-- The initial entry sequence is Call, RST Sent, RST Received, Band, Frequency, then Mode.
+- CW QSOs are logged with callsign, band, and sent/received RST. Mode is always CW — there's no Mode field to fill in, since this logger doesn't support anything else.
+- The initial entry sequence is Call, RST Sent, RST Received, Band, then Frequency.
 - Band is a selector: use `Left`/`Right` or `Up`/`Down` while it is selected. Selecting a band supplies a valid default CW frequency; enter frequency in MHz.
 - Frequency is checked against the selected band's amateur allocation edges. These follow long-stable US Amateur Extra-class limits (47 CFR §97.301); 160m, 80/75m, 40m, and 6m allocations vary by ITU region and national authority, so always follow the narrower rules of your licence and country.
 - Callsigns are normalized to uppercase.
@@ -370,6 +370,10 @@ Press `F8` at any time to back up immediately, and every shutdown backs up autom
 - Backups are serialized: pressing `F8` again while one is already running is ignored (the status bar shows "backup already in progress…"), and the mandatory backup-on-exit waits for any backup still in flight instead of racing it. This avoids two backups writing to the same second-resolution filenames or running `VACUUM INTO` concurrently.
 
 ## Changelog
+
+### v1.3.1
+
+- Removed the Mode field from QSO entry and the header: this is a CW-only logger, so mode is always CW and no longer needs its own input. The initial entry sequence is now Call, RST Sent, RST Received, Band, then Frequency.
 
 ### v1.3.0
 
