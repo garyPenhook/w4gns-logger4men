@@ -82,6 +82,24 @@ func TestQSOEntryHeaderUsesStationProfileTimezone(t *testing.T) {
 	}
 }
 
+// TestWindowSizeMsgIsRememberedOnModel guards the mechanism saveWindowSize
+// relies on at shutdown: the terminal size from the most recent
+// tea.WindowSizeMsg must land on the model so it can be persisted.
+func TestWindowSizeMsgIsRememberedOnModel(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 132, Height: 43})
+	m = updated.(model)
+	if m.termWidth != 132 || m.termHeight != 43 {
+		t.Fatalf("termWidth/termHeight = %d/%d, want 132/43", m.termWidth, m.termHeight)
+	}
+}
+
 func TestEnterLeavingCallStartsQSOTimer(t *testing.T) {
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {

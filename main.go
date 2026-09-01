@@ -169,6 +169,13 @@ type model struct {
 	tableFocused bool
 	deleteArmed  bool
 
+	// termWidth/termHeight track the most recent tea.WindowSizeMsg so the
+	// terminal size in effect at exit can be remembered for next launch
+	// (see saveWindowSize in windowsize.go). They're 0 until the first
+	// WindowSizeMsg arrives.
+	termWidth  int
+	termHeight int
+
 	// editingQSOID is 0 while entering a new QSO, or the id of an existing
 	// QSO currently loaded into the entry/detail/contest fields for editing.
 	// editingOriginal holds that QSO's non-editable fields (start/end time,
@@ -1049,6 +1056,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	if message, ok := msg.(tea.WindowSizeMsg); ok {
+		m.termWidth, m.termHeight = message.Width, message.Height
+		return m, nil
+	}
 	if message, ok := msg.(qrzUploadMsg); ok {
 		if message.err != nil {
 			m.statusMsg = fmt.Sprintf("QRZ upload failed for %s: %v", message.call, message.err)
@@ -1887,8 +1898,10 @@ func main() {
 	}
 
 	// Every shutdown path (Esc, Ctrl+C, SIGTERM, SIGHUP, or kill -INT) routes
-	// through here, so a single backup-on-exit call covers all of them.
+	// through here, so a single backup-on-exit call (and remembering the
+	// terminal size for next launch) covers all of them.
 	if m, ok := finalModel.(model); ok {
+		saveWindowSize(m.termWidth, m.termHeight)
 		fmt.Println("backing up to Google Drive…")
 		ctx, cancel := context.WithTimeout(context.Background(), backupTimeout)
 		// runBackupSerialized (not runBackup) so this waits for, rather than

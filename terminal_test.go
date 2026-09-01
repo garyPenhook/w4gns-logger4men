@@ -13,7 +13,7 @@ func TestFindTerminalInvocationUsesPreferredTerminal(t *testing.T) {
 		}
 		return "", errors.New("not found")
 	}
-	invocation, err := findTerminalInvocation("/opt/w4gns-logger", "kitty", lookPath)
+	invocation, err := findTerminalInvocation("/opt/w4gns-logger", "kitty", "", lookPath)
 	if err != nil {
 		t.Fatalf("findTerminalInvocation returned error: %v", err)
 	}
@@ -33,7 +33,7 @@ func TestFindTerminalInvocationFallsBackToSupportedTerminal(t *testing.T) {
 		}
 		return "", errors.New("not found")
 	}
-	invocation, err := findTerminalInvocation("/opt/w4gns-logger", "unknown", lookPath)
+	invocation, err := findTerminalInvocation("/opt/w4gns-logger", "unknown", "", lookPath)
 	if err != nil {
 		t.Fatalf("findTerminalInvocation returned error: %v", err)
 	}
@@ -43,11 +43,49 @@ func TestFindTerminalInvocationFallsBackToSupportedTerminal(t *testing.T) {
 }
 
 func TestFindTerminalInvocationReportsMissingTerminal(t *testing.T) {
-	_, err := findTerminalInvocation("/opt/w4gns-logger", "", func(string) (string, error) {
+	_, err := findTerminalInvocation("/opt/w4gns-logger", "", "", func(string) (string, error) {
 		return "", errors.New("not found")
 	})
 	if err == nil {
 		t.Fatal("findTerminalInvocation succeeded, want error")
+	}
+}
+
+// TestFindTerminalInvocationAppliesGeometryToConfirmedTerminalsOnly guards
+// against passing an unconfirmed/wrong geometry flag: only xterm's
+// -geometry and gnome-terminal's --geometry were confirmed against their
+// own --help output, so a remembered size must be applied for those and
+// left out for every other emulator.
+func TestFindTerminalInvocationAppliesGeometryToConfirmedTerminalsOnly(t *testing.T) {
+	lookPath := func(name string) (string, error) {
+		return "/usr/bin/" + name, nil
+	}
+
+	invocation, err := findTerminalInvocation("/opt/w4gns-logger", "xterm", "120x40", lookPath)
+	if err != nil {
+		t.Fatalf("findTerminalInvocation returned error: %v", err)
+	}
+	wantArgs := []string{"-geometry", "120x40", "-e", "/opt/w4gns-logger", terminalChildArg}
+	if !reflect.DeepEqual(invocation.args, wantArgs) {
+		t.Errorf("xterm args = %#v, want %#v", invocation.args, wantArgs)
+	}
+
+	invocation, err = findTerminalInvocation("/opt/w4gns-logger", "gnome-terminal", "120x40", lookPath)
+	if err != nil {
+		t.Fatalf("findTerminalInvocation returned error: %v", err)
+	}
+	wantArgs = []string{"--geometry=120x40", "--", "/opt/w4gns-logger", terminalChildArg}
+	if !reflect.DeepEqual(invocation.args, wantArgs) {
+		t.Errorf("gnome-terminal args = %#v, want %#v", invocation.args, wantArgs)
+	}
+
+	invocation, err = findTerminalInvocation("/opt/w4gns-logger", "konsole", "120x40", lookPath)
+	if err != nil {
+		t.Fatalf("findTerminalInvocation returned error: %v", err)
+	}
+	wantArgs = []string{"-e", "/opt/w4gns-logger", terminalChildArg}
+	if !reflect.DeepEqual(invocation.args, wantArgs) {
+		t.Errorf("konsole args = %#v, want %#v (no unconfirmed geometry flag)", invocation.args, wantArgs)
 	}
 }
 

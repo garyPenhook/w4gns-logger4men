@@ -30,6 +30,8 @@ It opens in its own terminal window. To run it in the terminal you launched it f
 ./bin/w4gns-logger --in-current-terminal
 ```
 
+When it opens its own window, the window size from your last session is remembered and reapplied automatically — no resizing by hand every time — for `xterm` and `gnome-terminal`, the two emulators confirmed to accept a character-cell size on their command line. Other supported emulators (`konsole`, `xfce4-terminal`, `kitty`, `alacritty`, `wezterm`, `foot`) open at their own default size, since none has a confirmed equivalent flag.
+
 Your log is stored locally. If a `w4gns.db` already exists in the directory you launch from, that file keeps being used (so an existing install that always launches from one directory is unaffected); otherwise the database defaults to a stable, working-directory-independent path under `$XDG_DATA_HOME/w4gns-logger/w4gns.db` (usually `~/.local/share/w4gns-logger/w4gns.db`) — since the installed command is on `PATH` and can be launched from anywhere, a plain relative `./w4gns.db` would otherwise silently start a second, empty log if you ran it from an unfamiliar directory. Set `W4GNS_DB` to use another path explicitly. The database file (and its `-wal`/`-shm` sidecars) are kept at owner-read/write-only (`0600`) permissions, self-healing on every startup if the umask left them more permissive.
 
 ## Screens and controls
@@ -380,6 +382,10 @@ Press `F8` at any time to back up immediately, and every shutdown backs up autom
 - Backups are serialized: pressing `F8` again while one is already running is ignored (the status bar shows "backup already in progress…"), and the mandatory backup-on-exit waits for any backup still in flight instead of racing it. This avoids two backups writing to the same second-resolution filenames or running `VACUUM INTO` concurrently.
 
 ## Changelog
+
+### v1.6.0
+
+- The terminal window size is now remembered across launches (for `xterm` and `gnome-terminal`, the two emulators confirmed to support requesting a size on their command line), instead of opening at the emulator's default size and needing to be resized by hand every time.
 
 ### v1.5.0
 
