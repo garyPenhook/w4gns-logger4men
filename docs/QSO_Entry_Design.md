@@ -8,6 +8,8 @@ Keep routine CW logging fast in a small terminal while making optional QSO and c
 
 `make install` builds the executable at `bin/w4gns-logger` and creates the user-local command `~/.local/bin/w4gns-logger` as a symlink to it. Because `~/.local/bin` is on the configured Bash `PATH`, the logger can be started as `w4gns-logger` from any directory. The symlink follows every subsequent `make build` or `make install`, so it always runs the most recently rebuilt repository binary. This installation is entirely user-owned and requires no `sudo`.
 
+Persistent files use stable per-user locations so launching from another directory does not create a second log. Unless `W4GNS_DB` overrides it or an existing legacy `./w4gns.db` is found, the database lives under `$XDG_DATA_HOME/w4gns-logger/` (normally `~/.local/share/w4gns-logger/`). Configuration lives under `$XDG_CONFIG_HOME/w4gns-logger/` (normally `~/.config/w4gns-logger/`). When the application launches its own `xterm` or `gnome-terminal` window, it saves the last character-cell dimensions in the configuration directory and reapplies them at the next launch; other supported terminal emulators use their own default size because no equivalent command-line option has been confirmed. Running with `--in-current-terminal` does not create a new window.
+
 ## Pages and navigation
 
 | Key | Page | Purpose |
@@ -21,7 +23,7 @@ Keep routine CW logging fast in a small terminal while making optional QSO and c
 
 ## F1 — QSO Entry
 
-Field order is Call, RST Sent, RST Received, Band, Frequency. Band is a closed selector; `Left`/`Right` or `Up`/`Down` chooses one of the supported CW bands and supplies a valid default frequency. Frequency is entered in MHz beside Band and is validated against conservative international band edges. Operators remain responsible for their national licence, regional allocation, and band-plan limits. This page displays UTC and local time, QSO timer state, 15-minute (or contest-scoped) call-and-band dupe warning, and all prior contacts for the entered callsign. The active QSO never appears in the prior-contact list until saved.
+Field order is Call, RST Sent, RST Received, Band, Frequency. Band is a closed selector; `Left`/`Right` or `Up`/`Down` chooses one of the supported CW bands and supplies a valid default frequency. Frequency is entered in MHz beside Band and is validated against US Amateur Extra-class allocation edges. Some allocations vary by ITU region and national authority, so operators remain responsible for following the narrower limits of their licence, country, and local band plan. This page displays UTC and station-profile local time, QSO timer state, 15-minute (or contest-scoped) call-and-band dupe warning, and all prior contacts for the entered callsign. The active QSO never appears in the prior-contact list until saved.
 
 ## F9 — Browse, edit, and delete QSOs
 
