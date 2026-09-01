@@ -2194,5 +2194,1123 @@
         "schedule": "1600Z, Aug 22 to 0400Z, Aug 23"
       }
     ]
+  },
+  {
+    "id": "7QP",
+    "name": "7th Call Area QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1300Z, May 1 to 0700Z, May 2",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone, Digital (no FT8) contest \u2014 CW exchange: 7th Area: RS(T) + 5-letter state/county code non-7th Area: RS(T) + (state/province/DX)",
+    "received_exchange_hint": "CW, Phone, Digital (no FT8) contest \u2014 CW exchange: 7th Area: RS(T) + 5-letter state/county code non-7th Area: RS(T) + (state/province/DX)",
+    "dupe_scope": "call+band",
+    "rules_url": "http://7qp.org",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1300ZMay1",
+        "label": "7th Call Area QSO Party",
+        "schedule": "1300Z, May 1 to 0700Z, May 2"
+      }
+    ]
+  },
+  {
+    "id": "AL-QSO-PARTY",
+    "name": "Alabama QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1500Z, Jul 31 to 0300Z, Aug 1",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: AL: RS(T) + County non-AL: RS(T) + (state/province/country)",
+    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: AL: RS(T) + County non-AL: RS(T) + (state/province/country)",
+    "dupe_scope": "call+band",
+    "rules_url": "http://alabamacontestgroup.org/aqp/rules/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1500ZJul31",
+        "label": "Alabama QSO Party",
+        "schedule": "1500Z, Jul 31 to 0300Z, Aug 1"
+      }
+    ]
+  },
+  {
+    "id": "AZ-QSO-PARTY",
+    "name": "Arizona QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1500Z, Oct 10 to 0500Z, Oct 11",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: AZ: RS(T) + county non-AZ: RS(T) + (state/province/country)",
+    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: AZ: RS(T) + county non-AZ: RS(T) + (state/province/country)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.azqp.org/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1500ZOct10",
+        "label": "Arizona QSO Party",
+        "schedule": "1500Z, Oct 10 to 0500Z, Oct 11"
+      }
+    ]
+  },
+  {
+    "id": "AR-QSO-PARTY",
+    "name": "Arkansas QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z, May 15 to 0200Z, May 16",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M",
+      "6M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone, Digital (no FT8) contest \u2014 CW exchange: AR: RS(T) + County non-AR: RS(T) + (state/province/\"DX\")",
+    "received_exchange_hint": "CW, Phone, Digital (no FT8) contest \u2014 CW exchange: AR: RS(T) + County non-AR: RS(T) + (state/province/\"DX\")",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.arkqp.com/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400ZMay15",
+        "label": "Arkansas QSO Party",
+        "schedule": "1400Z, May 15 to 0200Z, May 16"
+      }
+    ]
+  },
+  {
+    "id": "CA-QSO-PARTY",
+    "name": "California QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1600Z, Oct 3 to 2200Z, Oct 4",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: CA: Serial No. + County non-CA: Serial No. + (state/VE province or territory/DX)",
+    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: CA: Serial No. + County non-CA: Serial No. + (state/VE province or territory/DX)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.cqp.org/Rules.html",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1600ZOct3",
+        "label": "California QSO Party",
+        "schedule": "1600Z, Oct 3 to 2200Z, Oct 4"
+      }
+    ]
+  },
+  {
+    "id": "COQP",
+    "name": "Colorado QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z, Sep 12 to 0359Z, Sep 13",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M",
+      "6M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: CO: RS(T) + county W/VE: RS(T) + (state/province) DX: RS(T) + \"DX\"",
+    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: CO: RS(T) + county W/VE: RS(T) + (state/province) DX: RS(T) + \"DX\"",
+    "dupe_scope": "call+band",
+    "rules_url": "https://coloradoqsoparty.org/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400ZSep12",
+        "label": "Colorado QSO Party",
+        "schedule": "1400Z, Sep 12 to 0359Z, Sep 13"
+      }
+    ]
+  },
+  {
+    "id": "DE-QSO-PARTY",
+    "name": "Delaware QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1700Z, May 1 to 2359Z, May 2",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "Digital(CW/RTTY/Digital), Phone contest \u2014 CW exchange: DE: RS(T) + County non-DE: RS(T) + (state/province/\"DX\")",
+    "received_exchange_hint": "Digital(CW/RTTY/Digital), Phone contest \u2014 CW exchange: DE: RS(T) + County non-DE: RS(T) + (state/province/\"DX\")",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.fsarc.org/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1700ZMay1",
+        "label": "Delaware QSO Party",
+        "schedule": "1700Z, May 1 to 2359Z, May 2"
+      }
+    ]
+  },
+  {
+    "id": "FCG-FQP",
+    "name": "Florida QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1600Z, Apr 24 to 2159Z, Apr 25",
+    "bands": [
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: FL: RS(T) + county W/VE: RS(T) + (state/province) DX: RS(T) + DXCC prefix",
+    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: FL: RS(T) + county W/VE: RS(T) + (state/province) DX: RS(T) + DXCC prefix",
+    "dupe_scope": "call+band",
+    "rules_url": "http://floridaqsoparty.org/rules/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1600ZApr24",
+        "label": "Florida QSO Party",
+        "schedule": "1600Z, Apr 24 to 2159Z, Apr 25"
+      }
+    ]
+  },
+  {
+    "id": "GA-QSO-PARTY",
+    "name": "Georgia QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1800Z, Apr 10 to 2359Z, Apr 11",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M",
+      "6M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: GA: RST + county non-GA: RST + (state/province/\"DX\")",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: GA: RST + county non-GA: RST + (state/province/\"DX\")",
+    "dupe_scope": "call+band",
+    "rules_url": "https://gaqsoparty.com/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1800ZApr10",
+        "label": "Georgia QSO Party",
+        "schedule": "1800Z, Apr 10 to 2359Z, Apr 11"
+      }
+    ]
+  },
+  {
+    "id": "ID-QSO-PARTY",
+    "name": "Idaho QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1900Z, Mar 13 to 1900Z, Mar 14",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone, Digital (no FT8) contest \u2014 CW exchange: ID: County non-ID: (state/province/country)",
+    "received_exchange_hint": "CW, Phone, Digital (no FT8) contest \u2014 CW exchange: ID: County non-ID: (state/province/country)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.idahoqsoparty.org/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1900ZMar13",
+        "label": "Idaho QSO Party",
+        "schedule": "1900Z, Mar 13 to 1900Z, Mar 14"
+      }
+    ]
+  },
+  {
+    "id": "IL-QSO-PARTY",
+    "name": "Illinois QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1700Z, Oct 18 to 0100Z, Oct 19",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M",
+      "6M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW/digital (no FT4/8), Phone contest \u2014 CW exchange: IL: RS(T) + County non-IL: RS(T) + (state/province/country)",
+    "received_exchange_hint": "CW/digital (no FT4/8), Phone contest \u2014 CW exchange: IL: RS(T) + County non-IL: RS(T) + (state/province/country)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://w9awe.org/ilqp/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1700ZOct18",
+        "label": "Illinois QSO Party",
+        "schedule": "1700Z, Oct 18 to 0100Z, Oct 19"
+      }
+    ]
+  },
+  {
+    "id": "IN-QSO-PARTY",
+    "name": "Indiana QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1600Z, May 1 to 0400Z, May 2",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "Phone, CW contest \u2014 CW exchange: IN: RS(T) + county non-IN: W/VE: RS(T) + (state/province) DX: RS(T) + \"DX\"",
+    "received_exchange_hint": "Phone, CW contest \u2014 CW exchange: IN: RS(T) + county non-IN: W/VE: RS(T) + (state/province) DX: RS(T) + \"DX\"",
+    "dupe_scope": "call+band",
+    "rules_url": "http://www.hdxcc.org/inqp/rules.html",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1600ZMay1",
+        "label": "Indiana QSO Party",
+        "schedule": "1600Z, May 1 to 0400Z, May 2"
+      }
+    ]
+  },
+  {
+    "id": "IAQP",
+    "name": "Iowa QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z, Sep 19 to 0200Z, Sep 20",
+    "bands": [
+      "60M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone, Digital contest \u2014 CW exchange: IA: RS(T) + County non-IA: RS(T) + (state/province/\"DX\")",
+    "received_exchange_hint": "CW, Phone, Digital contest \u2014 CW exchange: IA: RS(T) + County non-IA: RS(T) + (state/province/\"DX\")",
+    "dupe_scope": "call+band",
+    "rules_url": "http://www.w0yl.com/IAQP",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400ZSep19",
+        "label": "Iowa QSO Party",
+        "schedule": "1400Z, Sep 19 to 0200Z, Sep 20"
+      }
+    ]
+  },
+  {
+    "id": "KS-QSO-PARTY",
+    "name": "Kansas QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z, Aug 29 to 0200Z, Aug 30 and / 1400Z-2000Z, Aug 30",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M",
+      "6M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, SSB, Digital/RTTY contest \u2014 CW exchange: KS: RS(T) + county non-KS: RS(T) + (state/province/\"DX\")",
+    "received_exchange_hint": "CW, SSB, Digital/RTTY contest \u2014 CW exchange: KS: RS(T) + county non-KS: RS(T) + (state/province/\"DX\")",
+    "dupe_scope": "call+band",
+    "rules_url": "https://ksqsoparty.org/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400ZAug29",
+        "label": "Kansas QSO Party",
+        "schedule": "1400Z, Aug 29 to 0200Z, Aug 30 and / 1400Z-2000Z, Aug 30"
+      }
+    ]
+  },
+  {
+    "id": "KYQP",
+    "name": "Kentucky QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1300Z, Jun 5 to 0100Z, Jun 6",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M",
+      "6M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: KY: RS(T) + county non-KY: RS(T) + (state/province/\"DX\")",
+    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: KY: RS(T) + county non-KY: RS(T) + (state/province/\"DX\")",
+    "dupe_scope": "call+band",
+    "rules_url": "http://www.kyqsoparty.org/rules/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1300ZJun5",
+        "label": "Kentucky QSO Party",
+        "schedule": "1300Z, Jun 5 to 0100Z, Jun 6"
+      }
+    ]
+  },
+  {
+    "id": "LA-QSO-PARTY",
+    "name": "Louisiana QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z, Apr 3 to 0200Z, Apr 4",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M",
+      "6M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW/Digital, Phone contest \u2014 CW exchange: LA: RS(T) + Parish non-LA: RS(T) + (state/province/country)",
+    "received_exchange_hint": "CW/Digital, Phone contest \u2014 CW exchange: LA: RS(T) + Parish non-LA: RS(T) + (state/province/country)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://laqp.w5gad.org/rules",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400ZApr3",
+        "label": "Louisiana QSO Party",
+        "schedule": "1400Z, Apr 3 to 0200Z, Apr 4"
+      }
+    ]
+  },
+  {
+    "id": "ME-QSO-PARTY",
+    "name": "Maine QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1200Z, Sep 26 to 1200Z, Sep 27",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: ME: RS(T) + county non-ME: RS(T) + (state/province/\"DX\")",
+    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: ME: RS(T) + county non-ME: RS(T) + (state/province/\"DX\")",
+    "dupe_scope": "call+band",
+    "rules_url": "http://www.ws1sm.com/MEQP.html",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1200ZSep26",
+        "label": "Maine QSO Party",
+        "schedule": "1200Z, Sep 26 to 1200Z, Sep 27"
+      }
+    ]
+  },
+  {
+    "id": "MDC-QSO-PARTY",
+    "name": "Maryland-DC QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z, Aug 8 to 0400Z, Aug 9",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: MDC: county/city non-MDC: (state/province/country)",
+    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: MDC: county/city non-MDC: (state/province/country)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://w3vpr.org/wp/2025/12/21/mdc-qso-party/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400ZAug8",
+        "label": "Maryland-DC QSO Party",
+        "schedule": "1400Z, Aug 8 to 0400Z, Aug 9"
+      }
+    ]
+  },
+  {
+    "id": "MI-QSO-PARTY",
+    "name": "Michigan QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1600Z, Apr 17 to 0400Z, Apr 18",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: MI: RST + county non-MI: RST + (state/province/\"DX\")",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: MI: RST + county non-MI: RST + (state/province/\"DX\")",
+    "dupe_scope": "call+band",
+    "rules_url": "https://miqp.org/index.php/rules/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1600ZApr17",
+        "label": "Michigan QSO Party",
+        "schedule": "1600Z, Apr 17 to 0400Z, Apr 18"
+      }
+    ]
+  },
+  {
+    "id": "MN-QSO-PARTY",
+    "name": "Minnesota QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z-2400Z, Feb 6",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone (FM/SSB/AM) contest \u2014 CW exchange: MN: Name + County W/VE: Name + (state/province) DX: Name",
+    "received_exchange_hint": "CW, Phone (FM/SSB/AM) contest \u2014 CW exchange: MN: Name + County W/VE: Name + (state/province) DX: Name",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.w0aa.org/mnqp-rules/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400Z2400ZFeb6",
+        "label": "Minnesota QSO Party",
+        "schedule": "1400Z-2400Z, Feb 6"
+      }
+    ]
+  },
+  {
+    "id": "MS-QSO-PARTY",
+    "name": "Mississippi QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z, Apr 3 to 0200Z, Apr 4",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M",
+      "6M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, SSB, RTTY, FT4/8 contest \u2014 CW exchange: MS: RS(T) + county non-MS: RS(T) + (state/province/country) FT4/8: Signal report + 4-character grid square",
+    "received_exchange_hint": "CW, SSB, RTTY, FT4/8 contest \u2014 CW exchange: MS: RS(T) + county non-MS: RS(T) + (state/province/country) FT4/8: Signal report + 4-character grid square",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.arrlmiss.org/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400ZApr3",
+        "label": "Mississippi QSO Party",
+        "schedule": "1400Z, Apr 3 to 0200Z, Apr 4"
+      }
+    ]
+  },
+  {
+    "id": "MO-QSO-PARTY",
+    "name": "Missouri QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z, Apr 3 to 2000Z, Apr 4",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone, Digital contest \u2014 CW exchange: MO: RS(T) + county non-MO W/VE: RS(T) + (state/province/territory) DX: RS(T) + \"DX\"",
+    "received_exchange_hint": "CW, Phone, Digital contest \u2014 CW exchange: MO: RS(T) + county non-MO W/VE: RS(T) + (state/province/territory) DX: RS(T) + \"DX\"",
+    "dupe_scope": "call+band",
+    "rules_url": "http://www.w0ma.org/index.php/missouri-qso-party",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400ZApr3",
+        "label": "Missouri QSO Party",
+        "schedule": "1400Z, Apr 3 to 2000Z, Apr 4"
+      }
+    ]
+  },
+  {
+    "id": "NEQP",
+    "name": "New England QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "2000Z, May 1 to 2400Z, May 2",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "Phone, CW/Digital contest \u2014 CW exchange: CT,ME,MA,NH,RI,VT: RS(T) + state + county non-NE: RS(T) + (state/province/\"DX\")",
+    "received_exchange_hint": "Phone, CW/Digital contest \u2014 CW exchange: CT,ME,MA,NH,RI,VT: RS(T) + state + county non-NE: RS(T) + (state/province/\"DX\")",
+    "dupe_scope": "call+band",
+    "rules_url": "https://neqp.org/rules/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "2000ZMay1",
+        "label": "New England QSO Party",
+        "schedule": "2000Z, May 1 to 2400Z, May 2"
+      }
+    ]
+  },
+  {
+    "id": "NH-QSO-PARTY",
+    "name": "New Hampshire QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1600Z, Sep 19 to 0400Z, Sep 20 and / 1200Z-2200Z, Sep 20",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone, Digital contest \u2014 CW exchange: NH: RS(T) + county non-NH W/VE: RS(T) + (state/province) DX: RS(T) + \"DX\"",
+    "received_exchange_hint": "CW, Phone, Digital contest \u2014 CW exchange: NH: RS(T) + county non-NH W/VE: RS(T) + (state/province) DX: RS(T) + \"DX\"",
+    "dupe_scope": "call+band",
+    "rules_url": "https://w1wqm.org/wp-content/uploads/2026/08/NHQP_Rules.pdf",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1600ZSep19",
+        "label": "New Hampshire QSO Party",
+        "schedule": "1600Z, Sep 19 to 0400Z, Sep 20 and / 1200Z-2200Z, Sep 20"
+      }
+    ]
+  },
+  {
+    "id": "NJQP",
+    "name": "New Jersey QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z, Sep 12 to 0200Z, Sep 13",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone, Digital contest \u2014 CW exchange: NJ: RS(T) + county non-NJ: RS(T) + (state/province/\"DX\")",
+    "received_exchange_hint": "CW, Phone, Digital contest \u2014 CW exchange: NJ: RS(T) + county non-NJ: RS(T) + (state/province/\"DX\")",
+    "dupe_scope": "call+band",
+    "rules_url": "https://sites.google.com/view/k2td-bcrc/nj-qp/rules",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400ZSep12",
+        "label": "New Jersey QSO Party",
+        "schedule": "1400Z, Sep 12 to 0200Z, Sep 13"
+      }
+    ]
+  },
+  {
+    "id": "NM-QSO-PARTY",
+    "name": "New Mexico QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z, Apr 10 to 0200Z, Apr 11",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M",
+      "6M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone, Digital contest \u2014 CW exchange: NM: RS(T) + county non-NM: RS(T) + (state/province/country)",
+    "received_exchange_hint": "CW, Phone, Digital contest \u2014 CW exchange: NM: RS(T) + county non-NM: RS(T) + (state/province/country)",
+    "dupe_scope": "call+band",
+    "rules_url": "http://www.newmexicoqsoparty.org/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400ZApr10",
+        "label": "New Mexico QSO Party",
+        "schedule": "1400Z, Apr 10 to 0200Z, Apr 11"
+      }
+    ]
+  },
+  {
+    "id": "NY-QSO-PARTY",
+    "name": "New York QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z, Oct 17 to 0200Z, Oct 18",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, SSB, Digital contest \u2014 CW exchange: NY: RS(T) + county non-NY: RS(T) + (state/province/\"DX\")",
+    "received_exchange_hint": "CW, SSB, Digital contest \u2014 CW exchange: NY: RS(T) + county non-NY: RS(T) + (state/province/\"DX\")",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.nyqp.org/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400ZOct17",
+        "label": "New York QSO Party",
+        "schedule": "1400Z, Oct 17 to 0200Z, Oct 18"
+      }
+    ]
+  },
+  {
+    "id": "NC-QSO-PARTY",
+    "name": "North Carolina QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1500Z, Feb 28 to 0100Z, Mar 1",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M",
+      "6M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone, Digital (FT4/8 see rules) contest \u2014 CW exchange: NC: County non-NC: (state/province/\"DX\")",
+    "received_exchange_hint": "CW, Phone, Digital (FT4/8 see rules) contest \u2014 CW exchange: NC: County non-NC: (state/province/\"DX\")",
+    "dupe_scope": "call+band",
+    "rules_url": "http://ncqsoparty.org/rules/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1500ZFeb28",
+        "label": "North Carolina QSO Party",
+        "schedule": "1500Z, Feb 28 to 0100Z, Mar 1"
+      }
+    ]
+  },
+  {
+    "id": "OK-QSO-PARTY",
+    "name": "Oklahoma QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z, Mar 13 to 2200Z, Mar 14",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M",
+      "6M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone, Digital (no FT8/4) contest \u2014 CW exchange: OK: RS(T) + County non-OK: RS(T) + (state/province/country)",
+    "received_exchange_hint": "CW, Phone, Digital (no FT8/4) contest \u2014 CW exchange: OK: RS(T) + County non-OK: RS(T) + (state/province/country)",
+    "dupe_scope": "call+band",
+    "rules_url": "http://k5cm.com/okqp.htm",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400ZMar13",
+        "label": "Oklahoma QSO Party",
+        "schedule": "1400Z, Mar 13 to 2200Z, Mar 14"
+      }
+    ]
+  },
+  {
+    "id": "PA-QSO-PARTY",
+    "name": "Pennsylvania QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1600Z, Oct 10 to 0400Z, Oct 11 and / 1300Z-2200Z, Oct 11",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: PA: Serial No. + County non-PA: Serial No. + ARRL/RAC Section",
+    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: PA: Serial No. + County non-PA: Serial No. + ARRL/RAC Section",
+    "dupe_scope": "call+band",
+    "rules_url": "http://paqso.org/pa-qso-party-rules.html",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1600ZOct10",
+        "label": "Pennsylvania QSO Party",
+        "schedule": "1600Z, Oct 10 to 0400Z, Oct 11 and / 1300Z-2200Z, Oct 11"
+      }
+    ]
+  },
+  {
+    "id": "SC-QSO-PARTY",
+    "name": "South Carolina QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1500Z, Feb 27 to 0159Z, Feb 28",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M",
+      "6M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Digital, Phone contest \u2014 CW exchange: SC: RS(T) + County non-SC: RS(T) + (state/province/\"DX\")",
+    "received_exchange_hint": "CW, Digital, Phone contest \u2014 CW exchange: SC: RS(T) + County non-SC: RS(T) + (state/province/\"DX\")",
+    "dupe_scope": "call+band",
+    "rules_url": "http://scqso.com/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1500ZFeb27",
+        "label": "South Carolina QSO Party",
+        "schedule": "1500Z, Feb 27 to 0159Z, Feb 28"
+      }
+    ]
+  },
+  {
+    "id": "SDQSOP",
+    "name": "South Dakota QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1800Z, Oct 10 to 1800Z, Oct 11",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M",
+      "6M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: SD: RS(T) + county non-SD: RS(T) + (state/province/country)",
+    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: SD: RS(T) + county non-SD: RS(T) + (state/province/country)",
+    "dupe_scope": "call+band",
+    "rules_url": "http://www.sdqsoparty.com",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1800ZOct10",
+        "label": "South Dakota QSO Party",
+        "schedule": "1800Z, Oct 10 to 1800Z, Oct 11"
+      }
+    ]
+  },
+  {
+    "id": "TXQP",
+    "name": "Texas QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z, Sep 19 to 0200Z, Sep 20 and / 1400Z-2000Z, Sep 20",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "All contest \u2014 CW exchange: TX: RS(T) + County non-TX: RS(T) + (state/province/country/MM region)",
+    "received_exchange_hint": "All contest \u2014 CW exchange: TX: RS(T) + County non-TX: RS(T) + (state/province/country/MM region)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.txqp.net/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400ZSep19",
+        "label": "Texas QSO Party",
+        "schedule": "1400Z, Sep 19 to 0200Z, Sep 20 and / 1400Z-2000Z, Sep 20"
+      }
+    ]
+  },
+  {
+    "id": "VT-QSO-PARTY",
+    "name": "Vermont QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "0000Z, Feb 6 to 2400Z, Feb 7",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "All (see rules for FT8 guidance) contest \u2014 CW exchange: VT: RS(T) + County non-VT W/VE: RS(T) + (state/province) DX: RS(T)",
+    "received_exchange_hint": "All (see rules for FT8 guidance) contest \u2014 CW exchange: VT: RS(T) + County non-VT W/VE: RS(T) + (state/province) DX: RS(T)",
+    "dupe_scope": "call+band",
+    "rules_url": "http://www.ranv.org/vtqso.html",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0000ZFeb6",
+        "label": "Vermont QSO Party",
+        "schedule": "0000Z, Feb 6 to 2400Z, Feb 7"
+      }
+    ]
+  },
+  {
+    "id": "VA-QSO-PARTY",
+    "name": "Virginia QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z, Mar 20 to 2400Z, Mar 21",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone, Digital contest \u2014 CW exchange: VA: Serial No. + county non-VA: Serial No. + (state/province/\"DX\")",
+    "received_exchange_hint": "CW, Phone, Digital contest \u2014 CW exchange: VA: Serial No. + county non-VA: Serial No. + (state/province/\"DX\")",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.qsl.net/sterling/VA_QSO_Party/2026_VQP/2026_VQP_Main.html",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400ZMar20",
+        "label": "Virginia QSO Party",
+        "schedule": "1400Z, Mar 20 to 2400Z, Mar 21"
+      }
+    ]
+  },
+  {
+    "id": "WA-SALMON-RUN",
+    "name": "Washington State Salmon Run",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1600Z, Sep 19 to 0700Z, Sep 20 and / 1600Z-2400Z, Sep 20",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M",
+      "6M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: WA: RS(T) + County non-WA: RS(T) + (state/province/country)",
+    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: WA: RS(T) + County non-WA: RS(T) + (state/province/country)",
+    "dupe_scope": "call+band",
+    "rules_url": "http://salmonrun.wwdxc.org/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1600ZSep19",
+        "label": "Washington State Salmon Run",
+        "schedule": "1600Z, Sep 19 to 0700Z, Sep 20 and / 1600Z-2400Z, Sep 20"
+      }
+    ]
+  },
+  {
+    "id": "WVQP",
+    "name": "West Virginia QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1600Z, Jun 19 to 0400Z, Jun 20",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, SSB, Digital contest \u2014 CW exchange: WV: RS(T) + county non-WV: RS(T) + (state/province/country)",
+    "received_exchange_hint": "CW, SSB, Digital contest \u2014 CW exchange: WV: RS(T) + county non-WV: RS(T) + (state/province/country)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.qsl.net/wvqp/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1600ZJun19",
+        "label": "West Virginia QSO Party",
+        "schedule": "1600Z, Jun 19 to 0400Z, Jun 20"
+      }
+    ]
+  },
+  {
+    "id": "WIQP",
+    "name": "Wisconsin QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1800Z, Mar 14 to 0100Z, Mar 15",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone, Digital (no FT4/8) contest \u2014 CW exchange: WI: county non-WI: (state/province/country)",
+    "received_exchange_hint": "CW, Phone, Digital (no FT4/8) contest \u2014 CW exchange: WI: county non-WI: (state/province/country)",
+    "dupe_scope": "call+band",
+    "rules_url": "http://www.warac.org/wqp/wqp.htm",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1800ZMar14",
+        "label": "Wisconsin QSO Party",
+        "schedule": "1800Z, Mar 14 to 0100Z, Mar 15"
+      }
+    ]
+  },
+  {
+    "id": "ISLAND-QSO-PARTY",
+    "name": "U.S. Islands QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1200Z, Aug 29 to 0300Z, Aug 30",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M",
+      "6M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone, Digital contest \u2014 CW exchange: Islands: RS(T) + State or USI Island Designation (see rules for digital) Non-Islands: RS(T) + USI Island Designation (see rules for digital)",
+    "received_exchange_hint": "CW, Phone, Digital contest \u2014 CW exchange: Islands: RS(T) + State or USI Island Designation (see rules for digital) Non-Islands: RS(T) + USI Island Designation (see rules for digital)",
+    "dupe_scope": "call+band",
+    "rules_url": "http://usislands.org/qso-party-rules/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1200ZAug29",
+        "label": "U.S. Islands QSO Party",
+        "schedule": "1200Z, Aug 29 to 0300Z, Aug 30"
+      }
+    ]
+  },
+  {
+    "id": "CQP",
+    "name": "Collegiate QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "0000Z, Oct 4 to 2359Z, Oct 5",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone, Digital contest \u2014 CW exchange: Collegiate: School Identifier + RS(T) Individual: State/Province/DX Entity + RS(T)",
+    "received_exchange_hint": "CW, Phone, Digital contest \u2014 CW exchange: Collegiate: School Identifier + RS(T) Individual: State/Province/DX Entity + RS(T)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://collegiateqsoparty.com",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0000ZOct4",
+        "label": "Collegiate QSO Party",
+        "schedule": "0000Z, Oct 4 to 2359Z, Oct 5"
+      }
+    ]
   }
 ]
