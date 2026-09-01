@@ -14,15 +14,23 @@ import (
 //go:embed data/cty.dat
 var ctyDatFS embed.FS
 
+//go:embed data/arrl_dxcc.dat
+var arrlDXCCFS embed.FS
+
 // dxccEntity is the country/zone/continent context resolved from a callsign
-// prefix via the bundled cty.dat table. It intentionally omits the ARRL/ADIF
-// numeric DXCC entity code: the shipped cty.dat has no reliable mapping to
-// that code, and guessing one would be worse than leaving it blank.
+// prefix via the bundled cty.dat table, plus the numeric ARRL/ADIF DXCC
+// entity code cross-referenced from data/arrl_dxcc.dat by primary callsign
+// prefix (see loadARRLDXCCNumbers). DXCCNumber is 0 when cty.dat's primary
+// prefix has no corresponding ARRL entry — either a cty.dat entity ARRL
+// doesn't count as a separate DXCC entity (its primary prefix starts with
+// "*"), or lookup() resolved via a non-primary alias whose entity wasn't
+// cross-referenced. A zero value is left as-is rather than guessed.
 type dxccEntity struct {
-	Country   string
-	CQZone    int
-	ITUZone   int
-	Continent string
+	Country    string
+	CQZone     int
+	ITUZone    int
+	Continent  string
+	DXCCNumber int
 }
 
 type dxccAlias struct {
@@ -53,6 +61,10 @@ func loadDXCCTable() (*dxccTable, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read embedded cty.dat: %w", err)
 	}
+	dxccNumbers, err := loadARRLDXCCNumbers()
+	if err != nil {
+		return nil, err
+	}
 	table := &dxccTable{}
 	scanner := bufio.NewScanner(bytes.NewReader(data))
 	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
@@ -79,7 +91,7 @@ func loadDXCCTable() (*dxccTable, error) {
 			if err := flush(); err != nil {
 				return nil, err
 			}
-			entity, err := parseCtyHeader(line)
+			entity, err := parseCtyHeader(line, dxccNumbers)
 			if err != nil {
 				return nil, err
 			}
@@ -101,10 +113,41 @@ func loadDXCCTable() (*dxccTable, error) {
 	return table, nil
 }
 
+// loadARRLDXCCNumbers parses the embedded data/arrl_dxcc.dat table (see that
+// file's header comment for provenance and matching methodology) into a map
+// from cty.dat primary prefix to ARRL/ADIF DXCC entity number.
+func loadARRLDXCCNumbers() (map[string]int, error) {
+	data, err := arrlDXCCFS.ReadFile("data/arrl_dxcc.dat")
+	if err != nil {
+		return nil, fmt.Errorf("read embedded arrl_dxcc.dat: %w", err)
+	}
+	numbers := make(map[string]int)
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.TrimSpace(line) == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		fields := strings.Split(line, "\t")
+		if len(fields) < 2 {
+			return nil, fmt.Errorf("malformed arrl_dxcc.dat line %q", line)
+		}
+		number, err := strconv.Atoi(strings.TrimSpace(fields[1]))
+		if err != nil {
+			return nil, fmt.Errorf("malformed DXCC number in %q: %w", line, err)
+		}
+		numbers[fields[0]] = number
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("scan arrl_dxcc.dat: %w", err)
+	}
+	return numbers, nil
+}
+
 // parseCtyHeader reads the fixed 8 colon-separated fields of a cty.dat entry
 // header: Name, CQ zone, ITU zone, continent, lat, long, UTC offset, primary
 // prefix (with a trailing colon).
-func parseCtyHeader(line string) (dxccEntity, error) {
+func parseCtyHeader(line string, dxccNumbers map[string]int) (dxccEntity, error) {
 	fields := strings.Split(line, ":")
 	if len(fields) < 8 {
 		return dxccEntity{}, fmt.Errorf("malformed cty.dat header %q", line)
@@ -117,11 +160,13 @@ func parseCtyHeader(line string) (dxccEntity, error) {
 	if err != nil {
 		return dxccEntity{}, fmt.Errorf("malformed ITU zone in %q: %w", line, err)
 	}
+	primaryPrefix := strings.TrimSpace(fields[7])
 	return dxccEntity{
-		Country:   strings.TrimSpace(fields[0]),
-		CQZone:    cqZone,
-		ITUZone:   ituZone,
-		Continent: strings.ToUpper(strings.TrimSpace(fields[3])),
+		Country:    strings.TrimSpace(fields[0]),
+		CQZone:     cqZone,
+		ITUZone:    ituZone,
+		Continent:  strings.ToUpper(strings.TrimSpace(fields[3])),
+		DXCCNumber: dxccNumbers[primaryPrefix],
 	}, nil
 }
 

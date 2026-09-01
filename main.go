@@ -112,30 +112,31 @@ var fieldLabels = [fieldCount]string{
 }
 
 type qso struct {
-	call      string
-	band      string
-	mode      string
-	rstSent   string
-	rstRcvd   string
-	exchange  string
-	frequency string
-	name      string
-	qth       string
-	grid      string
-	state     string
-	country   string
-	cqZone    string
-	ituZone   string
-	comment   string
-	potaRef   string
-	contestID string
-	stx       string
-	stxString string
-	srx       string
-	srxString string
-	time      time.Time // QSO start time (UTC)
-	timeOff   time.Time // QSO end time (UTC)
-	profileID int64
+	call       string
+	band       string
+	mode       string
+	rstSent    string
+	rstRcvd    string
+	exchange   string
+	frequency  string
+	name       string
+	qth        string
+	grid       string
+	state      string
+	country    string
+	cqZone     string
+	ituZone    string
+	dxccNumber string
+	comment    string
+	potaRef    string
+	contestID  string
+	stx        string
+	stxString  string
+	srx        string
+	srxString  string
+	time       time.Time // QSO start time (UTC)
+	timeOff    time.Time // QSO end time (UTC)
+	profileID  int64
 
 	// Station-identity snapshot taken from the active profile at log time, so
 	// later edits to the station profile never rewrite the operating context

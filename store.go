@@ -275,28 +275,35 @@ func validTimezoneIdentifier(timezone string) string {
 	return ""
 }
 
-// dxccContext resolves the worked station's country/CQ-zone/ITU-zone from
-// the embedded cty.dat, best-effort. A lookup miss (or a cty.dat load
-// failure, which should not happen with the embedded copy) simply leaves
-// these fields blank rather than failing the QSO.
-func dxccContext(call string) (country string, cqZone, ituZone any) {
+// dxccContext resolves the worked station's country/CQ-zone/ITU-zone/DXCC
+// entity number from the embedded cty.dat and ARRL DXCC list, best-effort. A
+// lookup miss (or a cty.dat load failure, which should not happen with the
+// embedded copy) simply leaves these fields blank rather than failing the
+// QSO. dxccNumber is nil both on a lookup miss and when the resolved entity
+// has no known ARRL DXCC number (DXCCNumber == 0, e.g. an entity ARRL
+// doesn't count as separate from its parent — see dxccEntity's doc comment).
+func dxccContext(call string) (country string, cqZone, ituZone, dxccNumber any) {
 	table, err := sharedDXCCTable()
 	if err != nil {
-		return "", nil, nil
+		return "", nil, nil, nil
 	}
 	entity, ok := table.lookup(call)
 	if !ok {
-		return "", nil, nil
+		return "", nil, nil, nil
 	}
-	return entity.Country, entity.CQZone, entity.ITUZone
+	if entity.DXCCNumber != 0 {
+		dxccNumber = entity.DXCCNumber
+	}
+	return entity.Country, entity.CQZone, entity.ITUZone, dxccNumber
 }
 
-// resolveDXCC returns the country/CQ-zone/ITU-zone to persist for q,
-// preferring values already present on q (e.g. parsed from an imported ADIF
-// record's COUNTRY/CQZ/ITUZ fields) over a fresh cty.dat lookup, so accurate
-// imported data isn't silently overwritten by a local guess.
-func resolveDXCC(q qso) (country string, cqZone, ituZone any) {
-	country, cqZone, ituZone = dxccContext(q.call)
+// resolveDXCC returns the country/CQ-zone/ITU-zone/DXCC-number to persist
+// for q, preferring values already present on q (e.g. parsed from an
+// imported ADIF record's COUNTRY/CQZ/ITUZ/DXCC fields) over a fresh cty.dat
+// lookup, so accurate imported data isn't silently overwritten by a local
+// guess.
+func resolveDXCC(q qso) (country string, cqZone, ituZone, dxccNumber any) {
+	country, cqZone, ituZone, dxccNumber = dxccContext(q.call)
 	if c := strings.TrimSpace(q.country); c != "" {
 		country = c
 	}
@@ -310,7 +317,12 @@ func resolveDXCC(q qso) (country string, cqZone, ituZone any) {
 			ituZone = n
 		}
 	}
-	return country, cqZone, ituZone
+	if z := strings.TrimSpace(q.dxccNumber); z != "" {
+		if n, err := strconv.Atoi(z); err == nil {
+			dxccNumber = n
+		}
+	}
+	return country, cqZone, ituZone, dxccNumber
 }
 
 // insertQSO writes a general (non-contest) QSO and returns its id.
@@ -320,10 +332,10 @@ func (s *store) insertQSO(q qso) (int64, error) {
 	}
 	utcTime := q.time.UTC()
 	utcTimeOff := q.timeOff.UTC()
-	country, cqZone, ituZone := resolveDXCC(q)
+	country, cqZone, ituZone, dxccNumber := resolveDXCC(q)
 	res, err := s.db.Exec(
-		`INSERT INTO qso (call, qso_date, time_on, qso_date_off, time_off, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, country, cqz, ituz, sig, sig_info, comment, contest_id, stx, stx_string, srx, srx_string, profile_id, my_gridsquare, station_callsign, operator_name, my_rig, my_antenna, tx_pwr)
-			 VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO qso (call, qso_date, time_on, qso_date_off, time_off, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, country, dxcc, cqz, ituz, sig, sig_info, comment, contest_id, stx, stx_string, srx, srx_string, profile_id, my_gridsquare, station_callsign, operator_name, my_rig, my_antenna, tx_pwr)
+			 VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		q.call,
 		utcTime.Format("20060102"),
 		utcTime.Format("150405"),
@@ -339,6 +351,7 @@ func (s *store) insertQSO(q qso) (int64, error) {
 		q.grid,
 		q.state,
 		country,
+		dxccNumber,
 		cqZone,
 		ituZone,
 		potaSignal(q.potaRef),
@@ -406,8 +419,8 @@ func (s *store) insertQSOChunk(ctx context.Context, qsos []qso) (int, error) {
 		return 0, fmt.Errorf("prepare import dupe check: %w", err)
 	}
 	defer existsStatement.Close()
-	statement, err := tx.PrepareContext(ctx, `INSERT INTO qso (call, qso_date, time_on, qso_date_off, time_off, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, country, cqz, ituz, sig, sig_info, comment, contest_id, stx, stx_string, srx, srx_string, profile_id, my_gridsquare, station_callsign, operator_name, my_rig, my_antenna, tx_pwr)
-		VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	statement, err := tx.PrepareContext(ctx, `INSERT INTO qso (call, qso_date, time_on, qso_date_off, time_off, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, country, dxcc, cqz, ituz, sig, sig_info, comment, contest_id, stx, stx_string, srx, srx_string, profile_id, my_gridsquare, station_callsign, operator_name, my_rig, my_antenna, tx_pwr)
+		VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return 0, fmt.Errorf("prepare import insert: %w", err)
 	}
@@ -423,8 +436,8 @@ func (s *store) insertQSOChunk(ctx context.Context, qsos []qso) (int, error) {
 		case err != sql.ErrNoRows:
 			return inserted, fmt.Errorf("check existing record %d: %w", index+1, err)
 		}
-		country, cqZone, ituZone := resolveDXCC(q)
-		if _, err := statement.ExecContext(ctx, q.call, qsoDate, timeOn, end.Format("20060102"), end.Format("150405"), q.band, q.frequency, q.mode, q.rstSent, q.rstRcvd, q.name, q.qth, q.grid, q.state, country, cqZone, ituZone, potaSignal(q.potaRef), q.potaRef, q.comment, q.contestID, q.stx, q.stxString, q.srx, q.srxString, q.profileID, q.myGridSquare, q.stationCallsign, q.operatorName, q.myRig, q.myAntenna, q.txPower); err != nil {
+		country, cqZone, ituZone, dxccNumber := resolveDXCC(q)
+		if _, err := statement.ExecContext(ctx, q.call, qsoDate, timeOn, end.Format("20060102"), end.Format("150405"), q.band, q.frequency, q.mode, q.rstSent, q.rstRcvd, q.name, q.qth, q.grid, q.state, country, dxccNumber, cqZone, ituZone, potaSignal(q.potaRef), q.potaRef, q.comment, q.contestID, q.stx, q.stxString, q.srx, q.srxString, q.profileID, q.myGridSquare, q.stationCallsign, q.operatorName, q.myRig, q.myAntenna, q.txPower); err != nil {
 			return inserted, fmt.Errorf("insert record %d: %w", index+1, err)
 		}
 		inserted++

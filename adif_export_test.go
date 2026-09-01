@@ -106,6 +106,19 @@ func TestAdifQSOFieldsExportsStationSnapshot(t *testing.T) {
 	}
 }
 
+// TestAdifQSOFieldsExportsDXCCNumber guards the numeric ADIF DXCC field,
+// cross-referenced from the ARRL DXCC List (data/arrl_dxcc.dat) rather than
+// guessed from the bundled cty.dat alone (which has no reliable mapping to
+// that code on its own).
+func TestAdifQSOFieldsExportsDXCCNumber(t *testing.T) {
+	q := validTestQSO()
+	q.dxccNumber = "291"
+	fields := adifQSOFields(q)
+	if value, ok := fieldValue(fields, "DXCC"); !ok || value != "291" {
+		t.Errorf("DXCC = %q, ok=%v, want %q", value, ok, "291")
+	}
+}
+
 func TestAdifContestIDMapsCWTAndCWOpenToStandardIDs(t *testing.T) {
 	cases := map[string]string{
 		"CWT-1900":      "CWOPS-CWT",

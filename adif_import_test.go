@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"testing"
@@ -81,20 +82,27 @@ func TestExportADIFRoundTripPreservesQSOFields(t *testing.T) {
 	}
 	var got qso
 	var date, timeOn, dateOff, timeOff string
-	err = destination.db.QueryRow(`SELECT call, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, sig_info, comment, contest_id, stx, stx_string, srx, srx_string, qso_date, time_on, qso_date_off, time_off FROM qso`).Scan(
-		&got.call, &got.band, &got.frequency, &got.mode, &got.rstSent, &got.rstRcvd, &got.name, &got.qth, &got.grid, &got.state, &got.potaRef, &got.comment, &got.contestID, &got.stx, &got.stxString, &got.srx, &got.srxString, &date, &timeOn, &dateOff, &timeOff,
+	var dxcc sql.NullString
+	err = destination.db.QueryRow(`SELECT call, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, CAST(dxcc AS TEXT), sig_info, comment, contest_id, stx, stx_string, srx, srx_string, qso_date, time_on, qso_date_off, time_off FROM qso`).Scan(
+		&got.call, &got.band, &got.frequency, &got.mode, &got.rstSent, &got.rstRcvd, &got.name, &got.qth, &got.grid, &got.state, &dxcc, &got.potaRef, &got.comment, &got.contestID, &got.stx, &got.stxString, &got.srx, &got.srxString, &date, &timeOn, &dateOff, &timeOff,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
+	got.dxccNumber = dxcc.String
 	got.time, _ = time.Parse("20060102150405", date+timeOn)
 	got.timeOff, _ = time.Parse("20060102150405", dateOff+timeOff)
 	got.profileID = destinationProfile.ID
 	// name is expected to come back transliterated ("Jose", not "José"): ADI
 	// export cannot round-trip non-ASCII losslessly under the ADIF 3.1.7
 	// ASCII-only String rule, so this is intentional lossy behavior, not a bug.
+	// dxccNumber is expected to come back populated (291, United States) even
+	// though the source q didn't set it explicitly: insertQSO resolves it
+	// automatically from the callsign, and that resolved value round-trips
+	// through the DXCC ADIF field on export/import.
 	want := q
 	want.name = "Jose"
+	want.dxccNumber = "291"
 	if got != want {
 		t.Fatalf("round-trip QSO = %#v, want %#v", got, want)
 	}

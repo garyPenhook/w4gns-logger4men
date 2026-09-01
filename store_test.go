@@ -210,8 +210,8 @@ func TestInsertQSOBatchSkipsExactDuplicatesOnReimport(t *testing.T) {
 
 func TestResolveDXCCPrefersImportedValues(t *testing.T) {
 	q := validTestQSO() // call = W1AW, resolvable via the embedded cty.dat
-	q.country, q.cqZone, q.ituZone = "Imported Land", "5", "9"
-	country, cqZone, ituZone := resolveDXCC(q)
+	q.country, q.cqZone, q.ituZone, q.dxccNumber = "Imported Land", "5", "9", "777"
+	country, cqZone, ituZone, dxccNumber := resolveDXCC(q)
 	if country != "Imported Land" {
 		t.Errorf("country = %q, want %q (imported value should win over cty.dat lookup)", country, "Imported Land")
 	}
@@ -221,13 +221,19 @@ func TestResolveDXCCPrefersImportedValues(t *testing.T) {
 	if ituZone != 9 {
 		t.Errorf("ituZone = %v, want 9", ituZone)
 	}
+	if dxccNumber != 777 {
+		t.Errorf("dxccNumber = %v, want 777", dxccNumber)
+	}
 }
 
 func TestResolveDXCCFallsBackToLookupWhenNotImported(t *testing.T) {
 	q := validTestQSO() // call = W1AW, resolvable via the embedded cty.dat
-	country, _, _ := resolveDXCC(q)
+	country, _, _, dxccNumber := resolveDXCC(q)
 	if country == "" {
 		t.Error("resolveDXCC() country is empty, want a cty.dat lookup result when q.country is blank")
+	}
+	if dxccNumber != 291 {
+		t.Errorf("dxccNumber = %v, want 291 (United States, resolved from the embedded ARRL DXCC table)", dxccNumber)
 	}
 }
 
