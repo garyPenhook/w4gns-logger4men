@@ -16,7 +16,11 @@ type clusterFilters struct {
 	DEITUZone   string
 	DECQZone    string
 	DEContinent string
-	Bands       map[string]bool
+	// DECallArea is a comma-separated list of call-area digits (e.g. "2,3,4")
+	// matched against the spotting station's own callsign, not the DXCC
+	// table — call areas aren't part of the cty.dat entity data.
+	DECallArea string
+	Bands      map[string]bool
 }
 
 func defaultClusterFilters() clusterFilters {
@@ -48,6 +52,70 @@ func (f clusterFilters) allowsSpot(spot clusterSpot) bool {
 	}
 	if !f.matchesEntityFilters(spot.Spotter, f.DECC, f.DEITUZone, f.DECQZone, f.DEContinent) {
 		return false
+	}
+	if !matchesCallArea(spot.Spotter, f.DECallArea) {
+		return false
+	}
+	return true
+}
+
+// matchesCallArea reports whether call's call-area digit is one of the
+// comma-separated digits in areas. A blank areas filter always matches.
+// When areas is set but no call-area digit can be found in call, the spot
+// is rejected rather than let through unfiltered.
+func matchesCallArea(call, areas string) bool {
+	areas = strings.TrimSpace(areas)
+	if areas == "" {
+		return true
+	}
+	digit, ok := callAreaDigit(call)
+	if !ok {
+		return false
+	}
+	for _, want := range strings.Split(areas, ",") {
+		want = strings.TrimSpace(want)
+		if len(want) == 1 && want[0] == digit {
+			return true
+		}
+	}
+	return false
+}
+
+// callAreaDigit extracts the call-area digit from a callsign. A portable
+// suffix that is purely numeric (e.g. "W1AW/4") overrides the base call's
+// own digit, matching standard amateur radio portable-operation notation.
+// Otherwise it returns the first digit found in the (longest, if the call
+// has slash segments) base callsign.
+func callAreaDigit(call string) (byte, bool) {
+	call = strings.ToUpper(strings.TrimSpace(call))
+	if call == "" {
+		return 0, false
+	}
+	parts := strings.Split(call, "/")
+	for _, part := range parts {
+		if part != "" && isAllDigits(part) {
+			return part[len(part)-1], true
+		}
+	}
+	base := parts[0]
+	for _, part := range parts[1:] {
+		if len(part) > len(base) {
+			base = part
+		}
+	}
+	for i := 0; i < len(base); i++ {
+		if base[i] >= '0' && base[i] <= '9' {
+			return base[i], true
+		}
+	}
+	return 0, false
+}
+
+func isAllDigits(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
 	}
 	return true
 }

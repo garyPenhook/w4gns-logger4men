@@ -70,6 +70,25 @@ func TestClusterFiltersRejectUnresolvableCallWhenFilterActive(t *testing.T) {
 	}
 }
 
+func TestClusterFiltersMatchDECallAreaFilter(t *testing.T) {
+	filters := defaultClusterFilters()
+	filters.DECallArea = "2, 3, 4"
+	if !filters.allowsSpot(clusterSpot{Frequency: "14025.0", Callsign: "W4GNS", Spotter: "K3ABC"}) {
+		t.Fatal("call-area-3 spotter should pass a 2/3/4 DE call area filter")
+	}
+	if filters.allowsSpot(clusterSpot{Frequency: "14025.0", Callsign: "W4GNS", Spotter: "W1AW"}) {
+		t.Fatal("call-area-1 spotter should be rejected by a 2/3/4 DE call area filter")
+	}
+	// Portable notation: the numeric slash segment overrides the base call's
+	// own digit, so W1AW/4 is treated as operating from call area 4.
+	if !filters.allowsSpot(clusterSpot{Frequency: "14025.0", Callsign: "W4GNS", Spotter: "W1AW/4"}) {
+		t.Fatal("W1AW/4 should pass a 2/3/4 DE call area filter via its portable override")
+	}
+	if filters.allowsSpot(clusterSpot{Frequency: "14025.0", Callsign: "W4GNS", Spotter: ""}) {
+		t.Fatal("spot with an unresolvable spotter callsign should be rejected while a DE call area filter is active")
+	}
+}
+
 func TestClusterFiltersMatchZoneFilters(t *testing.T) {
 	filters := defaultClusterFilters()
 	filters.DXITUZone = "8"

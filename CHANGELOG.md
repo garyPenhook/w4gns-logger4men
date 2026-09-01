@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.7.0
+
+- Added a **DE Call Area** cluster filter: enter comma-separated digits (e.g. `2,3,4`) to only show spots from spotting stations in those US call areas. Matched directly against the spotter's callsign (including portable overrides like `W1AW/4`), independent of the existing country/ITU/CQ/continent filters.
+
 ### v1.6.0
 
 - The terminal window size is now remembered across launches (for `xterm` and `gnome-terminal`, the two emulators confirmed to support requesting a size on their command line), instead of opening at the emulator's default size and needing to be resized by hand every time.

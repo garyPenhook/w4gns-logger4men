@@ -324,6 +324,7 @@ Press `F3` to open the DX Cluster screen and connect to K3LR automatically when 
 Press `F4` to open Cluster Filters.
 
 - DX (the worked/spotted station) and DE (the spotting station) criteria are available for country, ITU zone, CQ zone, and continent. Country matching is a case-insensitive substring against the country name resolved from the bundled `data/cty.dat` prefix table (e.g. typing "Germany" matches "Fed. Rep. of Germany"); ITU zone, CQ zone, and continent require an exact match. A filter field left blank is not applied. If a filter is set but the DX or DE callsign can't be resolved to a country, the spot is rejected rather than let through unfiltered.
+- **DE Call Area** filters on the spotting station's own call-area digit — enter a comma-separated list of digits, e.g. `2,3,4`, to only show spots from spotters in those call areas. This is matched directly against the spotter's callsign, not the country table, and a portable suffix that's purely numeric (e.g. `W1AW/4`) overrides the base call's own digit. If the filter is set but no call-area digit can be found in the spotter's callsign, the spot is rejected.
 - Only CW bands from 160M through 6M are available.
 - Use `Up` and `Down` to select a band, then `Space` to enable or disable it.
 - Press `Enter` to apply the selected filters and return to the DX Cluster screen.

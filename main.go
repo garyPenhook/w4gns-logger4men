@@ -93,6 +93,7 @@ const (
 	clusterDEITUField
 	clusterDECQField
 	clusterDEContinentField
+	clusterDECallAreaField
 	clusterFilterFieldCount
 )
 
@@ -103,7 +104,7 @@ const (
 // on it.
 var clusterFilterLabels = [clusterFilterFieldCount]string{
 	"DX Country", "DX ITU", "DX CQ", "DX Continent",
-	"DE Country", "DE ITU", "DE CQ", "DE Continent",
+	"DE Country", "DE ITU", "DE CQ", "DE Continent", "DE Call Area",
 }
 
 var fieldLabels = [fieldCount]string{
@@ -445,10 +446,11 @@ func (m *model) openClusterFilters() {
 		newStationTextInput(f.DXCQZone, 14), newStationTextInput(f.DXContinent, 14),
 		newStationTextInput(f.DECC, 14), newStationTextInput(f.DEITUZone, 14),
 		newStationTextInput(f.DECQZone, 14), newStationTextInput(f.DEContinent, 14),
+		newStationTextInput(f.DECallArea, 14),
 	}
 	m.screen = clusterFiltersScreen
 	m.focusClusterFilterField(0)
-	m.statusMsg = "Cluster filters: CW only; use Up/Down and Space to select bands"
+	m.statusMsg = "Cluster filters: CW only; use Up/Down and Space to select bands. DE Call Area e.g. \"2,3,4\""
 }
 
 func (m *model) focusClusterFilterField(index int) {
@@ -471,6 +473,7 @@ func (m *model) saveClusterFilters() {
 	m.clusterFilters.DEITUZone = strings.TrimSpace(m.clusterFilterFields[clusterDEITUField].Value())
 	m.clusterFilters.DECQZone = strings.TrimSpace(m.clusterFilterFields[clusterDECQField].Value())
 	m.clusterFilters.DEContinent = strings.TrimSpace(m.clusterFilterFields[clusterDEContinentField].Value())
+	m.clusterFilters.DECallArea = strings.TrimSpace(m.clusterFilterFields[clusterDECallAreaField].Value())
 	m.screen = clusterScreen
 	m.clusterStatus = "cluster filters applied — CW only"
 }
