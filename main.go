@@ -531,11 +531,43 @@ func (m *model) disconnectCluster() {
 	m.clusterStatus = k3lrClusterName + " — disconnected"
 }
 
+// clusterDupeWindow is how long a station stays suppressed on the same band
+// after being shown once, so the same spot relayed by several cluster nodes
+// doesn't flood the list.
+const clusterDupeWindow = 3 * time.Minute
+
 func (m *model) addClusterSpot(spot clusterSpot) {
+	if m.isDuplicateClusterSpot(spot) {
+		return
+	}
 	m.clusterSpots = append([]clusterSpot{spot}, m.clusterSpots...)
 	if len(m.clusterSpots) > 100 {
 		m.clusterSpots = m.clusterSpots[:100]
 	}
+}
+
+// isDuplicateClusterSpot reports whether spot's callsign was already shown
+// on the same band within the last clusterDupeWindow. clusterSpots is kept
+// newest-first, so the scan can stop at the first entry older than the
+// window instead of walking the whole (capped at 100) list every time.
+func (m *model) isDuplicateClusterSpot(spot clusterSpot) bool {
+	band, _, ok := bandForFrequency(spot.Frequency)
+	if !ok {
+		return false
+	}
+	cutoff := spot.Received.Add(-clusterDupeWindow)
+	for _, existing := range m.clusterSpots {
+		if existing.Received.Before(cutoff) {
+			break
+		}
+		if !strings.EqualFold(existing.Callsign, spot.Callsign) {
+			continue
+		}
+		if existingBand, _, ok := bandForFrequency(existing.Frequency); ok && existingBand == band {
+			return true
+		}
+	}
+	return false
 }
 
 func (m model) Init() tea.Cmd {

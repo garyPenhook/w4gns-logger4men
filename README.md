@@ -318,6 +318,7 @@ Press `F3` to open the DX Cluster screen and connect to K3LR automatically when 
 - Press `F5` to retry a connection and `F6` to disconnect.
 - Standard `DX de` spots are shown with UTC time, spotter, frequency, callsign, and comment.
 - Only spots inside the conventional CW/data segment of an enabled band are shown; phone and digital-mode activity elsewhere in the band is filtered out. The CW/data segment edges follow the same US Amateur Extra-class defaults as QSO-entry frequency validation — see [QSO entry](#qso-entry) — so operators under a different license class or country should treat this as a starting point, not a guarantee.
+- A station already shown on a given band is suppressed for 3 minutes, so the same spot relayed by multiple cluster nodes doesn't flood the list. The same station on a different band, or the same band after the 3-minute window, is shown again.
 
 ## Cluster Filters
 

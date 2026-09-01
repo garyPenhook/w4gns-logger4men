@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.8.0
+
+- DX Cluster spots are now deduplicated: a station already shown on a given band is suppressed for 3 minutes instead of flooding the list every time another cluster node relays the same spot.
+
 ### v1.7.0
 
 - Added a **DE Call Area** cluster filter: enter comma-separated digits (e.g. `2,3,4`) to only show spots from spotting stations in those US call areas. Matched directly against the spotter's callsign (including portable overrides like `W1AW/4`), independent of the existing country/ITU/CQ/continent filters.

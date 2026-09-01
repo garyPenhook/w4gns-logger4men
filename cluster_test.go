@@ -6,6 +6,34 @@ import (
 	"time"
 )
 
+func TestAddClusterSpotSuppressesSameBandDupeWithinWindow(t *testing.T) {
+	var m model
+	base := time.Date(2026, time.August, 31, 20, 0, 0, 0, time.UTC)
+
+	m.addClusterSpot(clusterSpot{Callsign: "JA1ABC", Frequency: "14025.0", Received: base})
+	if len(m.clusterSpots) != 1 {
+		t.Fatalf("first spot should be shown, got %d spots", len(m.clusterSpots))
+	}
+
+	// Same station, same band, 2 minutes later (inside the 3-minute window): suppressed.
+	m.addClusterSpot(clusterSpot{Callsign: "ja1abc", Frequency: "14026.0", Received: base.Add(2 * time.Minute)})
+	if len(m.clusterSpots) != 1 {
+		t.Fatalf("dupe within the window should be suppressed, got %d spots", len(m.clusterSpots))
+	}
+
+	// Same station, different band: not a dupe.
+	m.addClusterSpot(clusterSpot{Callsign: "JA1ABC", Frequency: "7025.0", Received: base.Add(2 * time.Minute)})
+	if len(m.clusterSpots) != 2 {
+		t.Fatalf("same station on a different band should be shown, got %d spots", len(m.clusterSpots))
+	}
+
+	// Same station, same band, past the 3-minute window: not a dupe.
+	m.addClusterSpot(clusterSpot{Callsign: "JA1ABC", Frequency: "14027.0", Received: base.Add(4 * time.Minute)})
+	if len(m.clusterSpots) != 3 {
+		t.Fatalf("spot outside the dupe window should be shown, got %d spots", len(m.clusterSpots))
+	}
+}
+
 func TestParseClusterSpot(t *testing.T) {
 	when := time.Date(2026, time.August, 31, 20, 0, 0, 0, time.UTC)
 	spot, ok := parseClusterSpot("DX de K3LR-1:  14025.0 ea8abc CQ CQ 2000Z", when)
