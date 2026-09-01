@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -31,6 +32,73 @@ func TestOpenStoreCreatesStationProfileAndCurrentColumns(t *testing.T) {
 		if !exists {
 			t.Errorf("qso column %q is missing", column)
 		}
+	}
+}
+
+// TestBackfillAssignsLegacyQSOsToDefaultProfile simulates a database created
+// before station_profile/profile_id existed: a QSO row with a NULL
+// profile_id must still be assigned to a profile on open, or it silently
+// disappears from ADIF exports (which filter WHERE profile_id = ?).
+func TestBackfillAssignsLegacyQSOsToDefaultProfile(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "logger.db")
+	st, err := openStore(dbPath)
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	if _, err := st.db.Exec(`INSERT INTO qso (call, qso_date, time_on, band, mode) VALUES (?, ?, ?, ?, ?)`,
+		"W4GNS", "20260101", "120000", "20M", "CW"); err != nil {
+		t.Fatalf("insert legacy row: %v", err)
+	}
+	st.Close()
+
+	// Reopen so backfillMissingProfileID runs against the row inserted above.
+	st, err = openStore(dbPath)
+	if err != nil {
+		t.Fatalf("reopen returned error: %v", err)
+	}
+	defer st.Close()
+
+	var profileID sql.NullInt64
+	if err := st.db.QueryRow(`SELECT profile_id FROM qso WHERE call = 'W4GNS'`).Scan(&profileID); err != nil {
+		t.Fatalf("scan profile_id: %v", err)
+	}
+	if !profileID.Valid {
+		t.Fatal("legacy QSO still has a NULL profile_id after reopen")
+	}
+
+	exported, err := st.qsosForProfile(context.Background(), profileID.Int64)
+	if err != nil {
+		t.Fatalf("qsosForProfile returned error: %v", err)
+	}
+	if len(exported) != 1 {
+		t.Fatalf("qsosForProfile returned %d QSOs, want 1", len(exported))
+	}
+}
+
+// TestQSOsForProfileToleratesNullEndTime covers a row from an
+// intermediate schema where qso_date_off/time_off exist but were never
+// populated (NULL), which previously failed to scan into a plain string.
+func TestQSOsForProfileToleratesNullEndTime(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	if _, err := st.db.Exec(`INSERT INTO qso (call, qso_date, time_on, band, mode, profile_id) VALUES (?, ?, ?, ?, ?, ?)`,
+		"W4GNS", "20260101", "120000", "20M", "CW", 1); err != nil {
+		t.Fatalf("insert row with NULL end time: %v", err)
+	}
+
+	exported, err := st.qsosForProfile(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("qsosForProfile returned error: %v", err)
+	}
+	if len(exported) != 1 {
+		t.Fatalf("qsosForProfile returned %d QSOs, want 1", len(exported))
+	}
+	if exported[0].timeOff.Before(exported[0].time) {
+		t.Fatalf("timeOff %v is before time %v", exported[0].timeOff, exported[0].time)
 	}
 }
 
@@ -85,7 +153,7 @@ func TestDupeCheckUsesFifteenMinuteWindow(t *testing.T) {
 	if _, err := st.insertQSO(q); err != nil {
 		t.Fatalf("insert current-window QSO: %v", err)
 	}
-	dupe, err := st.isDupe("W4GNS", "20M", now)
+	dupe, err := st.isDupe("W4GNS", "20M", "", "", "", now)
 	if err != nil || !dupe {
 		t.Fatalf("dupe inside window = %t, err = %v", dupe, err)
 	}
@@ -95,9 +163,64 @@ func TestDupeCheckUsesFifteenMinuteWindow(t *testing.T) {
 	if _, err := st.insertQSO(q); err != nil {
 		t.Fatalf("insert older QSO: %v", err)
 	}
-	dupe, err = st.isDupe("K1ABC", "20M", now)
+	dupe, err = st.isDupe("K1ABC", "20M", "", "", "", now)
 	if err != nil || dupe {
 		t.Fatalf("dupe outside window = %t, err = %v", dupe, err)
+	}
+}
+
+// TestDupeCheckHonorsCallBandSessionScope covers CWT/CW Open-style contests,
+// where dupe_scope is "call+band+session": working the same station again in
+// a *different* session is not a dupe, even seconds after the first QSO.
+func TestDupeCheckHonorsCallBandSessionScope(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+	now := time.Date(2026, time.August, 31, 18, 0, 0, 0, time.UTC)
+	q := validTestQSO()
+	q.call, q.band, q.contestID = "W4GNS", "20M", "CWT-1900"
+	q.time, q.timeOff = now, now.Add(time.Minute)
+	if _, err := st.insertQSO(q); err != nil {
+		t.Fatalf("insert QSO: %v", err)
+	}
+
+	dupe, err := st.isDupe("W4GNS", "20M", "CWT-1900", "CWT", "call+band+session", now)
+	if err != nil || !dupe {
+		t.Fatalf("same-session dupe = %t, err = %v", dupe, err)
+	}
+	dupe, err = st.isDupe("W4GNS", "20M", "CWT-0300", "CWT", "call+band+session", now)
+	if err != nil || dupe {
+		t.Fatalf("different-session dupe = %t, want false, err = %v", dupe, err)
+	}
+}
+
+// TestDupeCheckHonorsCallBandContestScope covers the majority (call+band)
+// dupe_scope: a dupe spans the whole contest (any session), and is not
+// bounded by the casual-logging 15-minute window.
+func TestDupeCheckHonorsCallBandContestScope(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+	now := time.Date(2026, time.August, 31, 18, 0, 0, 0, time.UTC)
+	q := validTestQSO()
+	q.call, q.band, q.contestID = "W4GNS", "20M", "ARRL-DX-CW"
+	q.time = now.Add(-3 * time.Hour)
+	q.timeOff = q.time.Add(time.Minute)
+	if _, err := st.insertQSO(q); err != nil {
+		t.Fatalf("insert QSO: %v", err)
+	}
+
+	dupe, err := st.isDupe("W4GNS", "20M", "ARRL-DX-CW", "ARRL-DX-CW", "call+band", now)
+	if err != nil || !dupe {
+		t.Fatalf("whole-contest dupe (3h later) = %t, err = %v", dupe, err)
+	}
+	dupe, err = st.isDupe("W4GNS", "15M", "ARRL-DX-CW", "ARRL-DX-CW", "call+band", now)
+	if err != nil || dupe {
+		t.Fatalf("different-band dupe = %t, want false, err = %v", dupe, err)
 	}
 }
 

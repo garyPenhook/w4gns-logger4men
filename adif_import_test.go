@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -55,7 +56,9 @@ func TestExportADIFRoundTripPreservesQSOFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("exportADIF: %v", err)
 	}
-	if count != 1 || !strings.Contains(adif.String(), "<NAME:5>José") {
+	// "José" is non-ASCII, so ADIF-compliant output must carry it under the
+	// paired NAME_INTL field (IntlString), not the ASCII-only NAME field.
+	if count != 1 || !strings.Contains(adif.String(), "<NAME_INTL:5>José") || strings.Contains(adif.String(), "<NAME:5>") {
 		t.Fatalf("export = %q, count = %d", adif.String(), count)
 	}
 
@@ -88,6 +91,106 @@ func TestExportADIFRoundTripPreservesQSOFields(t *testing.T) {
 	got.profileID = destinationProfile.ID
 	if got != q {
 		t.Fatalf("round-trip QSO = %#v, want %#v", got, q)
+	}
+}
+
+// TestImportADIFRejectsMalformedFiveCharTime guards against a regression of a
+// panic: a 5-character TIME_ON (invalid ADIF Time, which must be HHMM or
+// HHMMSS) used to reach a fixed 6-byte slice and panic with
+// slice-bounds-out-of-range instead of being skipped as an unparsable record.
+func TestImportADIFRejectsMalformedFiveCharTime(t *testing.T) {
+	st, err := openStore(t.TempDir() + "/logger.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	profile, err := st.activeStationProfile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	adi := `<CALL:3>W1A<QSO_DATE:8>20260831<TIME_ON:5>12003<BAND:3>20M<MODE:2>CW<EOR>`
+	result, err := importADIF(context.Background(), strings.NewReader(adi), profile.ID, st)
+	if err != nil {
+		t.Fatalf("importADIF returned error instead of skipping: %v", err)
+	}
+	if result.Imported != 0 || result.Skipped != 1 {
+		t.Fatalf("result = %#v, want 0 imported / 1 skipped", result)
+	}
+}
+
+// TestImportADIFStreamsAcrossMultipleBatches exercises the streaming
+// parser/insert path across several importBatchSize-sized batches (rather
+// than one giant in-memory slice of every parsed record) and confirms every
+// record still lands correctly.
+func TestImportADIFStreamsAcrossMultipleBatches(t *testing.T) {
+	st, err := openStore(t.TempDir() + "/logger.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	profile, err := st.activeStationProfile()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const total = importBatchSize*3 + 250
+	var b strings.Builder
+	b.WriteString("<ADIF_VER:5>3.1.7<EOH>")
+	for i := 0; i < total; i++ {
+		call := fmt.Sprintf("W%dTEST", i)
+		fmt.Fprintf(&b, "<CALL:%d>%s<QSO_DATE:8>20260831<TIME_ON:6>120000<BAND:3>20M<MODE:2>CW<EOR>", len(call), call)
+	}
+	result, err := importADIF(context.Background(), strings.NewReader(b.String()), profile.ID, st)
+	if err != nil {
+		t.Fatalf("importADIF: %v", err)
+	}
+	if result.Imported != total || result.Skipped != 0 {
+		t.Fatalf("result = %#v, want %d imported / 0 skipped", result, total)
+	}
+	count, err := st.count()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != total {
+		t.Fatalf("stored count = %d, want %d", count, total)
+	}
+}
+
+// TestImportADIFStopsOnErrorButKeepsPriorBatches documents the actual
+// partial-import behavior: a parse error partway through a file still leaves
+// the batches inserted before the bad record committed, so a fixed re-import
+// doesn't lose already-imported QSOs.
+func TestImportADIFStopsOnErrorButKeepsPriorBatches(t *testing.T) {
+	st, err := openStore(t.TempDir() + "/logger.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	profile, err := st.activeStationProfile()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var b strings.Builder
+	for i := 0; i < importBatchSize+5; i++ {
+		call := fmt.Sprintf("W%dTEST", i)
+		fmt.Fprintf(&b, "<CALL:%d>%s<QSO_DATE:8>20260831<TIME_ON:6>120000<BAND:3>20M<MODE:2>CW<EOR>", len(call), call)
+	}
+	b.WriteString("<BADFIELD:notanumber>x<EOR>")
+
+	result, err := importADIF(context.Background(), strings.NewReader(b.String()), profile.ID, st)
+	if err == nil {
+		t.Fatal("expected a parse error from the malformed trailing record")
+	}
+	if result.Imported != importBatchSize {
+		t.Fatalf("Imported = %d, want the first full batch (%d) preserved", result.Imported, importBatchSize)
+	}
+	count, err := st.count()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != importBatchSize {
+		t.Fatalf("stored count = %d, want %d", count, importBatchSize)
 	}
 }
 

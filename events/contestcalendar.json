@@ -1140,7 +1140,7 @@
     "name": "Wake-Up! QRP Sprint",
     "organizer": "",
     "kind": "annual contest",
-    "schedule": "0600Z-0629Z, Sep 5 and / 0630Z-0659Z, Sep 5 and / 0700Z-0729Z, Sep 5 and / 0730Z-0800Z, Sep 5",
+    "schedule": "0600Z-0629Z, Sep 5 and 0630Z-0659Z, Sep 5 and 0700Z-0729Z, Sep 5 and 0730Z-0800Z, Sep 5",
     "bands": [
       "40M",
       "20M"
@@ -1155,7 +1155,7 @@
       {
         "id": "0600Z0629ZSep5",
         "label": "Wake-Up! QRP Sprint",
-        "schedule": "0600Z-0629Z, Sep 5 and / 0630Z-0659Z, Sep 5 and / 0700Z-0729Z, Sep 5 and / 0730Z-0800Z, Sep 5"
+        "schedule": "0600Z-0629Z, Sep 5 and 0630Z-0659Z, Sep 5 and 0700Z-0729Z, Sep 5 and 0730Z-0800Z, Sep 5"
       }
     ]
   },
@@ -1486,7 +1486,7 @@
     "name": "Classic Exchange, CW",
     "organizer": "",
     "kind": "annual contest",
-    "schedule": "1400Z, Nov 1 to 0800Z, Nov 2 and / 1400Z, Mar 3 to 0800Z, Nov 4",
+    "schedule": "1400Z, Nov 1 to 0800Z, Nov 2 and 1400Z, Mar 3 to 0800Z, Nov 4",
     "bands": [
       "160M",
       "80M",
@@ -1506,7 +1506,7 @@
       {
         "id": "1400ZNov1",
         "label": "Classic Exchange, CW",
-        "schedule": "1400Z, Nov 1 to 0800Z, Nov 2 and / 1400Z, Mar 3 to 0800Z, Nov 4"
+        "schedule": "1400Z, Nov 1 to 0800Z, Nov 2 and 1400Z, Mar 3 to 0800Z, Nov 4"
       }
     ]
   },
@@ -1542,7 +1542,7 @@
     "name": "AWA Bruce Kelley 1929 QSO Party",
     "organizer": "",
     "kind": "annual contest",
-    "schedule": "2300Z, Nov 14 to 0300Z, Nov 16 and / 2300Z, Nov 21 to 0300Z, Nov 23",
+    "schedule": "2300Z, Nov 14 to 0300Z, Nov 16 and 2300Z, Nov 21 to 0300Z, Nov 23",
     "bands": [
       "160M",
       "80M",
@@ -1559,7 +1559,7 @@
       {
         "id": "2300ZNov14",
         "label": "AWA Bruce Kelley 1929 QSO Party",
-        "schedule": "2300Z, Nov 14 to 0300Z, Nov 16 and / 2300Z, Nov 21 to 0300Z, Nov 23"
+        "schedule": "2300Z, Nov 14 to 0300Z, Nov 16 and 2300Z, Nov 21 to 0300Z, Nov 23"
       }
     ]
   },
@@ -1834,7 +1834,7 @@
     "name": "Walk for the Bacon QRP Contest",
     "organizer": "",
     "kind": "annual contest",
-    "schedule": "0000Z-0100Z, Aug 6 and / 0200Z-0300Z, Aug 7",
+    "schedule": "0000Z-0100Z, Aug 6 and 0200Z-0300Z, Aug 7",
     "bands": [
       "160M",
       "80M",
@@ -1853,7 +1853,7 @@
       {
         "id": "0000Z0100ZAug6",
         "label": "Walk for the Bacon QRP Contest",
-        "schedule": "0000Z-0100Z, Aug 6 and / 0200Z-0300Z, Aug 7"
+        "schedule": "0000Z-0100Z, Aug 6 and 0200Z-0300Z, Aug 7"
       }
     ]
   },
@@ -2559,7 +2559,7 @@
     "name": "Kansas QSO Party",
     "organizer": "",
     "kind": "annual contest",
-    "schedule": "1400Z, Aug 29 to 0200Z, Aug 30 and / 1400Z-2000Z, Aug 30",
+    "schedule": "1400Z, Aug 29 to 0200Z, Aug 30 and 1400Z-2000Z, Aug 30",
     "bands": [
       "80M",
       "40M",
@@ -2578,7 +2578,7 @@
       {
         "id": "1400ZAug29",
         "label": "Kansas QSO Party",
-        "schedule": "1400Z, Aug 29 to 0200Z, Aug 30 and / 1400Z-2000Z, Aug 30"
+        "schedule": "1400Z, Aug 29 to 0200Z, Aug 30 and 1400Z-2000Z, Aug 30"
       }
     ]
   },
@@ -2840,7 +2840,7 @@
     "name": "New Hampshire QSO Party",
     "organizer": "",
     "kind": "annual contest",
-    "schedule": "1600Z, Sep 19 to 0400Z, Sep 20 and / 1200Z-2200Z, Sep 20",
+    "schedule": "1600Z, Sep 19 to 0400Z, Sep 20 and 1200Z-2200Z, Sep 20",
     "bands": [
       "80M",
       "40M",
@@ -2858,7 +2858,7 @@
       {
         "id": "1600ZSep19",
         "label": "New Hampshire QSO Party",
-        "schedule": "1600Z, Sep 19 to 0400Z, Sep 20 and / 1200Z-2200Z, Sep 20"
+        "schedule": "1600Z, Sep 19 to 0400Z, Sep 20 and 1200Z-2200Z, Sep 20"
       }
     ]
   },
@@ -3007,7 +3007,7 @@
     "name": "Pennsylvania QSO Party",
     "organizer": "",
     "kind": "annual contest",
-    "schedule": "1600Z, Oct 10 to 0400Z, Oct 11 and / 1300Z-2200Z, Oct 11",
+    "schedule": "1600Z, Oct 10 to 0400Z, Oct 11 and 1300Z-2200Z, Oct 11",
     "bands": [
       "160M",
       "80M",
@@ -3026,7 +3026,7 @@
       {
         "id": "1600ZOct10",
         "label": "Pennsylvania QSO Party",
-        "schedule": "1600Z, Oct 10 to 0400Z, Oct 11 and / 1300Z-2200Z, Oct 11"
+        "schedule": "1600Z, Oct 10 to 0400Z, Oct 11 and 1300Z-2200Z, Oct 11"
       }
     ]
   },
@@ -3093,7 +3093,7 @@
     "name": "Texas QSO Party",
     "organizer": "",
     "kind": "annual contest",
-    "schedule": "1400Z, Sep 19 to 0200Z, Sep 20 and / 1400Z-2000Z, Sep 20",
+    "schedule": "1400Z, Sep 19 to 0200Z, Sep 20 and 1400Z-2000Z, Sep 20",
     "bands": [
       "160M",
       "80M",
@@ -3112,7 +3112,7 @@
       {
         "id": "1400ZSep19",
         "label": "Texas QSO Party",
-        "schedule": "1400Z, Sep 19 to 0200Z, Sep 20 and / 1400Z-2000Z, Sep 20"
+        "schedule": "1400Z, Sep 19 to 0200Z, Sep 20 and 1400Z-2000Z, Sep 20"
       }
     ]
   },
@@ -3177,7 +3177,7 @@
     "name": "Washington State Salmon Run",
     "organizer": "",
     "kind": "annual contest",
-    "schedule": "1600Z, Sep 19 to 0700Z, Sep 20 and / 1600Z-2400Z, Sep 20",
+    "schedule": "1600Z, Sep 19 to 0700Z, Sep 20 and 1600Z-2400Z, Sep 20",
     "bands": [
       "160M",
       "80M",
@@ -3197,7 +3197,7 @@
       {
         "id": "1600ZSep19",
         "label": "Washington State Salmon Run",
-        "schedule": "1600Z, Sep 19 to 0700Z, Sep 20 and / 1600Z-2400Z, Sep 20"
+        "schedule": "1600Z, Sep 19 to 0700Z, Sep 20 and 1600Z-2400Z, Sep 20"
       }
     ]
   },
@@ -4878,6 +4878,110 @@
         "id": "nextdatenotyetannounced",
         "label": "YB Bekasi Merdeka Contest",
         "schedule": "next date not yet announced"
+      }
+    ]
+  },
+  {
+    "id": "IRTS-80M-COUNTIES",
+    "name": "IRTS 80m Counties Contest",
+    "organizer": "IRTS",
+    "kind": "annual contest",
+    "schedule": "1700Z-1800Z, Jan 1; 2000Z-2100Z, Mar 18; 2000Z-2100Z, Oct 21 (logs due Nov 4)",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW/SSB contest — CW exchange: EI/GI stations: RS(T) + serial no. + county; non-EI/GI: RS(T) + serial no.",
+    "received_exchange_hint": "CW/SSB contest — CW exchange: EI/GI stations: RS(T) + serial no. + county; non-EI/GI: RS(T) + serial no.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.irts.ie/cgi/st.cgi?r_hfcrules.html",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1700ZJan1",
+        "label": "IRTS 80m Counties Contest (Jan)",
+        "schedule": "1700Z-1800Z, Jan 1"
+      },
+      {
+        "id": "2000ZMar18",
+        "label": "IRTS 80m Counties Contest (Mar)",
+        "schedule": "2000Z-2100Z, Mar 18"
+      },
+      {
+        "id": "2000ZOct21",
+        "label": "IRTS 80m Counties Contest (Oct)",
+        "schedule": "2000Z-2100Z, Oct 21"
+      }
+    ]
+  },
+  {
+    "id": "ARRL-160M",
+    "name": "ARRL 160-Meter Contest",
+    "organizer": "ARRL",
+    "kind": "annual contest",
+    "schedule": "2200Z, first Friday in December to 1600Z, following Sunday",
+    "bands": [
+      "160M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "W/VE: RST + ARRL/RAC section; DX: RST",
+    "received_exchange_hint": "W/VE: RST + ARRL/RAC section; DX: RST",
+    "dupe_scope": "call+band",
+    "rules_url": "http://www.arrl.org/160-meter",
+    "score_submission_url": "https://contest-log-submission.arrl.org",
+    "sessions": [
+      {
+        "id": "2200ZFriDec",
+        "label": "ARRL 160-Meter Contest",
+        "schedule": "2200Z, first Friday in December to 1600Z, following Sunday"
+      }
+    ]
+  },
+  {
+    "id": "QRP-ARCI-TOPBAND-SPRINT",
+    "name": "QRP ARCI Topband Sprint",
+    "organizer": "QRP ARCI",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "0000Z-0300Z, early December",
+    "bands": [
+      "160M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW/SSB contest — CW exchange: ARCI member: RST + (state/province/country) + ARCI no.; non-member: RST + (state/province/country) + power out",
+    "received_exchange_hint": "CW/SSB contest — CW exchange: ARCI member: RST + (state/province/country) + ARCI no.; non-member: RST + (state/province/country) + power out",
+    "dupe_scope": "call+band",
+    "rules_url": "http://qrparci.org/contest/topband-sprint",
+    "score_submission_url": "http://www.qrpcontest.com",
+    "sessions": [
+      {
+        "id": "0000ZDecEarly",
+        "label": "QRP ARCI Topband Sprint",
+        "schedule": "0000Z-0300Z, early December"
+      }
+    ]
+  },
+  {
+    "id": "NTC-QSO-PARTY",
+    "name": "NTC QSO Party",
+    "organizer": "NTC",
+    "kind": "monthly event",
+    "schedule": "Third Thursday monthly, 1900Z-2000Z",
+    "bands": [
+      "80M",
+      "40M",
+      "20M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "NTC member: RST + member no.; non-member: RST + \"NM\" (speed under 25 WPM)",
+    "received_exchange_hint": "NTC member: RST + member no.; non-member: RST + \"NM\" (speed under 25 WPM)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://pi4ntc.nl/ntcqp/",
+    "score_submission_url": "https://pi4ntc.nl/ntcqp/",
+    "sessions": [
+      {
+        "id": "1900ZThu3",
+        "label": "NTC QSO Party",
+        "schedule": "Third Thursday monthly, 1900Z-2000Z"
       }
     ]
   }

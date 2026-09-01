@@ -29,6 +29,11 @@ CREATE TABLE IF NOT EXISTS qso (
     qth TEXT,
     gridsquare TEXT,
 	my_gridsquare TEXT,
+	station_callsign TEXT,
+	operator_name TEXT,
+	my_rig TEXT,
+	my_antenna TEXT,
+	tx_pwr TEXT,
     state TEXT,
     country TEXT,
     dxcc INTEGER,
@@ -115,6 +120,10 @@ func openStore(path string) (*store, error) {
 		db.Close()
 		return nil, err
 	}
+	if err := s.backfillMissingProfileID(); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return s, nil
 }
 
@@ -151,6 +160,11 @@ func (s *store) migrate() error {
 		{name: "time_off", definition: "TEXT"},
 		{name: "sig", definition: "TEXT"},
 		{name: "sig_info", definition: "TEXT"},
+		{name: "station_callsign", definition: "TEXT"},
+		{name: "operator_name", definition: "TEXT"},
+		{name: "my_rig", definition: "TEXT"},
+		{name: "my_antenna", definition: "TEXT"},
+		{name: "tx_pwr", definition: "TEXT"},
 	} {
 		exists, err := s.qsoColumnExists(column.name)
 		if err != nil {
@@ -204,6 +218,22 @@ func (s *store) ensureDefaultProfile() error {
 	return nil
 }
 
+// backfillMissingProfileID assigns every QSO left over from a
+// pre-station-profile schema (profile_id IS NULL) to the oldest station
+// profile. Without this, those rows stay visible in counts and call history
+// but silently vanish from exportADIF/qrz uploads, which filter by
+// profile_id.
+func (s *store) backfillMissingProfileID() error {
+	var defaultProfileID int64
+	if err := s.db.QueryRow(`SELECT id FROM station_profile ORDER BY id LIMIT 1`).Scan(&defaultProfileID); err != nil {
+		return fmt.Errorf("find default station profile for backfill: %w", err)
+	}
+	if _, err := s.db.Exec(`UPDATE qso SET profile_id = ? WHERE profile_id IS NULL`, defaultProfileID); err != nil {
+		return fmt.Errorf("backfill qso.profile_id: %w", err)
+	}
+	return nil
+}
+
 // defaultTimezone returns an IANA time-zone identifier whenever the host
 // exposes one. "Local" is not persisted because it is ambiguous and cannot
 // correctly preserve historical daylight-saving rules. UTC is the safe,
@@ -237,6 +267,22 @@ func validTimezoneIdentifier(timezone string) string {
 	return ""
 }
 
+// dxccContext resolves the worked station's country/CQ-zone/ITU-zone from
+// the embedded cty.dat, best-effort. A lookup miss (or a cty.dat load
+// failure, which should not happen with the embedded copy) simply leaves
+// these fields blank rather than failing the QSO.
+func dxccContext(call string) (country string, cqZone, ituZone any) {
+	table, err := sharedDXCCTable()
+	if err != nil {
+		return "", nil, nil
+	}
+	entity, ok := table.lookup(call)
+	if !ok {
+		return "", nil, nil
+	}
+	return entity.Country, entity.CQZone, entity.ITUZone
+}
+
 // insertQSO writes a general (non-contest) QSO and returns its id.
 func (s *store) insertQSO(q qso) (int64, error) {
 	if err := validateQSO(q); err != nil {
@@ -244,9 +290,10 @@ func (s *store) insertQSO(q qso) (int64, error) {
 	}
 	utcTime := q.time.UTC()
 	utcTimeOff := q.timeOff.UTC()
+	country, cqZone, ituZone := dxccContext(q.call)
 	res, err := s.db.Exec(
-		`INSERT INTO qso (call, qso_date, time_on, qso_date_off, time_off, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, sig, sig_info, comment, contest_id, stx, stx_string, srx, srx_string, profile_id)
-			 VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO qso (call, qso_date, time_on, qso_date_off, time_off, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, country, cqz, ituz, sig, sig_info, comment, contest_id, stx, stx_string, srx, srx_string, profile_id, my_gridsquare, station_callsign, operator_name, my_rig, my_antenna, tx_pwr)
+			 VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		q.call,
 		utcTime.Format("20060102"),
 		utcTime.Format("150405"),
@@ -261,6 +308,9 @@ func (s *store) insertQSO(q qso) (int64, error) {
 		q.qth,
 		q.grid,
 		q.state,
+		country,
+		cqZone,
+		ituZone,
 		potaSignal(q.potaRef),
 		q.potaRef,
 		q.comment,
@@ -270,6 +320,12 @@ func (s *store) insertQSO(q qso) (int64, error) {
 		q.srx,
 		q.srxString,
 		q.profileID,
+		q.myGridSquare,
+		q.stationCallsign,
+		q.operatorName,
+		q.myRig,
+		q.myAntenna,
+		q.txPower,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("insert qso: %w", err)
@@ -308,15 +364,16 @@ func (s *store) insertQSOChunk(ctx context.Context, qsos []qso) error {
 		return fmt.Errorf("begin import transaction: %w", err)
 	}
 	defer tx.Rollback()
-	statement, err := tx.PrepareContext(ctx, `INSERT INTO qso (call, qso_date, time_on, qso_date_off, time_off, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, sig, sig_info, comment, contest_id, stx, stx_string, srx, srx_string, profile_id)
-		VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?)`)
+	statement, err := tx.PrepareContext(ctx, `INSERT INTO qso (call, qso_date, time_on, qso_date_off, time_off, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, country, cqz, ituz, sig, sig_info, comment, contest_id, stx, stx_string, srx, srx_string, profile_id, my_gridsquare, station_callsign, operator_name, my_rig, my_antenna, tx_pwr)
+		VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return fmt.Errorf("prepare import insert: %w", err)
 	}
 	defer statement.Close()
 	for index, q := range qsos {
 		start, end := q.time.UTC(), q.timeOff.UTC()
-		if _, err := statement.ExecContext(ctx, q.call, start.Format("20060102"), start.Format("150405"), end.Format("20060102"), end.Format("150405"), q.band, q.frequency, q.mode, q.rstSent, q.rstRcvd, q.name, q.qth, q.grid, q.state, potaSignal(q.potaRef), q.potaRef, q.comment, q.contestID, q.stx, q.stxString, q.srx, q.srxString, q.profileID); err != nil {
+		country, cqZone, ituZone := dxccContext(q.call)
+		if _, err := statement.ExecContext(ctx, q.call, start.Format("20060102"), start.Format("150405"), end.Format("20060102"), end.Format("150405"), q.band, q.frequency, q.mode, q.rstSent, q.rstRcvd, q.name, q.qth, q.grid, q.state, country, cqZone, ituZone, potaSignal(q.potaRef), q.potaRef, q.comment, q.contestID, q.stx, q.stxString, q.srx, q.srxString, q.profileID, q.myGridSquare, q.stationCallsign, q.operatorName, q.myRig, q.myAntenna, q.txPower); err != nil {
 			return fmt.Errorf("insert record %d: %w", index+1, err)
 		}
 	}
@@ -328,17 +385,37 @@ func (s *store) insertQSOChunk(ctx context.Context, qsos []qso) error {
 
 // isDupe reports whether call has already been worked on band, per the
 // dupe-check scope (call+band) described in the contest design doc.
-func (s *store) isDupe(call, band string, now time.Time) (bool, error) {
+// isDupe reports whether call has already been worked on band. Outside a
+// contest (dupeScope blank) it uses the fixed 15-minute call+band window
+// suited to casual/POTA logging, where re-working the same station later the
+// same day is not a dupe. Inside a contest it honors the event's dupe_scope
+// instead of the fixed window:
+//   - "call+band+session": a dupe only within this exact session
+//     (contestID, e.g. "CWT-1900"), unbounded in time — CWT/CW Open allow
+//     working the same station again in a later session.
+//   - anything else non-blank (almost every catalog entry uses
+//     "call+band"): a dupe anywhere in this contest (any session of eventID),
+//     unbounded in time.
+func (s *store) isDupe(call, band, contestID, eventID, dupeScope string, now time.Time) (bool, error) {
+	var (
+		query string
+		args  []any
+	)
+	switch {
+	case dupeScope == "":
+		windowStart := now.UTC().Add(-dupeWindow).Format("20060102150405")
+		windowEnd := now.UTC().Format("20060102150405")
+		query = `SELECT COUNT(1) FROM qso WHERE call = ? AND band = ? AND (qso_date || time_on) BETWEEN ? AND ?`
+		args = []any{call, band, windowStart, windowEnd}
+	case dupeScope == "call+band+session":
+		query = `SELECT COUNT(1) FROM qso WHERE call = ? AND band = ? AND contest_id = ?`
+		args = []any{call, band, contestID}
+	default:
+		query = `SELECT COUNT(1) FROM qso WHERE call = ? AND band = ? AND (contest_id = ? OR contest_id LIKE ?)`
+		args = []any{call, band, eventID, eventID + "-%"}
+	}
 	var n int
-	windowStart := now.UTC().Add(-dupeWindow).Format("20060102150405")
-	windowEnd := now.UTC().Format("20060102150405")
-	err := s.db.QueryRow(
-		`SELECT COUNT(1) FROM qso
-		 WHERE call = ? AND band = ?
-		   AND (qso_date || time_on) BETWEEN ? AND ?`,
-		call, band, windowStart, windowEnd,
-	).Scan(&n)
-	if err != nil {
+	if err := s.db.QueryRow(query, args...).Scan(&n); err != nil {
 		return false, fmt.Errorf("dupe check: %w", err)
 	}
 	return n > 0, nil

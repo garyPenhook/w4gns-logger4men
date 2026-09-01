@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -21,6 +22,23 @@ const (
 type backupResult struct {
 	dbName   string
 	adifName string
+}
+
+// backupMu serializes every backup, whether triggered by F8 or by the
+// mandatory backup-on-exit in main(). bubbletea does not wait for in-flight
+// tea.Cmd goroutines before p.Run() returns, so an F8 backup can still be
+// mid-flight (VACUUM INTO / rclone upload) when the exit path starts its own
+// backup; running both at once risks a corrupt/partial snapshot and
+// second-resolution filename collisions. The exit backup should simply wait
+// its turn rather than race the in-flight one.
+var backupMu sync.Mutex
+
+// runBackupSerialized is the only entry point callers should use; it wraps
+// runBackup with backupMu so at most one backup runs at a time.
+func runBackupSerialized(ctx context.Context, st *store, profileID int64) (backupResult, error) {
+	backupMu.Lock()
+	defer backupMu.Unlock()
+	return runBackup(ctx, st, profileID)
 }
 
 // runBackup snapshots the database with SQLite's VACUUM INTO (a consistent

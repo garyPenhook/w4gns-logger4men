@@ -53,10 +53,10 @@ Your log is stored locally in `w4gns.db` by default. Set `W4GNS_DB` to use anoth
 - CW QSOs are logged with callsign, band, mode, and sent/received RST.
 - The initial entry sequence is Call, RST Sent, RST Received, Band, Frequency, then Mode.
 - Band is a selector: use `Left`/`Right` or `Up`/`Down` while it is selected. Selecting a band supplies a valid default CW frequency; enter frequency in MHz.
-- Frequency is checked against the selected band’s international amateur allocation. Always follow the narrower rules of your licence and country.
+- Frequency is checked against the selected band's amateur allocation edges. These follow long-stable US Amateur Extra-class limits (47 CFR §97.301); 160m, 80/75m, 40m, and 6m allocations vary by ITU region and national authority, so always follow the narrower rules of your licence and country.
 - Callsigns are normalized to uppercase.
 - While a callsign is being entered, the **Stations Worked** area shows that station's earlier contacts from the log. The QSO being entered is excluded until it is saved.
-- Duplicate callsign-and-band contacts are flagged before logging.
+- Duplicate callsign-and-band contacts are flagged before logging. Outside a contest this uses a 15-minute window (so re-working the same station later the same day for a rag-chew or POTA activation isn't flagged). Inside a contest selected from Events & Contests (`F7`), the flag instead follows that event's own `dupe_scope`: most contests treat any repeat contact on the same band anywhere in the contest as a dupe, while CWT and CW Open scope the check to the current session only, since working the same station again in a later session is allowed.
 - The first `Tab` or `Enter` after entering a callsign starts the QSO timer.
 - The final `Enter` saves UTC start and end times, then clears the form for the next QSO.
 - UTC and local time are displayed in the logger header.
@@ -65,12 +65,12 @@ Your log is stored locally in `w4gns.db` by default. Set `W4GNS_DB` to use anoth
 
 Press `F6` for optional QSO details: operator name, QTH, grid square, state or province, POTA reference, and notes. Press `F7` for the Events & Contests page. Select an event with `Up`/`Down`, select its UTC session with `Left`/`Right`, then press `Enter`; the session-specific ID and exchange templates populate Contest Entry. The catalog shows a scrollable window, so it accommodates hundreds of definitions. The built-in CWops definitions cover all four weekly CWT sessions and the three CW Open sessions. Each definition can include a score-submission URL; CWT points to 3830scores.com. Events are JSON files embedded from `events/`, so definitions can be added without modifying Go code. These pages retain their values until the QSO is logged from the main QSO Entry screen.
 
-`events/contestcalendar.json` adds the next occurrence of every CW-inclusive contest and QSO party found on the [WA7BNM Contest Calendar](https://www.contestcalendar.com/) — worldwide majors, US and Canadian state/province QSO parties, and national/regional contests from Europe, Asia, South America, Africa, and Oceania. A contest is included only when its own Contest Calendar detail page confirms CW as one of its modes; entries whose only confirmed mode is something else (SSB-only, RTTY-only, etc.) or whose status is reported `Inactive` are left out. For contests that also allow other modes, the exchange hint is scoped to the CW leg specifically, and says so. Every entry's exchange hint, band list, and `rules_url` are read from that same detail page rather than recalled from memory; where no confirmed upcoming date is published, the entry says so instead of guessing one.
+`events/contestcalendar.json` adds the next occurrence of CW-inclusive contests and QSO parties found on the [WA7BNM Contest Calendar](https://www.contestcalendar.com/) — worldwide majors, US and Canadian state/province QSO parties, and national/regional contests from Europe, Asia, South America, Africa, and Oceania. A contest is included only when its own Contest Calendar detail page confirms CW as one of its modes; entries whose only confirmed mode is something else (SSB-only, RTTY-only, etc.) or whose status is reported `Inactive` are left out. For contests that also allow other modes, the exchange hint is scoped to the CW leg specifically, and says so. Every entry's exchange hint, band list, and `rules_url` are read from that same detail page rather than recalled from memory; where no confirmed upcoming date is published, the entry says so instead of guessing one. This list is not guaranteed exhaustive — the Contest Calendar adds and retires entries over time, and gaps found during review are filled in as they're noticed rather than through a scheduled resync.
 
 TNQP is configured for an out-of-state operator. Its received-exchange field offers Tennessee county codes as you type; use `Up`/`Down` and `Enter` to insert the official four-letter county abbreviation.
 
 <details>
-<summary>Full list of 186 built-in event/contest definitions (click to expand)</summary>
+<summary>Full list of 190 built-in event/contest definitions (click to expand)</summary>
 
 Selected directly with `F7`; grouped by region below. CWops (CWT, CW Open) and the Tennessee QSO Party ship as hand-curated definitions with typeahead exchange support; the rest come from `events/contestcalendar.json`, sourced from the [WA7BNM Contest Calendar](https://www.contestcalendar.com/) and its per-contest detail pages.
 
@@ -79,9 +79,10 @@ Selected directly with `F7`; grouped by region below. CWops (CWT, CW Open) and t
 - CW Open
 - Tennessee QSO Party
 
-**Major & club contests (worldwide/US) (42):**
+**Major & club contests (worldwide/US) (44):**
 - 4 States QRP Group Second Sunday Sprint
 - A1Club AWT
+- ARRL 160-Meter Contest
 - ARRL Inter. DX Contest, CW
 - ARRL Rookie Roundup, CW
 - ARRL Sweepstakes Contest, CW
@@ -112,6 +113,7 @@ Selected directly with `F7`; grouped by region below. CWops (CWT, CW Open) and t
 - QRP ARCI Hootowl Sprint
 - QRP ARCI Spring QSO Party
 - QRP ARCI Summer Homebrew Sprint
+- QRP ARCI Topband Sprint
 - QRP Fox Hunt
 - QRP to the Field
 - Run for the Bacon QRP Contest
@@ -180,7 +182,7 @@ Selected directly with `F7`; grouped by region below. CWops (CWT, CW Open) and t
 - RAC Canada Day Contest
 - RAC Winter Contest
 
-**Europe (70):**
+**Europe (72):**
 - AGCW Happy New Year Contest
 - AGCW QRP Contest
 - AGCW QRP/QRP Party
@@ -210,6 +212,7 @@ Selected directly with `F7`; grouped by region below. CWops (CWT, CW Open) and t
 - His Maj. King of Spain Contest, CW
 - Hungarian DX Contest
 - Hungarian Straight Key Contest
+- IRTS 80m Counties Contest
 - LZ DX Contest
 - LZ International 6-Meter Contest
 - Marconi Club ARI Loano QSO Party Day
@@ -217,6 +220,7 @@ Selected directly with `F7`; grouped by region below. CWops (CWT, CW Open) and t
 - Marconi Memorial HF Contest
 - NAQCC CW Sprint
 - NRAU-Baltic Contest, CW
+- NTC QSO Party
 - OK/OM DX Contest, CW
 - Portugal Day Contest
 - Portuguese Navy Day Contest - CT1DBS Memorial
@@ -300,23 +304,25 @@ Press `F3` to open the DX Cluster screen and connect to K3LR automatically when 
 - Save your callsign in Station Setup before connecting.
 - Press `F5` to retry a connection and `F6` to disconnect.
 - Standard `DX de` spots are shown with UTC time, spotter, frequency, callsign, and comment.
+- Only spots inside the conventional CW/data segment of an enabled band are shown; phone and digital-mode activity elsewhere in the band is filtered out. The CW/data segment edges follow the same US Amateur Extra-class defaults as QSO-entry frequency validation — see [QSO entry](#qso-entry) — so operators under a different license class or country should treat this as a starting point, not a guarantee.
 
 ## Cluster Filters
 
 Press `F4` to open Cluster Filters.
 
-- DX and DE criteria are available for DXCC, ITU zone, CQ zone, and continent.
+- DX (the worked/spotted station) and DE (the spotting station) criteria are available for country, ITU zone, CQ zone, and continent. Country matching is a case-insensitive substring against the country name resolved from the bundled `data/cty.dat` prefix table (e.g. typing "Germany" matches "Fed. Rep. of Germany"); ITU zone, CQ zone, and continent require an exact match. A filter field left blank is not applied. If a filter is set but the DX or DE callsign can't be resolved to a country, the spot is rejected rather than let through unfiltered.
 - Only CW bands from 160M through 6M are available.
 - Use `Up` and `Down` to select a band, then `Space` to enable or disable it.
 - Press `Enter` to apply the selected filters and return to the DX Cluster screen.
-- The selected bands are applied to incoming spots immediately.
+- The selected bands and DX/DE criteria are applied to incoming spots immediately.
 
 ## Log data
 
 - QSO timestamps are stored in UTC.
 - A local-time display is shown alongside UTC.
 - Station profiles and QSOs remain on your computer.
-- The logger is suitable for large logs, including ADIF imports of 100,000 QSOs.
+- Each QSO also stores a snapshot of the active station profile at log time (grid square, callsign, operator, rig, antenna, power), so editing the station profile later never rewrites the operating context of a past contact.
+- Verified with an automated test: importing 100,000 QSOs from a single ADIF file completes in well under 10 seconds (~15,000 QSOs/sec on a typical dev machine) and every record lands correctly.
 
 ## Import ADIF
 
@@ -328,23 +334,25 @@ Import an ADIF file directly into the active station profile:
 ./bin/w4gns-logger --import-adif path/to/log.adi
 ```
 
-The importer accepts CW records, preserves QSO times when present, and reports skipped records. Non-CW or incomplete records are skipped.
+The importer accepts CW records, preserves QSO times when present, and reports skipped records. Non-CW or incomplete records are skipped, including ones with a malformed `TIME_ON`/`TIME_OFF` (ADIF Time must be 4 or 6 digits). Records are parsed and inserted in batches of 1,000 rather than all held in memory at once; if an import fails partway through (a malformed record later in the file, a database error), the batches inserted before the failure stay committed — re-running the import after fixing the file does not lose that progress or duplicate it.
 
 ## Export ADIF
 
-Export every QSO from the active station profile as ADIF 3 records:
+Export every QSO from the active station profile as ADIF records (targeting ADIF 3.1.7):
 
 ```bash
 ./bin/w4gns-logger --export-adif path/to/log.adi
 ```
 
-The export preserves the QSO's CW fields, frequency, details, POTA metadata, contest fields, and UTC start/end times. The export path must not be the SQLite database file.
+The export preserves the QSO's CW fields, frequency, details, POTA metadata (both the legacy `SIG`/`SIG_INFO` convention and the modern `POTA_REF` field), contest fields, the station-identity snapshot (`MY_GRIDSQUARE`, `STATION_CALLSIGN`, `OPERATOR`, `MY_RIG`, `MY_ANTENNA`, `TX_PWR`), country/CQ-zone/ITU-zone context resolved from the worked callsign, and UTC start/end times. `STX`/`SRX` are only written when they parse as ADIF's integer type; non-numeric contest exchanges stay in `STX_STRING`/`SRX_STRING`. Non-ASCII text (an accented name, for example) is written under the paired `_INTL` field (e.g. `NAME_INTL`) instead of the ASCII-only base field, per the ADIF IntlString convention. CWT and CW Open contest IDs are mapped to the official ADIF Contest ID List values (`CWOPS-CWT`, `CWOPS-CW-OPEN`) on export, even though the database keeps its own session-specific IDs (e.g. `CWT-1900`) for dupe checking. The export path must not be the SQLite database file.
+
+This exporter does not populate the ADIF `DXCC` field (the numeric entity code); the bundled country database (`data/cty.dat`) does not include that mapping, and guessing entity numbers would be worse than leaving the field out. `COUNTRY`, `CQZ`, and `ITUZ` are populated instead.
 
 ## QRZ Logbook upload
 
 Every QSO logged from QSO Entry is uploaded to your [QRZ Logbook](https://www.qrz.com/docs/logbook/QRZLogbookAPI.html) in the background as soon as it saves locally.
 
-- Put your QRZ Logbook API key in a file named `qrz.comAPIkey` in the directory you run the app from (one line, no quotes), or set the `W4GNS_QRZ_KEY` environment variable. The key file is git-ignored so it is never committed.
+- Put your QRZ Logbook API key in a file named `qrz.comAPIkey` in the directory you run the app from (one line, no quotes), or set the `W4GNS_QRZ_KEY` environment variable. The key file is listed in `.gitignore`, which keeps it out of `git add -A`/`git status` by default — but `.gitignore` is only a convention respected by Git; it doesn't stop a `git add -f`, doesn't restrict which local accounts can read the file, and doesn't help if the key ends up in a screenshot or shared archive. On every startup the app also checks the key file's permissions and tightens them to owner-read/write only (`0600`) if it finds the default umask left it group- or world-readable.
 - If neither is set, QRZ upload is silently skipped — local logging is unaffected.
 - The upload runs asynchronously and never blocks or delays logging the next QSO.
 - The status bar reports `QRZ upload OK for <call> (LOGID ...)` on success or `QRZ upload failed for <call>: ...` on failure (invalid key, no active subscription, duplicate QSO, network error, etc.). A failed upload never removes the QSO from your local log.
@@ -358,6 +366,7 @@ Press `F8` at any time to back up immediately, and every shutdown backs up autom
 - Both files are uploaded to Google Drive with [rclone](https://rclone.org/) under the remote `gdrive:W4GNS_Logger_Backups`.
 - Only the 5 most recent database backups and 5 most recent ADIF backups are kept; older ones are deleted automatically after each backup.
 - Requires an `rclone` binary in `PATH` with a working `gdrive` remote already configured (`rclone config`). If rclone or the remote is unavailable, the status bar (or terminal output on shutdown) reports the failure and logging continues unaffected — a failed backup never blocks or loses QSO data.
+- Backups are serialized: pressing `F8` again while one is already running is ignored (the status bar shows "backup already in progress…"), and the mandatory backup-on-exit waits for any backup still in flight instead of racing it. This avoids two backups writing to the same second-resolution filenames or running `VACUUM INTO` concurrently.
 
 ## License
 

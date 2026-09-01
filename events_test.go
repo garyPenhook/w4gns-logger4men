@@ -2,6 +2,7 @@ package main
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -43,6 +44,45 @@ func TestLoadEventCatalogIncludesCWopsDefinitions(t *testing.T) {
 	tnqp := events[eventIndex(t, events, "TNQP")]
 	if got := len(tnqp.ReceivedExchangeOptions); got != 95 {
 		t.Fatalf("TN county count = %d, want 95", got)
+	}
+}
+
+// TestEventSelectionIDsFitContestField guards against silently truncating
+// "event.ID-session.ID" (see selectEvent) in the Contest Name field: every
+// catalog entry's longest generated value must fit maxEventSelectionLength.
+func TestEventSelectionIDsFitContestField(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	for _, event := range events {
+		for _, session := range event.Sessions {
+			value := event.ID + "-" + session.ID
+			if len(value) > maxEventSelectionLength {
+				t.Errorf("event %q session %q generates %q (%d chars), exceeds maxEventSelectionLength (%d)",
+					event.ID, session.ID, value, len(value), maxEventSelectionLength)
+			}
+		}
+	}
+}
+
+// TestLoadEventCatalogHasNoLeftoverScraperArtifacts guards against the
+// " and / " glue text a prior scrape left in several multi-session
+// schedules (e.g. "0600Z-0629Z, Sep 5 and / 0630Z-0659Z, Sep 5").
+func TestLoadEventCatalogHasNoLeftoverScraperArtifacts(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	for _, event := range events {
+		if strings.Contains(event.Schedule, "and / ") {
+			t.Errorf("event %q schedule has a leftover scraper artifact: %q", event.ID, event.Schedule)
+		}
+		for _, session := range event.Sessions {
+			if strings.Contains(session.Schedule, "and / ") {
+				t.Errorf("event %q session %q schedule has a leftover scraper artifact: %q", event.ID, session.ID, session.Schedule)
+			}
+		}
 	}
 }
 

@@ -22,6 +22,11 @@ const (
 // qrzLogbookAPI is a var (not const) so tests can point it at a local server.
 var qrzLogbookAPI = "https://logbook.qrz.com/api"
 
+// qrzKeyFilePermBits is the maximum permission bits a healthy key file
+// should have: owner read/write only. Anything looser leaks the key to every
+// other local account able to read the working directory.
+const qrzKeyFilePermBits = 0o600
+
 // loadQRZAPIKey returns the QRZ Logbook API key used to upload logged QSOs.
 // W4GNS_QRZ_KEY overrides the on-disk key file, mirroring how W4GNS_DB
 // overrides the database path. An empty return disables uploads.
@@ -29,11 +34,29 @@ func loadQRZAPIKey() string {
 	if key := strings.TrimSpace(os.Getenv("W4GNS_QRZ_KEY")); key != "" {
 		return key
 	}
+	tightenQRZKeyFilePermissions()
 	contents, err := os.ReadFile(qrzKeyFile)
 	if err != nil {
 		return ""
 	}
 	return strings.TrimSpace(string(contents))
+}
+
+// tightenQRZKeyFilePermissions best-effort chmods the key file to owner-only
+// read/write. .gitignore keeps the key out of version control, but it does
+// nothing about other local accounts reading the file directly, so this
+// self-heals a too-permissive mode (e.g. the default umask leaving it
+// group/world readable) on every startup.
+func tightenQRZKeyFilePermissions() {
+	info, err := os.Stat(qrzKeyFile)
+	if err != nil {
+		return
+	}
+	if info.Mode().Perm()&^qrzKeyFilePermBits != 0 {
+		if err := os.Chmod(qrzKeyFile, qrzKeyFilePermBits); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not restrict %s to owner-only permissions: %v\n", qrzKeyFile, err)
+		}
+	}
 }
 
 type qrzUploadMsg struct {
@@ -46,7 +69,7 @@ type qrzUploadMsg struct {
 // It runs asynchronously, matching the existing POTA-lookup and backup
 // commands, so the terminal UI never blocks on network I/O. A blank apiKey
 // means QRZ upload is not configured, so no command is returned.
-func qrzUploadCmd(apiKey, stationCallsign string, q qso) tea.Cmd {
+func qrzUploadCmd(apiKey string, q qso) tea.Cmd {
 	if strings.TrimSpace(apiKey) == "" {
 		return nil
 	}
@@ -54,7 +77,7 @@ func qrzUploadCmd(apiKey, stationCallsign string, q qso) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), qrzUploadTimeout)
 		defer cancel()
-		logID, err := uploadQSOToQRZ(ctx, apiKey, stationCallsign, q)
+		logID, err := uploadQSOToQRZ(ctx, apiKey, q)
 		return qrzUploadMsg{call: call, logID: logID, err: err}
 	}
 }
@@ -62,11 +85,11 @@ func qrzUploadCmd(apiKey, stationCallsign string, q qso) tea.Cmd {
 // uploadQSOToQRZ posts a single QSO to the QRZ Logbook API and returns the
 // assigned LOGID on success. See
 // https://www.qrz.com/docs/logbook/QRZLogbookAPI.html
-func uploadQSOToQRZ(ctx context.Context, apiKey, stationCallsign string, q qso) (string, error) {
+func uploadQSOToQRZ(ctx context.Context, apiKey string, q qso) (string, error) {
 	form := url.Values{
 		"KEY":    {apiKey},
 		"ACTION": {"INSERT"},
-		"ADIF":   {singleQSOADIF(q, stationCallsign)},
+		"ADIF":   {singleQSOADIF(q)},
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, qrzLogbookAPI, strings.NewReader(form.Encode()))
 	if err != nil {
@@ -105,18 +128,19 @@ func uploadQSOToQRZ(ctx context.Context, apiKey, stationCallsign string, q qso) 
 	}
 }
 
-// singleQSOADIF renders one QSO as a single ADIF record for the QRZ upload.
-func singleQSOADIF(q qso, stationCallsign string) string {
+// singleQSOADIF renders one QSO as a single ADIF record for the QRZ upload,
+// sharing field construction with the bulk exporter via adifQSOFields.
+func singleQSOADIF(q qso) string {
 	var b strings.Builder
-	fields := adifQSOFields(q)
-	if strings.TrimSpace(stationCallsign) != "" {
-		fields = append(fields, struct{ name, value string }{"STATION_CALLSIGN", stationCallsign})
-	}
-	for _, field := range fields {
+	for _, field := range adifQSOFields(q) {
 		if strings.TrimSpace(field.value) == "" {
 			continue
 		}
-		fmt.Fprintf(&b, "<%s:%d>%s", field.name, len([]byte(field.value)), field.value)
+		if err := writeADIFField(&b, field.name, field.value); err != nil {
+			// writeADIFField only fails if the writer errors; strings.Builder
+			// never does, so this is unreachable in practice.
+			continue
+		}
 	}
 	b.WriteString("<EOR>")
 	return b.String()

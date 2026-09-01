@@ -118,6 +118,9 @@ type qso struct {
 	qth       string
 	grid      string
 	state     string
+	country   string
+	cqZone    string
+	ituZone   string
 	comment   string
 	potaRef   string
 	contestID string
@@ -128,6 +131,16 @@ type qso struct {
 	time      time.Time // QSO start time (UTC)
 	timeOff   time.Time // QSO end time (UTC)
 	profileID int64
+
+	// Station-identity snapshot taken from the active profile at log time, so
+	// later edits to the station profile never rewrite the operating context
+	// of a past QSO.
+	myGridSquare    string
+	stationCallsign string
+	operatorName    string
+	myRig           string
+	myAntenna       string
+	txPower         string
 }
 
 type model struct {
@@ -144,6 +157,8 @@ type model struct {
 	table    table.Model
 
 	qrzAPIKey string
+
+	backupInProgress bool
 
 	dupeWarning  bool
 	statusMsg    string
@@ -207,6 +222,12 @@ var (
 			Foreground(lipgloss.Color("240"))
 )
 
+// maxEventSelectionLength bounds the Contest Name field so it can hold the
+// longest "event.ID-session.ID" value the catalog generates (see
+// TestEventSelectionIDsFitContestField), plus headroom for manually typed
+// contest names.
+const maxEventSelectionLength = 64
+
 func newTextInput(placeholder string, width int) textinput.Model {
 	ti := textinput.New()
 	ti.Placeholder = placeholder
@@ -239,6 +260,12 @@ func initialModel(st *store) model {
 		newTextInput("Contest name", 20), newTextInput("001", 8), newTextInput("Sent exchange", 16),
 		newTextInput("001", 8), newTextInput("Received exchange", 16),
 	}
+	// Selecting a catalog event writes "event.ID-session.ID" into this field
+	// (see setSelectedEvent); the longest generated value in the catalog is 56
+	// characters, so the default 20-character CharLimit would silently
+	// truncate most of them.
+	contests[contestName].CharLimit = maxEventSelectionLength
+	contests[contestName].Width = 30
 
 	cols := []table.Column{
 		{Title: "UTC", Width: 8},
@@ -402,7 +429,7 @@ func (m model) runBackupCmd() tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), backupTimeout)
 		defer cancel()
-		result, err := runBackup(ctx, st, profileID)
+		result, err := runBackupSerialized(ctx, st, profileID)
 		return backupCompletedMsg{result: result, err: err}
 	}
 }
@@ -486,7 +513,13 @@ func (m *model) checkDupe() {
 	if m.workedCall != call {
 		m.showWorkedCall(call)
 	}
-	dupe, err := m.store.isDupe(call, m.qsoBand(), time.Now())
+	var contestID, eventID, dupeScope string
+	if event, ok := m.eventForContestID(); ok {
+		contestID = strings.TrimSpace(m.contestFields[contestName].Value())
+		eventID = event.ID
+		dupeScope = event.DupeScope
+	}
+	dupe, err := m.store.isDupe(call, m.qsoBand(), contestID, eventID, dupeScope, time.Now())
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
 		return
@@ -687,6 +720,13 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		srxString: strings.TrimSpace(m.contestFields[contestExchangeRcvd].Value()),
 		time:      startedAt,
 		timeOff:   endedAt,
+
+		myGridSquare:    m.activeStation.MyGridSquare,
+		stationCallsign: m.activeStation.Callsign,
+		operatorName:    m.activeStation.OperatorName,
+		myRig:           m.activeStation.Rig,
+		myAntenna:       m.activeStation.Antenna,
+		txPower:         m.activeStation.PowerWatts,
 	}
 	_, err := m.store.insertQSO(logged)
 	if err != nil {
@@ -695,6 +735,9 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 	}
 	m.refreshTableRows()
 	m.statusMsg = fmt.Sprintf("logged %s (%s)", call, endedAt.Sub(startedAt).Round(time.Second))
+	if event, ok := m.eventForContestID(); ok && len(event.Bands) > 0 && !bandAllowed(event.Bands, logged.band) {
+		m.statusMsg += fmt.Sprintf(" — warning: %s is not in %s's allowed bands (%s)", logged.band, event.Name, strings.Join(event.Bands, "/"))
+	}
 
 	m.fields[fieldCall].SetValue("")
 	m.fields[fieldRSTRcvd].SetValue("")
@@ -708,7 +751,7 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 	m.workedCall = ""
 	m.focusField(fieldCall)
 	m.refreshTableRows()
-	return m, qrzUploadCmd(m.qrzAPIKey, m.activeStation.Callsign, logged)
+	return m, qrzUploadCmd(m.qrzAPIKey, logged)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -736,6 +779,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if message, ok := msg.(backupCompletedMsg); ok {
+		m.backupInProgress = false
 		if message.err != nil {
 			m.statusMsg = "backup failed: " + message.err.Error()
 		} else {
@@ -744,6 +788,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "f8" {
+		if m.backupInProgress {
+			m.statusMsg = "backup already in progress…"
+			return m, nil
+		}
+		m.backupInProgress = true
 		m.statusMsg = "backing up to Google Drive…"
 		return m, m.runBackupCmd()
 	}
@@ -1381,10 +1430,32 @@ func (m model) eventCatalogView() string {
 		session := event.Sessions[m.eventSessionFocus]
 		b.WriteString("\n")
 		b.WriteString(statusBarStyle.Render(session.Label + " — " + session.Schedule + "  •  " + event.Kind + "  •  exchange: " + event.RcvdExchangeHint))
+		b.WriteString("\n")
+		b.WriteString(statusBarStyle.Render(eventDetailLine(event)))
 	}
 	b.WriteString("\n")
 	b.WriteString(helpStyle.Render("Up/Down: event  •  Left/Right: session  •  Enter: use session  •  F1/Esc: QSO Entry"))
 	return b.String()
+}
+
+// eventDetailLine surfaces the catalog fields that were previously loaded
+// but never shown anywhere in the UI: organizer, allowed bands, rules URL,
+// and score-submission URL.
+func eventDetailLine(event eventDefinition) string {
+	parts := []string{}
+	if event.Organizer != "" {
+		parts = append(parts, "by "+event.Organizer)
+	}
+	if len(event.Bands) > 0 {
+		parts = append(parts, "bands: "+strings.Join(event.Bands, "/"))
+	}
+	if event.RulesURL != "" {
+		parts = append(parts, "rules: "+event.RulesURL)
+	}
+	if event.ScoreSubmissionURL != "" {
+		parts = append(parts, "scores: "+event.ScoreSubmissionURL)
+	}
+	return strings.Join(parts, "  •  ")
 }
 
 func (m model) qsoPageView(title string, labels []string, fields []textinput.Model, focus int, help string) string {
@@ -1491,7 +1562,11 @@ func main() {
 	if m, ok := finalModel.(model); ok {
 		fmt.Println("backing up to Google Drive…")
 		ctx, cancel := context.WithTimeout(context.Background(), backupTimeout)
-		result, backupErr := runBackup(ctx, m.store, m.activeStation.ID)
+		// runBackupSerialized (not runBackup) so this waits for, rather than
+		// races, an F8 backup that was still in flight when the program quit:
+		// bubbletea does not wait for outstanding tea.Cmd goroutines before
+		// p.Run() returns.
+		result, backupErr := runBackupSerialized(ctx, m.store, m.activeStation.ID)
 		cancel()
 		if backupErr != nil {
 			fmt.Fprintf(os.Stderr, "backup failed: %v\n", backupErr)

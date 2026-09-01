@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -21,6 +22,77 @@ func TestEnterLeavingCallStartsQSOTimer(t *testing.T) {
 	got := updated.(model)
 	if got.qsoStartedAt.IsZero() {
 		t.Fatal("Enter leaving Call did not start QSO timer")
+	}
+}
+
+// TestF8IgnoresRepeatedPressesWhileBackupInProgress guards against launching
+// concurrent backups (second-resolution filename collisions, uncoordinated
+// with the mandatory exit backup): a second F8 while one is already running
+// must not start another.
+func TestF8IgnoresRepeatedPressesWhileBackupInProgress(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyF8})
+	m = updated.(model)
+	if !m.backupInProgress {
+		t.Fatal("first F8 press did not mark a backup in progress")
+	}
+	if cmd == nil {
+		t.Fatal("first F8 press did not return a backup command")
+	}
+
+	updated, cmd = m.Update(tea.KeyMsg{Type: tea.KeyF8})
+	m = updated.(model)
+	if cmd != nil {
+		t.Fatal("second F8 press while a backup is in progress returned a command")
+	}
+	if m.statusMsg != "backup already in progress…" {
+		t.Fatalf("statusMsg = %q, want the already-in-progress message", m.statusMsg)
+	}
+
+	updated, _ = m.Update(backupCompletedMsg{})
+	m = updated.(model)
+	if m.backupInProgress {
+		t.Fatal("backupInProgress stayed true after backupCompletedMsg")
+	}
+}
+
+func TestEventDetailLineSurfacesPreviouslyUnusedFields(t *testing.T) {
+	event := eventDefinition{
+		Organizer:          "CWops",
+		Bands:              []string{"20M", "15M"},
+		RulesURL:           "https://example.com/rules",
+		ScoreSubmissionURL: "https://example.com/scores",
+	}
+	line := eventDetailLine(event)
+	for _, want := range []string{"CWops", "20M/15M", "https://example.com/rules", "https://example.com/scores"} {
+		if !strings.Contains(line, want) {
+			t.Errorf("eventDetailLine() = %q, want it to contain %q", line, want)
+		}
+	}
+}
+
+func TestLogCurrentQSOWarnsWhenBandOutsideEventAllowedBands(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	tnqp := m.events[eventIndex(t, m.events, "TNQP")]
+	m.selectEvent(tnqp, tnqp.Sessions[0])
+	m.fields[fieldCall].SetValue("W1AW")
+	m.fields[fieldBand].SetValue("60M")
+	m.fields[fieldFrequency].SetValue("5.354")
+	m, _ = m.logCurrentQSO()
+	if !strings.Contains(m.statusMsg, "not in") {
+		t.Fatalf("statusMsg = %q, want an allowed-bands warning", m.statusMsg)
 	}
 }
 
