@@ -4772,5 +4772,113 @@
         "schedule": "1200Z, Sep 26 to 1159Z, Sep 27"
       }
     ]
+  },
+  {
+    "id": "ARSI-VU-DX",
+    "name": "ARSI VU DX Contest",
+    "organizer": "",
+    "kind": "annual contest (Active, but no recent results)",
+    "schedule": "next date not yet announced",
+    "bands": [
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: VU: RS(T) + 2-letter state/UT code Non-VU: RS(T) + Serial No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: VU: RS(T) + 2-letter state/UT code Non-VU: RS(T) + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://arsi.info/dxcontest/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "nextdatenotyetannounced",
+        "label": "ARSI VU DX Contest",
+        "schedule": "next date not yet announced"
+      }
+    ]
+  },
+  {
+    "id": "EURASIA-CHAMP",
+    "name": "EurAsia HF Championship",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "next date not yet announced",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: RS(T) + 6-character grid square",
+    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: RS(T) + 6-character grid square",
+    "dupe_scope": "call+band",
+    "rules_url": "http://www.eurasia-contest.com/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "nextdatenotyetannounced",
+        "label": "EurAsia HF Championship",
+        "schedule": "next date not yet announced"
+      }
+    ]
+  },
+  {
+    "id": "SEANET-CONTEST",
+    "name": "SEANET Contest",
+    "organizer": "",
+    "kind": "annual contest (Active, but no recent results)",
+    "schedule": "1200Z, Sep 12 to 1200Z, Sep 13",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: RS(T) + Serial No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: RS(T) + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://dxindia.in/seanet-contest-2026.html",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1200ZSep12",
+        "label": "SEANET Contest",
+        "schedule": "1200Z, Sep 12 to 1200Z, Sep 13"
+      }
+    ]
+  },
+  {
+    "id": "BEKASI-MERDEKA-CONTEST",
+    "name": "YB Bekasi Merdeka Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "next date not yet announced",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: YB: RS(T) + Serial No. non-YB: RS(T) + Serial No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: YB: RS(T) + Serial No. non-YB: RS(T) + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://bmc.orari-kotabekasi.com/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "nextdatenotyetannounced",
+        "label": "YB Bekasi Merdeka Contest",
+        "schedule": "next date not yet announced"
+      }
+    ]
   }
 ]
