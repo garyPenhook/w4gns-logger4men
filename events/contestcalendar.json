@@ -2083,5 +2083,60 @@
         "schedule": "1930Z-2020Z, Aug 4"
       }
     ]
+  },
+  {
+    "id": "KENTUCKY-STATE-PARKS-ON-THE-AIR",
+    "name": "Kentucky State Parks on the Air",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z-2200Z, Aug 8",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW/SSB/Digital contest \u2014 CW exchange: KY Park: park abbreviation W/VE: (state/province) DX: \"DX\"",
+    "received_exchange_hint": "CW/SSB/Digital contest \u2014 CW exchange: KY Park: park abbreviation W/VE: (state/province) DX: \"DX\"",
+    "dupe_scope": "call+band",
+    "rules_url": "https://k4msu.com/kypota/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400Z2200ZAug8",
+        "label": "Kentucky State Parks on the Air",
+        "schedule": "1400Z-2200Z, Aug 8"
+      }
+    ]
+  },
+  {
+    "id": "4-STATES-QRP-GROUP-SECOND-SUNDAY",
+    "name": "4 States QRP Group Second Sunday Sprint",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "0000Z-0200Z, Aug 10",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW/SSB contest \u2014 CW exchange: Member: RS(T) + (State/Province/Country) + Member No. Non-member: RS(T) + (State/Province/Country) + Power",
+    "received_exchange_hint": "CW/SSB contest \u2014 CW exchange: Member: RS(T) + (State/Province/Country) + Member No. Non-member: RS(T) + (State/Province/Country) + Power",
+    "dupe_scope": "call+band",
+    "rules_url": "http://www.4sqrp.com/SSS/sss_rules_revised_02_2026.pdf",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0000Z0200ZAug10",
+        "label": "4 States QRP Group Second Sunday Sprint",
+        "schedule": "0000Z-0200Z, Aug 10"
+      }
+    ]
   }
 ]
