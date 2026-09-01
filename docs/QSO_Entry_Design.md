@@ -15,16 +15,21 @@ Keep routine CW logging fast in a small terminal while making optional QSO and c
 | `F1` | QSO Entry | Fast, required QSO fields and prior-contact view. |
 | `F6` | QSO Details | Optional station and operating details. |
 | `F7` | Events & Contests | Select a configured event or contest, then enter its exchange. |
+| `F9` | Browse/Edit (from QSO Entry) | Select a logged QSO from Recent QSOs to edit or delete. |
 
-`Esc` returns to QSO Entry. `Tab`, `Shift+Tab`, and `Enter` move among fields on the secondary pages. Saving remains an F1-only action: `Enter` on the final Mode field writes the QSO and begins a blank next QSO.
+`Esc` returns to QSO Entry. `Tab`, `Shift+Tab`, and `Enter` move among fields on the secondary pages. Saving remains an F1-only action: `Enter` on the final Frequency field writes the QSO (or, while editing an existing one via `F9`, saves the edit in place) and begins a blank next QSO. There is no Mode field — this logger is CW-only, so mode is always "CW" internally with nothing to enter.
 
 ## F1 — QSO Entry
 
-Field order is Call, RST Sent, RST Received, Band, Frequency, Mode. Band is a closed selector; `Left`/`Right` or `Up`/`Down` chooses one of the supported CW bands and supplies a valid default frequency. Frequency is entered in MHz beside Band and is validated against conservative international band edges. Operators remain responsible for their national licence, regional allocation, and band-plan limits. This page displays UTC and local time, QSO timer state, 15-minute call-and-band dupe warning, and all prior contacts for the entered callsign. The active QSO never appears in the prior-contact list until saved.
+Field order is Call, RST Sent, RST Received, Band, Frequency. Band is a closed selector; `Left`/`Right` or `Up`/`Down` chooses one of the supported CW bands and supplies a valid default frequency. Frequency is entered in MHz beside Band and is validated against conservative international band edges. Operators remain responsible for their national licence, regional allocation, and band-plan limits. This page displays UTC and local time, QSO timer state, 15-minute (or contest-scoped) call-and-band dupe warning, and all prior contacts for the entered callsign. The active QSO never appears in the prior-contact list until saved.
+
+## F9 — Browse, edit, and delete QSOs
+
+Pressing `F9` from QSO Entry moves keyboard focus into the Recent QSOs table instead of the entry fields; the currently selected row is highlighted only while this mode is active. `Up`/`Down` move the selection, `Enter` loads the selected QSO back into the F1/F6/F7 fields for editing (its original start/end time and station-identity snapshot are preserved; only what's actually changed on screen is saved), and `d` `d` deletes it after a confirmation prompt. `Esc` or `F9` again returns focus to the entry fields without leaving the table's selection changed.
 
 ## F6 — QSO Details
 
-Optional fields are name, QTH, grid square, state/province, POTA reference, and notes. Frequency is an entry-row field. These map to the corresponding ADIF-shaped QSO columns: `FREQ`, `NAME`, `QTH`, `GRIDSQUARE`, `STATE`, `SIG`/`SIG_INFO`, and `COMMENT`. A POTA reference is populated only when a matching callsign appears in the previous 15 minutes in the local DX-cluster spot history or POTA active-spot feed. The network lookup has a bounded timeout and never blocks logging.
+Optional fields are name, QTH, grid square, state/province, POTA reference, and notes. These map to the corresponding ADIF-shaped QSO columns: `NAME`, `QTH`, `GRIDSQUARE`, `STATE`, `SIG`/`SIG_INFO`, and `COMMENT` (Frequency itself is an F1 entry-row field, not part of F6). A POTA reference is populated only when a matching callsign appears in the previous 15 minutes in the local DX-cluster spot history or POTA active-spot feed. The network lookup has a bounded timeout and never blocks logging.
 
 ## F7 — Events & Contests
 
@@ -34,4 +39,4 @@ The Tennessee QSO Party (TNQP) definition is configured for an out-of-state oper
 
 ## Data and reset behavior
 
-All three pages edit one in-memory QSO. Data is written atomically only when F1’s final Mode field is submitted. After a successful save, every QSO, details, and contest field is cleared so details cannot carry accidentally into the next contact. A failed validation or database write retains all entered data and reports the error.
+All three entry pages (F1, F6, F7) edit one in-memory QSO. Data is written atomically only when F1's final Frequency field is submitted — either as a new insert, or, when a QSO was loaded via `F9`, as an update to that same row. After a successful save, every QSO, details, and contest field is cleared (except Band, Frequency, and RST Sent, which persist as defaults for the next contact) so details cannot carry accidentally into the next contact. A failed validation or database write retains all entered data and reports the error; cancelling an edit with `Esc` discards the in-progress changes without touching the database.

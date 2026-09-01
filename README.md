@@ -44,9 +44,10 @@ Your log is stored locally in `w4gns.db` by default. Set `W4GNS_DB` to use anoth
 | `F6` | QSO Details |
 | `F7` | Events & Contests |
 | `F8` | Back up now to Google Drive |
+| `F9` | Browse/edit/delete Recent QSOs (see [Browse, edit, and delete QSOs](#browse-edit-and-delete-qsos)) |
 | `Tab` / `Shift+Tab` | Move between entry fields |
 | `Enter` | Move to the next field; save a QSO from the final field |
-| `Esc` | Quit from QSO Entry; cancel Station Setup; return to QSO Entry from DX Cluster |
+| `Esc` | Quit from QSO Entry (or cancel an in-progress QSO edit instead, if one is active); cancel Station Setup; return to QSO Entry from DX Cluster, QSO Details, Events & Contests, and ADIF Import; return to DX Cluster from Cluster Filters |
 
 ## QSO entry
 
