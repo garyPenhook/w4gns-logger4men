@@ -26,7 +26,9 @@ type adifImportResult struct {
 // committed and the rest un-imported (result.Imported reports how much
 // landed); this mirrors insertQSOBatch's per-batch transaction boundaries
 // and lets an operator re-run the import after fixing the file without
-// losing prior progress.
+// losing prior progress. insertQSOBatch skips records that exactly match one
+// already on file, so re-running the same file doesn't double-insert the
+// batches that already landed.
 func importADIF(ctx context.Context, reader io.Reader, profileID int64, st *store) (adifImportResult, error) {
 	data, err := io.ReadAll(reader)
 	if err != nil {
@@ -38,12 +40,11 @@ func importADIF(ctx context.Context, reader io.Reader, profileID int64, st *stor
 		if len(batch) == 0 {
 			return nil
 		}
-		if err := st.insertQSOBatch(ctx, batch); err != nil {
-			return err
-		}
-		result.Imported += len(batch)
+		n, err := st.insertQSOBatch(ctx, batch)
+		result.Imported += n
+		result.Skipped += len(batch) - n
 		batch = batch[:0]
-		return nil
+		return err
 	}
 	parseErr := parseADIRecords(data, func(record map[string]string) error {
 		q, ok := qsoFromADI(record, profileID)

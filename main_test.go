@@ -62,6 +62,33 @@ func TestF8IgnoresRepeatedPressesWhileBackupInProgress(t *testing.T) {
 	}
 }
 
+// TestCheckDupeWarnsOnceForUnrecognizedContestName covers the case where an
+// operator free-types a contest name that isn't in the event catalog:
+// dupeScope silently falls back to the casual 15-minute window, so checkDupe
+// must surface that instead of failing silently — but only once per distinct
+// value, not on every keystroke.
+func TestCheckDupeWarnsOnceForUnrecognizedContestName(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.contestFields[contestName].SetValue("Some Local Sprint")
+	m.fields[fieldCall].SetValue("W1AW")
+	m.checkDupe()
+	if !strings.Contains(m.statusMsg, "Some Local Sprint") {
+		t.Fatalf("statusMsg = %q, want it to mention the unrecognized contest name", m.statusMsg)
+	}
+
+	m.statusMsg = ""
+	m.checkDupe()
+	if m.statusMsg != "" {
+		t.Fatalf("checkDupe re-warned for the same contest name: statusMsg = %q", m.statusMsg)
+	}
+}
+
 func TestEventDetailLineSurfacesPreviouslyUnusedFields(t *testing.T) {
 	event := eventDefinition{
 		Organizer:          "CWops",

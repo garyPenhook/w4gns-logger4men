@@ -165,6 +165,11 @@ type model struct {
 	qsoStartedAt time.Time
 	workedCall   string
 
+	// contestScopeFallbackFor is the last free-typed contest name (not found
+	// in the event catalog) that checkDupe already warned about, so the
+	// warning shows once per distinct value instead of on every keystroke.
+	contestScopeFallbackFor string
+
 	screen          screen
 	activeStation   stationProfile
 	stationFields   []textinput.Model
@@ -501,7 +506,7 @@ func (m *model) refreshTableRows() {
 }
 
 func (m *model) checkDupe() {
-	call := strings.ToUpper(strings.TrimSpace(m.fields[fieldCall].Value()))
+	call := normalizeCall(m.fields[fieldCall].Value())
 	m.dupeWarning = false
 	if call == "" {
 		if m.workedCall != "" {
@@ -518,8 +523,11 @@ func (m *model) checkDupe() {
 		contestID = strings.TrimSpace(m.contestFields[contestName].Value())
 		eventID = event.ID
 		dupeScope = event.DupeScope
+	} else if raw := strings.TrimSpace(m.contestFields[contestName].Value()); raw != "" && raw != m.contestScopeFallbackFor {
+		m.contestScopeFallbackFor = raw
+		m.statusMsg = fmt.Sprintf("contest %q not found in event catalog — dupe check uses the 15-minute casual window", raw)
 	}
-	dupe, err := m.store.isDupe(call, m.qsoBand(), contestID, eventID, dupeScope, time.Now())
+	dupe, err := m.store.isDupe(call, m.qsoBand(), contestID, eventID, dupeScope, m.activeStation.ID, time.Now())
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
 		return
@@ -657,7 +665,7 @@ func (m *model) startQSOClockIfLeavingCall() {
 }
 
 func (m *model) autoFillPOTAReference() tea.Cmd {
-	call := strings.ToUpper(strings.TrimSpace(m.fields[fieldCall].Value()))
+	call := normalizeCall(m.fields[fieldCall].Value())
 	if call == "" {
 		return nil
 	}
@@ -677,7 +685,7 @@ func (m *model) resetQSOClockIfReturningToCall(nextFocus int) {
 }
 
 func (m model) logCurrentQSO() (model, tea.Cmd) {
-	call := strings.ToUpper(strings.TrimSpace(m.fields[fieldCall].Value()))
+	call := normalizeCall(m.fields[fieldCall].Value())
 	if call == "" {
 		m.statusMsg = "callsign required"
 		return m, nil
@@ -756,7 +764,7 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if message, ok := msg.(potaLookupMsg); ok {
-		call := strings.ToUpper(strings.TrimSpace(m.fields[fieldCall].Value()))
+		call := normalizeCall(m.fields[fieldCall].Value())
 		if message.call != call {
 			return m, nil
 		}

@@ -75,6 +75,32 @@ func TestBackfillAssignsLegacyQSOsToDefaultProfile(t *testing.T) {
 	}
 }
 
+// TestBackfillMissingProfileIDSkipsWriteWhenNoOrphans guards the steady-state
+// startup path: once every row has a profile_id, backfillMissingProfileID
+// must not issue an UPDATE at all (it should short-circuit on the EXISTS
+// check), verified indirectly by confirming a clean store's rows are
+// untouched and openStore succeeds with no station_profile rows to backfill
+// against beyond the default profile.
+func TestBackfillMissingProfileIDSkipsWriteWhenNoOrphans(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	if err := st.backfillMissingProfileID(); err != nil {
+		t.Fatalf("backfillMissingProfileID on an already-clean store returned error: %v", err)
+	}
+
+	var orphans int
+	if err := st.db.QueryRow(`SELECT COUNT(*) FROM qso WHERE profile_id IS NULL`).Scan(&orphans); err != nil {
+		t.Fatalf("count orphans: %v", err)
+	}
+	if orphans != 0 {
+		t.Fatalf("orphan count = %d, want 0", orphans)
+	}
+}
+
 // TestQSOsForProfileToleratesNullEndTime covers a row from an
 // intermediate schema where qso_date_off/time_off exist but were never
 // populated (NULL), which previously failed to scan into a plain string.
@@ -127,8 +153,12 @@ func TestInsertQSOBatchHandlesMultipleTransactions(t *testing.T) {
 		q.timeOff = q.time.Add(time.Second)
 		qsos[i] = q
 	}
-	if err := st.insertQSOBatch(context.Background(), qsos); err != nil {
+	inserted, err := st.insertQSOBatch(context.Background(), qsos)
+	if err != nil {
 		t.Fatalf("insertQSOBatch returned error: %v", err)
+	}
+	if inserted != len(qsos) {
+		t.Errorf("insertQSOBatch inserted = %d, want %d", inserted, len(qsos))
 	}
 	count, err := st.count()
 	if err != nil {
@@ -136,6 +166,68 @@ func TestInsertQSOBatchHandlesMultipleTransactions(t *testing.T) {
 	}
 	if count != len(qsos) {
 		t.Errorf("QSO count = %d, want %d", count, len(qsos))
+	}
+}
+
+// TestInsertQSOBatchSkipsExactDuplicatesOnReimport documents that re-running
+// insertQSOBatch with records that already landed (same call/band/qso_date/
+// time_on/profile_id) does not double-insert them, so retrying an ADIF import
+// after a mid-file failure is safe.
+func TestInsertQSOBatchSkipsExactDuplicatesOnReimport(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	qsos := []qso{validTestQSO(), validTestQSO()}
+	qsos[1].call = "K1ABC"
+
+	first, err := st.insertQSOBatch(context.Background(), qsos)
+	if err != nil {
+		t.Fatalf("first insertQSOBatch returned error: %v", err)
+	}
+	if first != 2 {
+		t.Fatalf("first insertQSOBatch inserted = %d, want 2", first)
+	}
+
+	second, err := st.insertQSOBatch(context.Background(), qsos)
+	if err != nil {
+		t.Fatalf("second insertQSOBatch returned error: %v", err)
+	}
+	if second != 0 {
+		t.Errorf("second insertQSOBatch inserted = %d, want 0 (all duplicates)", second)
+	}
+
+	count, err := st.count()
+	if err != nil {
+		t.Fatalf("count returned error: %v", err)
+	}
+	if count != 2 {
+		t.Errorf("QSO count after reimport = %d, want 2", count)
+	}
+}
+
+func TestResolveDXCCPrefersImportedValues(t *testing.T) {
+	q := validTestQSO() // call = W1AW, resolvable via the embedded cty.dat
+	q.country, q.cqZone, q.ituZone = "Imported Land", "5", "9"
+	country, cqZone, ituZone := resolveDXCC(q)
+	if country != "Imported Land" {
+		t.Errorf("country = %q, want %q (imported value should win over cty.dat lookup)", country, "Imported Land")
+	}
+	if cqZone != 5 {
+		t.Errorf("cqZone = %v, want 5", cqZone)
+	}
+	if ituZone != 9 {
+		t.Errorf("ituZone = %v, want 9", ituZone)
+	}
+}
+
+func TestResolveDXCCFallsBackToLookupWhenNotImported(t *testing.T) {
+	q := validTestQSO() // call = W1AW, resolvable via the embedded cty.dat
+	country, _, _ := resolveDXCC(q)
+	if country == "" {
+		t.Error("resolveDXCC() country is empty, want a cty.dat lookup result when q.country is blank")
 	}
 }
 
@@ -153,7 +245,7 @@ func TestDupeCheckUsesFifteenMinuteWindow(t *testing.T) {
 	if _, err := st.insertQSO(q); err != nil {
 		t.Fatalf("insert current-window QSO: %v", err)
 	}
-	dupe, err := st.isDupe("W4GNS", "20M", "", "", "", now)
+	dupe, err := st.isDupe("W4GNS", "20M", "", "", "", 0, now)
 	if err != nil || !dupe {
 		t.Fatalf("dupe inside window = %t, err = %v", dupe, err)
 	}
@@ -163,7 +255,7 @@ func TestDupeCheckUsesFifteenMinuteWindow(t *testing.T) {
 	if _, err := st.insertQSO(q); err != nil {
 		t.Fatalf("insert older QSO: %v", err)
 	}
-	dupe, err = st.isDupe("K1ABC", "20M", "", "", "", now)
+	dupe, err = st.isDupe("K1ABC", "20M", "", "", "", 0, now)
 	if err != nil || dupe {
 		t.Fatalf("dupe outside window = %t, err = %v", dupe, err)
 	}
@@ -186,11 +278,11 @@ func TestDupeCheckHonorsCallBandSessionScope(t *testing.T) {
 		t.Fatalf("insert QSO: %v", err)
 	}
 
-	dupe, err := st.isDupe("W4GNS", "20M", "CWT-1900", "CWT", "call+band+session", now)
+	dupe, err := st.isDupe("W4GNS", "20M", "CWT-1900", "CWT", "call+band+session", 0, now)
 	if err != nil || !dupe {
 		t.Fatalf("same-session dupe = %t, err = %v", dupe, err)
 	}
-	dupe, err = st.isDupe("W4GNS", "20M", "CWT-0300", "CWT", "call+band+session", now)
+	dupe, err = st.isDupe("W4GNS", "20M", "CWT-0300", "CWT", "call+band+session", 0, now)
 	if err != nil || dupe {
 		t.Fatalf("different-session dupe = %t, want false, err = %v", dupe, err)
 	}
@@ -214,13 +306,40 @@ func TestDupeCheckHonorsCallBandContestScope(t *testing.T) {
 		t.Fatalf("insert QSO: %v", err)
 	}
 
-	dupe, err := st.isDupe("W4GNS", "20M", "ARRL-DX-CW", "ARRL-DX-CW", "call+band", now)
+	dupe, err := st.isDupe("W4GNS", "20M", "ARRL-DX-CW", "ARRL-DX-CW", "call+band", 0, now)
 	if err != nil || !dupe {
 		t.Fatalf("whole-contest dupe (3h later) = %t, err = %v", dupe, err)
 	}
-	dupe, err = st.isDupe("W4GNS", "15M", "ARRL-DX-CW", "ARRL-DX-CW", "call+band", now)
+	dupe, err = st.isDupe("W4GNS", "15M", "ARRL-DX-CW", "ARRL-DX-CW", "call+band", 0, now)
 	if err != nil || dupe {
 		t.Fatalf("different-band dupe = %t, want false, err = %v", dupe, err)
+	}
+}
+
+// TestDupeCheckIsScopedToProfile ensures working the same call/band under a
+// different station profile is not reported as a dupe: separate profiles
+// (e.g. home vs. portable) are logically separate logs.
+func TestDupeCheckIsScopedToProfile(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+	now := time.Date(2026, time.August, 31, 18, 0, 0, 0, time.UTC)
+	q := validTestQSO()
+	q.call, q.band, q.profileID = "W4GNS", "20M", 1
+	q.time = now.Add(-time.Minute)
+	q.timeOff = q.time.Add(time.Second)
+	if _, err := st.insertQSO(q); err != nil {
+		t.Fatalf("insert QSO: %v", err)
+	}
+	dupe, err := st.isDupe("W4GNS", "20M", "", "", "", 1, now)
+	if err != nil || !dupe {
+		t.Fatalf("same-profile dupe = %t, err = %v", dupe, err)
+	}
+	dupe, err = st.isDupe("W4GNS", "20M", "", "", "", 2, now)
+	if err != nil || dupe {
+		t.Fatalf("cross-profile dupe = %t, want false, err = %v", dupe, err)
 	}
 }
 

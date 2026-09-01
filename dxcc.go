@@ -27,15 +27,20 @@ type dxccEntity struct {
 
 type dxccAlias struct {
 	prefix string
-	exact  bool
 	entity dxccEntity
 }
 
 // dxccTable resolves a callsign to a dxccEntity by longest-prefix match
 // against the aliases parsed from cty.dat, honoring per-alias CQ/ITU zone
-// overrides and "=CALL" exact-match exception entries.
+// overrides and "=CALL" exact-match exception entries. Prefix aliases are
+// bucketed by their first byte so lookup only scans aliases that could
+// possibly match a given call, instead of the full alias list (cty.dat has
+// thousands of entries, and lookup runs per cluster spot and per imported
+// QSO).
 type dxccTable struct {
-	aliases []dxccAlias
+	aliases       []dxccAlias
+	exactAliases  map[string]dxccEntity
+	prefixByFirst map[byte][]dxccAlias
 }
 
 var aliasTokenPattern = regexp.MustCompile(`^(=)?([A-Z0-9/]+)(?:\((\d+)\))?(?:\[(\d+)\])?$`)
@@ -145,11 +150,18 @@ func (t *dxccTable) addAliases(base dxccEntity, list string) error {
 				entity.ITUZone = zone
 			}
 		}
-		t.aliases = append(t.aliases, dxccAlias{
-			prefix: match[2],
-			exact:  match[1] == "=",
-			entity: entity,
-		})
+		prefix := match[2]
+		if match[1] == "=" {
+			if t.exactAliases == nil {
+				t.exactAliases = make(map[string]dxccEntity)
+			}
+			t.exactAliases[prefix] = entity
+			continue
+		}
+		if t.prefixByFirst == nil {
+			t.prefixByFirst = make(map[byte][]dxccAlias)
+		}
+		t.prefixByFirst[prefix[0]] = append(t.prefixByFirst[prefix[0]], dxccAlias{prefix: prefix, entity: entity})
 	}
 	return nil
 }
@@ -168,7 +180,7 @@ var portableCallSuffixes = map[string]bool{
 // implementation of ARRL/WPX prefix-parsing rules for edge cases such as
 // numeral-suffix portable operation.
 func (t *dxccTable) lookup(call string) (dxccEntity, bool) {
-	call = strings.ToUpper(strings.TrimSpace(call))
+	call = normalizeCall(call)
 	if call == "" || t == nil {
 		return dxccEntity{}, false
 	}
@@ -182,13 +194,10 @@ func (t *dxccTable) lookup(call string) (dxccEntity, bool) {
 		if candidate == "" || portableCallSuffixes[candidate] {
 			continue
 		}
-		for _, alias := range t.aliases {
-			if alias.exact {
-				if alias.prefix == candidate {
-					return alias.entity, true
-				}
-				continue
-			}
+		if entity, ok := t.exactAliases[candidate]; ok {
+			return entity, true
+		}
+		for _, alias := range t.prefixByFirst[candidate[0]] {
 			if strings.HasPrefix(candidate, alias.prefix) && len(alias.prefix) > bestLen {
 				bestLen = len(alias.prefix)
 				best = alias.entity

@@ -75,8 +75,8 @@ func adifQSOFields(q qso) []struct{ name, value string } {
 		asciiOrIntlField("COMMENT", q.comment),
 		{"CONTEST_ID", adifContestID(q.contestID)}, integerOnlyField("STX", q.stx), {"STX_STRING", q.stxString},
 		integerOnlyField("SRX", q.srx), {"SRX_STRING", q.srxString},
-		{"MY_GRIDSQUARE", q.myGridSquare}, {"STATION_CALLSIGN", q.stationCallsign}, {"OPERATOR", q.operatorName},
-		{"MY_RIG", q.myRig}, {"MY_ANTENNA", q.myAntenna}, {"TX_PWR", q.txPower},
+		{"MY_GRIDSQUARE", q.myGridSquare}, {"STATION_CALLSIGN", q.stationCallsign}, asciiOrIntlField("OPERATOR", q.operatorName),
+		asciiOrIntlField("MY_RIG", q.myRig), asciiOrIntlField("MY_ANTENNA", q.myAntenna), {"TX_PWR", q.txPower},
 	}
 }
 

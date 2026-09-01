@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -224,6 +225,13 @@ func (s *store) ensureDefaultProfile() error {
 // but silently vanish from exportADIF/qrz uploads, which filter by
 // profile_id.
 func (s *store) backfillMissingProfileID() error {
+	var hasOrphans bool
+	if err := s.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM qso WHERE profile_id IS NULL)`).Scan(&hasOrphans); err != nil {
+		return fmt.Errorf("check for orphaned qso rows: %w", err)
+	}
+	if !hasOrphans {
+		return nil
+	}
 	var defaultProfileID int64
 	if err := s.db.QueryRow(`SELECT id FROM station_profile ORDER BY id LIMIT 1`).Scan(&defaultProfileID); err != nil {
 		return fmt.Errorf("find default station profile for backfill: %w", err)
@@ -283,6 +291,28 @@ func dxccContext(call string) (country string, cqZone, ituZone any) {
 	return entity.Country, entity.CQZone, entity.ITUZone
 }
 
+// resolveDXCC returns the country/CQ-zone/ITU-zone to persist for q,
+// preferring values already present on q (e.g. parsed from an imported ADIF
+// record's COUNTRY/CQZ/ITUZ fields) over a fresh cty.dat lookup, so accurate
+// imported data isn't silently overwritten by a local guess.
+func resolveDXCC(q qso) (country string, cqZone, ituZone any) {
+	country, cqZone, ituZone = dxccContext(q.call)
+	if c := strings.TrimSpace(q.country); c != "" {
+		country = c
+	}
+	if z := strings.TrimSpace(q.cqZone); z != "" {
+		if n, err := strconv.Atoi(z); err == nil {
+			cqZone = n
+		}
+	}
+	if z := strings.TrimSpace(q.ituZone); z != "" {
+		if n, err := strconv.Atoi(z); err == nil {
+			ituZone = n
+		}
+	}
+	return country, cqZone, ituZone
+}
+
 // insertQSO writes a general (non-contest) QSO and returns its id.
 func (s *store) insertQSO(q qso) (int64, error) {
 	if err := validateQSO(q); err != nil {
@@ -290,7 +320,7 @@ func (s *store) insertQSO(q qso) (int64, error) {
 	}
 	utcTime := q.time.UTC()
 	utcTimeOff := q.timeOff.UTC()
-	country, cqZone, ituZone := dxccContext(q.call)
+	country, cqZone, ituZone := resolveDXCC(q)
 	res, err := s.db.Exec(
 		`INSERT INTO qso (call, qso_date, time_on, qso_date_off, time_off, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, country, cqz, ituz, sig, sig_info, comment, contest_id, stx, stx_string, srx, srx_string, profile_id, my_gridsquare, station_callsign, operator_name, my_rig, my_antenna, tx_pwr)
 			 VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -333,54 +363,76 @@ func (s *store) insertQSO(q qso) (int64, error) {
 	return res.LastInsertId()
 }
 
-// insertQSOBatch imports QSOs in bounded transactions. It validates each
-// record before persistence, rolls back the entire failing batch, and runs
-// PRAGMA optimize once the import is complete. Callers can stream a large ADIF
-// file through 1,000-record batches without loading it all into memory.
-func (s *store) insertQSOBatch(ctx context.Context, qsos []qso) error {
+// insertQSOBatch imports QSOs in bounded transactions, skipping any record
+// that exactly matches one already on file (same call/band/qso_date/time_on/
+// profile_id) so re-running an import after a mid-file failure doesn't
+// duplicate the batches that already landed. It validates each record before
+// persistence, rolls back the entire failing batch, and runs PRAGMA optimize
+// once the import is complete. Callers can stream a large ADIF file through
+// 1,000-record batches without loading it all into memory. Returns the
+// number of records actually inserted (excluding skipped duplicates).
+func (s *store) insertQSOBatch(ctx context.Context, qsos []qso) (int, error) {
+	inserted := 0
 	for start := 0; start < len(qsos); start += importBatchSize {
 		end := start + importBatchSize
 		if end > len(qsos) {
 			end = len(qsos)
 		}
-		if err := s.insertQSOChunk(ctx, qsos[start:end]); err != nil {
-			return fmt.Errorf("import QSOs %d-%d: %w", start+1, end, err)
+		n, err := s.insertQSOChunk(ctx, qsos[start:end])
+		inserted += n
+		if err != nil {
+			return inserted, fmt.Errorf("import QSOs %d-%d: %w", start+1, end, err)
 		}
 	}
 	if _, err := s.db.ExecContext(ctx, `PRAGMA optimize`); err != nil {
-		return fmt.Errorf("optimize database after import: %w", err)
+		return inserted, fmt.Errorf("optimize database after import: %w", err)
 	}
-	return nil
+	return inserted, nil
 }
 
-func (s *store) insertQSOChunk(ctx context.Context, qsos []qso) error {
+func (s *store) insertQSOChunk(ctx context.Context, qsos []qso) (int, error) {
 	for index, q := range qsos {
 		if err := validateQSO(q); err != nil {
-			return fmt.Errorf("validate record %d: %w", index+1, err)
+			return 0, fmt.Errorf("validate record %d: %w", index+1, err)
 		}
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin import transaction: %w", err)
+		return 0, fmt.Errorf("begin import transaction: %w", err)
 	}
 	defer tx.Rollback()
+	existsStatement, err := tx.PrepareContext(ctx, `SELECT 1 FROM qso WHERE call = ? AND band = ? AND qso_date = ? AND time_on = ? AND profile_id = ? LIMIT 1`)
+	if err != nil {
+		return 0, fmt.Errorf("prepare import dupe check: %w", err)
+	}
+	defer existsStatement.Close()
 	statement, err := tx.PrepareContext(ctx, `INSERT INTO qso (call, qso_date, time_on, qso_date_off, time_off, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, country, cqz, ituz, sig, sig_info, comment, contest_id, stx, stx_string, srx, srx_string, profile_id, my_gridsquare, station_callsign, operator_name, my_rig, my_antenna, tx_pwr)
 		VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
-		return fmt.Errorf("prepare import insert: %w", err)
+		return 0, fmt.Errorf("prepare import insert: %w", err)
 	}
 	defer statement.Close()
+	inserted := 0
 	for index, q := range qsos {
 		start, end := q.time.UTC(), q.timeOff.UTC()
-		country, cqZone, ituZone := dxccContext(q.call)
-		if _, err := statement.ExecContext(ctx, q.call, start.Format("20060102"), start.Format("150405"), end.Format("20060102"), end.Format("150405"), q.band, q.frequency, q.mode, q.rstSent, q.rstRcvd, q.name, q.qth, q.grid, q.state, country, cqZone, ituZone, potaSignal(q.potaRef), q.potaRef, q.comment, q.contestID, q.stx, q.stxString, q.srx, q.srxString, q.profileID, q.myGridSquare, q.stationCallsign, q.operatorName, q.myRig, q.myAntenna, q.txPower); err != nil {
-			return fmt.Errorf("insert record %d: %w", index+1, err)
+		qsoDate, timeOn := start.Format("20060102"), start.Format("150405")
+		var exists int
+		switch err := existsStatement.QueryRowContext(ctx, q.call, q.band, qsoDate, timeOn, q.profileID).Scan(&exists); {
+		case err == nil:
+			continue // already imported; skip to keep re-imports idempotent
+		case err != sql.ErrNoRows:
+			return inserted, fmt.Errorf("check existing record %d: %w", index+1, err)
 		}
+		country, cqZone, ituZone := resolveDXCC(q)
+		if _, err := statement.ExecContext(ctx, q.call, qsoDate, timeOn, end.Format("20060102"), end.Format("150405"), q.band, q.frequency, q.mode, q.rstSent, q.rstRcvd, q.name, q.qth, q.grid, q.state, country, cqZone, ituZone, potaSignal(q.potaRef), q.potaRef, q.comment, q.contestID, q.stx, q.stxString, q.srx, q.srxString, q.profileID, q.myGridSquare, q.stationCallsign, q.operatorName, q.myRig, q.myAntenna, q.txPower); err != nil {
+			return inserted, fmt.Errorf("insert record %d: %w", index+1, err)
+		}
+		inserted++
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit import transaction: %w", err)
+		return inserted, fmt.Errorf("commit import transaction: %w", err)
 	}
-	return nil
+	return inserted, nil
 }
 
 // isDupe reports whether call has already been worked on band, per the
@@ -396,7 +448,7 @@ func (s *store) insertQSOChunk(ctx context.Context, qsos []qso) error {
 //   - anything else non-blank (almost every catalog entry uses
 //     "call+band"): a dupe anywhere in this contest (any session of eventID),
 //     unbounded in time.
-func (s *store) isDupe(call, band, contestID, eventID, dupeScope string, now time.Time) (bool, error) {
+func (s *store) isDupe(call, band, contestID, eventID, dupeScope string, profileID int64, now time.Time) (bool, error) {
 	var (
 		query string
 		args  []any
@@ -405,14 +457,14 @@ func (s *store) isDupe(call, band, contestID, eventID, dupeScope string, now tim
 	case dupeScope == "":
 		windowStart := now.UTC().Add(-dupeWindow).Format("20060102150405")
 		windowEnd := now.UTC().Format("20060102150405")
-		query = `SELECT COUNT(1) FROM qso WHERE call = ? AND band = ? AND (qso_date || time_on) BETWEEN ? AND ?`
-		args = []any{call, band, windowStart, windowEnd}
+		query = `SELECT COUNT(1) FROM qso WHERE call = ? AND band = ? AND profile_id = ? AND (qso_date || time_on) BETWEEN ? AND ?`
+		args = []any{call, band, profileID, windowStart, windowEnd}
 	case dupeScope == "call+band+session":
-		query = `SELECT COUNT(1) FROM qso WHERE call = ? AND band = ? AND contest_id = ?`
-		args = []any{call, band, contestID}
+		query = `SELECT COUNT(1) FROM qso WHERE call = ? AND band = ? AND profile_id = ? AND contest_id = ?`
+		args = []any{call, band, profileID, contestID}
 	default:
-		query = `SELECT COUNT(1) FROM qso WHERE call = ? AND band = ? AND (contest_id = ? OR contest_id LIKE ?)`
-		args = []any{call, band, eventID, eventID + "-%"}
+		query = `SELECT COUNT(1) FROM qso WHERE call = ? AND band = ? AND profile_id = ? AND (contest_id = ? OR contest_id LIKE ?)`
+		args = []any{call, band, profileID, eventID, eventID + "-%"}
 	}
 	var n int
 	if err := s.db.QueryRow(query, args...).Scan(&n); err != nil {

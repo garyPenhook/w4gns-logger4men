@@ -28,7 +28,7 @@ type potaLookupMsg struct {
 }
 
 func lookupPOTASpot(call string, now time.Time) tea.Cmd {
-	call = strings.ToUpper(strings.TrimSpace(call))
+	call = normalizeCall(call)
 	return func() tea.Msg {
 		request, err := http.NewRequest(http.MethodGet, potaSpotAPI, nil)
 		if err != nil {
@@ -56,7 +56,7 @@ func lookupPOTASpot(call string, now time.Time) tea.Cmd {
 }
 
 func recentPOTAReference(spots []potaSpot, call string, now time.Time) (string, bool) {
-	call = strings.ToUpper(strings.TrimSpace(call))
+	call = normalizeCall(call)
 	cutoff := now.UTC().Add(-dupeWindow)
 	var latest time.Time
 	var reference string

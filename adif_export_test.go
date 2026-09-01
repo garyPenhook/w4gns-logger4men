@@ -39,6 +39,22 @@ func TestAdifQSOFieldsUsesIntlFieldForNonASCII(t *testing.T) {
 	}
 }
 
+func TestAdifQSOFieldsUsesIntlFieldForNonASCIIStationFields(t *testing.T) {
+	q := validTestQSO()
+	q.operatorName, q.myRig, q.myAntenna = "José", "FTδ-891", "Δ-loop"
+	fields := adifQSOFields(q)
+	for _, tc := range []struct{ base, want string }{
+		{"OPERATOR", "José"}, {"MY_RIG", "FTδ-891"}, {"MY_ANTENNA", "Δ-loop"},
+	} {
+		if _, ok := fieldValue(fields, tc.base); ok {
+			t.Errorf("%s should not be present for non-ASCII values", tc.base)
+		}
+		if value, ok := fieldValue(fields, tc.base+"_INTL"); !ok || value != tc.want {
+			t.Errorf("%s_INTL = %q, ok=%v, want %q", tc.base, value, ok, tc.want)
+		}
+	}
+}
+
 func TestAdifQSOFieldsUsesPlainFieldForASCII(t *testing.T) {
 	q := validTestQSO()
 	q.name = "Pat"

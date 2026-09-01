@@ -368,6 +368,17 @@ Press `F8` at any time to back up immediately, and every shutdown backs up autom
 - Requires an `rclone` binary in `PATH` with a working `gdrive` remote already configured (`rclone config`). If rclone or the remote is unavailable, the status bar (or terminal output on shutdown) reports the failure and logging continues unaffected — a failed backup never blocks or loses QSO data.
 - Backups are serialized: pressing `F8` again while one is already running is ignored (the status bar shows "backup already in progress…"), and the mandatory backup-on-exit waits for any backup still in flight instead of racing it. This avoids two backups writing to the same second-resolution filenames or running `VACUUM INTO` concurrently.
 
+## Changelog
+
+### v1.0.0
+
+- Imported ADIF `COUNTRY`/`CQZ`/`ITUZ` fields are preserved instead of being silently overwritten by a local `cty.dat` guess.
+- `OPERATOR`, `MY_RIG`, and `MY_ANTENNA` now export as `_INTL` fields when they contain non-ASCII characters, matching ADIF's String/IntlString rules.
+- Dupe checking is scoped per station profile, so working the same call/band under a different profile is no longer flagged as a dupe.
+- Re-running an ADIF import after a mid-file failure skips records that already landed instead of duplicating them.
+- DX cluster and ADIF-import DXCC lookups use an indexed prefix match instead of a full linear scan.
+- An unrecognized, free-typed contest name now surfaces a status message explaining that dupe checking fell back to the casual 15-minute window.
+
 ## License
 
 Copyright © 2026 Gary Penhook. W4GNS Logger 4 Men is licensed under the GNU General Public License, version 3 or any later version (GPL-3.0-or-later). See [LICENSE](LICENSE).

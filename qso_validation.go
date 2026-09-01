@@ -6,6 +6,13 @@ import (
 	"unicode"
 )
 
+// normalizeCall upper-cases and trims a callsign for comparison/lookup
+// (worked-call matching, DXCC prefix lookup, spot filtering). Shared so every
+// call site treats "w4gns", "W4GNS", and " W4GNS " as the same station.
+func normalizeCall(call string) string {
+	return strings.ToUpper(strings.TrimSpace(call))
+}
+
 // validateQSO protects the database boundary. UI validation improves the
 // operator experience, but every caller must pass through this check before a
 // QSO is persisted or sent to a future external service.
