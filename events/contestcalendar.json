@@ -2138,5 +2138,33 @@
         "schedule": "0000Z-0200Z, Aug 10"
       }
     ]
+  },
+  {
+    "id": "HI-QSO-PARTY",
+    "name": "Hawaii QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1600Z, Aug 22 to 0400Z, Aug 24",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW/SSB/Digital contest \u2014 CW exchange: HI stations: RS(T) + HI district; non-HI W/VE: RS(T) + (state/province); DX: RS(T)",
+    "received_exchange_hint": "CW/SSB/Digital contest \u2014 CW exchange: HI stations: RS(T) + HI district; non-HI W/VE: RS(T) + (state/province); DX: RS(T)",
+    "dupe_scope": "call+band",
+    "rules_url": "http://www.hawaiiqsoparty.org/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1600ZAug22",
+        "label": "Hawaii QSO Party",
+        "schedule": "1600Z, Aug 22 to 0400Z, Aug 24"
+      }
+    ]
   }
 ]
