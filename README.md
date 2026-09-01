@@ -65,9 +65,220 @@ Your log is stored locally in `w4gns.db` by default. Set `W4GNS_DB` to use anoth
 
 Press `F6` for optional QSO details: operator name, QTH, grid square, state or province, POTA reference, and notes. Press `F7` for the Events & Contests page. Select an event with `Up`/`Down`, select its UTC session with `Left`/`Right`, then press `Enter`; the session-specific ID and exchange templates populate Contest Entry. The catalog shows a scrollable window, so it accommodates hundreds of definitions. The built-in CWops definitions cover all four weekly CWT sessions and the three CW Open sessions. Each definition can include a score-submission URL; CWT points to 3830scores.com. Events are JSON files embedded from `events/`, so definitions can be added without modifying Go code. These pages retain their values until the QSO is logged from the main QSO Entry screen.
 
-`events/contestcalendar.json` adds the next occurrence of 79 CW-only contests from the [WA7BNM Contest Calendar](https://www.contestcalendar.com/contestcal.php) — every listing whose Contest Calendar detail page reports `Mode: CW` exactly, from the majors (CQ WW CW, CQ WPX CW, ARRL DX CW, ARRL Sweepstakes CW, NAQP CW, WAE CW, Stew Perry Topband) down to club sprints (SKCC, NAQCC, K1USN, ICWC, A1 Club, AGCW, and more). Each entry's exchange hint, band list, and `rules_url` come from that same detail page rather than from memory. Contests whose detail page lists more than one mode (e.g. CW+SSB QSO parties) are left out, since this logger is CW-only.
+`events/contestcalendar.json` adds the next occurrence of every CW-inclusive contest and QSO party found on the [WA7BNM Contest Calendar](https://www.contestcalendar.com/) — worldwide majors, US and Canadian state/province QSO parties, and national/regional contests from Europe, Asia, South America, Africa, and Oceania. A contest is included only when its own Contest Calendar detail page confirms CW as one of its modes; entries whose only confirmed mode is something else (SSB-only, RTTY-only, etc.) or whose status is reported `Inactive` are left out. For contests that also allow other modes, the exchange hint is scoped to the CW leg specifically, and says so. Every entry's exchange hint, band list, and `rules_url` are read from that same detail page rather than recalled from memory; where no confirmed upcoming date is published, the entry says so instead of guessing one.
 
 TNQP is configured for an out-of-state operator. Its received-exchange field offers Tennessee county codes as you type; use `Up`/`Down` and `Enter` to insert the official four-letter county abbreviation.
+
+<details>
+<summary>Full list of 186 built-in event/contest definitions (click to expand)</summary>
+
+Selected directly with `F7`; grouped by region below. CWops (CWT, CW Open) and the Tennessee QSO Party ship as hand-curated definitions with typeahead exchange support; the rest come from `events/contestcalendar.json`, sourced from the [WA7BNM Contest Calendar](https://www.contestcalendar.com/) and its per-contest detail pages.
+
+**CWops / hand-curated:**
+- CWops Test (CWT)
+- CW Open
+- Tennessee QSO Party
+
+**Major & club contests (worldwide/US) (42):**
+- 4 States QRP Group Second Sunday Sprint
+- A1Club AWT
+- ARRL Inter. DX Contest, CW
+- ARRL Rookie Roundup, CW
+- ARRL Sweepstakes Contest, CW
+- ARS Flight of the Bumblebees
+- ARS Spartan Sprint
+- AWA Bruce Kelley 1929 QSO Party
+- CQ 160-Meter Contest, CW
+- CQ WW WPX Contest, CW
+- CQ Worldwide DX Contest, CW
+- Classic Exchange, CW
+- High Speed Club CW Contest
+- Homebrew and Oldtime Equipment Party
+- IARU Region 1 Field Day, CW
+- ICWC Medium Speed Test
+- K1USN SST Open
+- K1USN Slow Speed Test
+- MI QRP Labor Day CW Sprint
+- Mini-Test 40
+- Mini-Test 80
+- NCCC Sprint Ladder
+- North American QSO Party, CW
+- North American Sprint, CW
+- Novice Rig Roundup
+- PRO CW Contest
+- QCX Challenge
+- QRP ARCI Fall QSO Party
+- QRP ARCI Holiday Spirits Sprint
+- QRP ARCI Hootowl Sprint
+- QRP ARCI Spring QSO Party
+- QRP ARCI Summer Homebrew Sprint
+- QRP Fox Hunt
+- QRP to the Field
+- Run for the Bacon QRP Contest
+- SKCC Sprint
+- SKCC Sprint Europe
+- SKCC Weekend Sprintathon
+- Stew Perry Topband Challenge
+- Wake-Up! QRP Sprint
+- Walk for the Bacon QRP Contest
+- Zombie Shuffle
+
+**United States state QSO parties (45):**
+- 7th Call Area QSO Party
+- Alabama QSO Party
+- Arizona QSO Party
+- Arkansas QSO Party
+- California QSO Party
+- Collegiate QSO Party
+- Colorado QSO Party
+- Delaware QSO Party
+- Florida QSO Party
+- Georgia QSO Party
+- Hawaii QSO Party
+- Idaho QSO Party
+- Illinois QSO Party
+- Indiana QSO Party
+- Iowa QSO Party
+- Kansas QSO Party
+- Kentucky QSO Party
+- Kentucky State Parks on the Air
+- Louisiana QSO Party
+- Maine QSO Party
+- Maryland-DC QSO Party
+- Michigan QSO Party
+- Minnesota QSO Party
+- Mississippi QSO Party
+- Missouri QSO Party
+- Nebraska QSO Party
+- New England QSO Party
+- New Hampshire QSO Party
+- New Jersey QSO Party
+- New Mexico QSO Party
+- New York QSO Party
+- North Carolina QSO Party
+- North Dakota QSO Party
+- Ohio QSO Party
+- Oklahoma QSO Party
+- Pennsylvania QSO Party
+- South Carolina QSO Party
+- South Dakota QSO Party
+- Texas QSO Party
+- U.S. Islands QSO Party
+- Vermont QSO Party
+- Virginia QSO Party
+- Washington State Salmon Run
+- West Virginia QSO Party
+- Wisconsin QSO Party
+
+**Canada (8):**
+- Atlantic Canada QSO Party
+- British Columbia QSO Party
+- Canadian Prairies QSO Party
+- NSARA Contest
+- Ontario QSO Party
+- Quebec QSO Party
+- RAC Canada Day Contest
+- RAC Winter Contest
+
+**Europe (70):**
+- AGCW Happy New Year Contest
+- AGCW QRP Contest
+- AGCW QRP/QRP Party
+- AGCW Semi-Automatic Key Evening
+- AGCW Straight Key Party
+- AGCW YL-CW Party
+- ARI 40/80 Contest
+- ARI International DX Contest
+- All Austrian 160-Meter Contest
+- Balkan HF Contest
+- Baltic Contest
+- Croatian DX Contest
+- DARC 10-Meter Contest
+- DARC CW-Training Contest
+- DARC Christmas Contest
+- DARC Easter Contest
+- DIG QSO Party, CW
+- Dutch PACC Contest
+- EA-QRP CW Contest
+- EUCW 160m Contest
+- European HF Championship
+- European Union DX Contest
+- GACW WWSA CW DX Contest
+- German Telegraphy Contest
+- HA3NS Sprint Memorial Contest
+- Helvetia Contest
+- His Maj. King of Spain Contest, CW
+- Hungarian DX Contest
+- Hungarian Straight Key Contest
+- LZ DX Contest
+- LZ International 6-Meter Contest
+- Marconi Club ARI Loano QSO Party Day
+- Marconi Club ARI Loano Slow CW QSO Party
+- Marconi Memorial HF Contest
+- NAQCC CW Sprint
+- NRAU-Baltic Contest, CW
+- OK/OM DX Contest, CW
+- Portugal Day Contest
+- Portuguese Navy Day Contest - CT1DBS Memorial
+- RAEM Contest
+- REF 160-Meter Contest
+- REF Contest, CW
+- REF DDFM 6m Contest
+- RSGB 1.8 MHz Contest
+- RSGB 80m Autumn Series, CW
+- RSGB 80m Club Championship, CW
+- RSGB AFS Contest, CW
+- RSGB IOTA Contest
+- RSGB International Low Power Contest
+- RSGB National Field Day
+- Russian 160-Meter DX Contest
+- Russian DX Contest
+- Russian District Award Contest
+- Russian Radio Team Championship
+- Russian YL/OM Contest
+- SP DX Contest
+- Scandinavian Activity Contest, CW
+- Tuesday's Telegraphy Contest
+- Turkiye HF Contest
+- UBA DX Contest, CW
+- UBA ON Contest, 6m
+- UBA ON Contest, CW
+- UBA Spring Contest, 6m
+- UBA Spring Contest, CW
+- UK/EI DX Contest, CW
+- Ukrainian DX Contest
+- WAE DX Contest, CW
+- Worked All Germany Contest
+- YO DX HF Contest
+- YU DX Contest
+
+**Asia (10):**
+- ARSI VU DX Contest
+- All Asian DX Contest, CW
+- Asia-Pacific Fall Sprint, CW
+- Asia-Pacific Spring Sprint, CW
+- EurAsia HF Championship
+- JIDX CW Contest
+- KCJ Topband Contest
+- Keyman's Club of Japan Contest
+- SEANET Contest
+- YB Bekasi Merdeka Contest
+
+**South America (6):**
+- CVA DX Contest, CW
+- LABRE DX Contest
+- South America 10 Meter Contest
+- South American Integration Contest CW
+- Venezuelan Ind. Day Contest
+- World Wide Argentina DX Contest
+
+**Africa (1):**
+- SARL HF CW Contest
+
+**Oceania (1):**
+- Oceania DX Contest, CW
+
+</details>
 
 ## Station Setup
 
