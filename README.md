@@ -60,6 +60,7 @@ Your log is stored locally in `w4gns.db` by default. Set `W4GNS_DB` to use anoth
 - The first `Tab` or `Enter` after entering a callsign starts the QSO timer.
 - The final `Enter` saves UTC start and end times, then clears the form for the next QSO.
 - UTC and local time are displayed in the logger header.
+- Current solar-weather propagation indices (SFI, A-index, K-index) are shown below the header, sourced from [N0NBH's solar-data feed](https://www.hamqsl.com/solar.html) and refreshed automatically every 30 minutes. If the feed is unreachable, the line reports why and logging is unaffected.
 
 ## QSO Details and Events & Contests
 

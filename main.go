@@ -170,6 +170,9 @@ type model struct {
 	// warning shows once per distinct value instead of on every keystroke.
 	contestScopeFallbackFor string
 
+	solar    solarIndices
+	solarErr string
+
 	screen          screen
 	activeStation   stationProfile
 	stationFields   []textinput.Model
@@ -479,7 +482,7 @@ func (m *model) addClusterSpot(spot clusterSpot) {
 }
 
 func (m model) Init() tea.Cmd {
-	return textinput.Blink
+	return tea.Batch(textinput.Blink, fetchSolarIndicesCmd(), solarTickCmd())
 }
 
 func (m *model) refreshTableRows() {
@@ -775,6 +778,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if message.reference != "" && strings.TrimSpace(m.detailFields[detailPOTARef].Value()) == "" {
 			m.detailFields[detailPOTARef].SetValue(message.reference)
 			m.statusMsg = "POTA " + message.reference + " from recent POTA spot"
+		}
+		return m, nil
+	}
+	if _, ok := msg.(solarTickMsg); ok {
+		return m, tea.Batch(fetchSolarIndicesCmd(), solarTickCmd())
+	}
+	if message, ok := msg.(solarIndicesMsg); ok {
+		if message.err != nil {
+			m.solarErr = message.err.Error()
+		} else {
+			m.solarErr = ""
+			m.solar = message.indices
 		}
 		return m, nil
 	}
@@ -1244,6 +1259,8 @@ func (m model) View() string {
 		now.Location(),
 	)
 	b.WriteString(headerStyle.Render(header))
+	b.WriteString("\n")
+	b.WriteString(helpStyle.Render(m.solarLine()))
 	b.WriteString("\n\n")
 
 	fieldViews := make([]string, fieldCount)
