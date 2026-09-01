@@ -42,18 +42,11 @@ func bandForFrequency(frequency string) (string, bool) {
 	if freq >= 1000 {
 		freq /= 1000
 	}
-	for _, allocation := range []struct {
-		band string
-		low  float64
-		high float64
-	}{
-		{"160M", 1.8, 2.0}, {"80M", 3.5, 4.0}, {"60M", 5.3, 5.5},
-		{"40M", 7.0, 7.3}, {"30M", 10.1, 10.15}, {"20M", 14.0, 14.35},
-		{"17M", 18.068, 18.168}, {"15M", 21.0, 21.45}, {"12M", 24.89, 24.99},
-		{"10M", 28.0, 29.7}, {"6M", 50.0, 54.0},
-	} {
-		if freq >= allocation.low && freq <= allocation.high {
-			return allocation.band, true
+	// Band edges come from amateurBands (bandplan.go) so the cluster filter
+	// and QSO-entry validation always agree on what belongs to a band.
+	for _, allocation := range amateurBands {
+		if freq >= allocation.LowMHz && freq <= allocation.HighMHz {
+			return allocation.Name, true
 		}
 	}
 	return "", false
