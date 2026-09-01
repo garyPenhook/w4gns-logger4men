@@ -2166,5 +2166,33 @@
         "schedule": "1600Z, Aug 22 to 0400Z, Aug 24"
       }
     ]
+  },
+  {
+    "id": "OH-QSO-PARTY",
+    "name": "Ohio QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1600Z, Aug 22 to 0400Z, Aug 23",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW/SSB contest \u2014 CW exchange: OH stations: RS(T) + county; non-OH: RS(T) + (state/province/\"DX\")",
+    "received_exchange_hint": "CW/SSB contest \u2014 CW exchange: OH stations: RS(T) + county; non-OH: RS(T) + (state/province/\"DX\")",
+    "dupe_scope": "call+band",
+    "rules_url": "http://www.ohqp.org/index.php/rules/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1600ZAug22",
+        "label": "Ohio QSO Party",
+        "schedule": "1600Z, Aug 22 to 0400Z, Aug 23"
+      }
+    ]
   }
 ]
