@@ -371,6 +371,10 @@ Press `F8` at any time to back up immediately, and every shutdown backs up autom
 
 ## Changelog
 
+### v1.1.0
+
+- Live solar propagation indices (SFI, A-index, K-index) now display below the header on the QSO entry screen, sourced from N0NBH's solar-data feed and refreshed automatically every 30 minutes.
+
 ### v1.0.0
 
 - Imported ADIF `COUNTRY`/`CQZ`/`ITUZ` fields are preserved instead of being silently overwritten by a local `cty.dat` guess.
