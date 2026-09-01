@@ -3587,5 +3587,137 @@
         "schedule": "0000Z-2359Z, Jul 1"
       }
     ]
+  },
+  {
+    "id": "SA10M",
+    "name": "South America 10 Meter Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1200Z, Mar 13 to 1200Z, Mar 14",
+    "bands": [
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: RS(T) + CQ zone",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: RS(T) + CQ zone",
+    "dupe_scope": "call+band",
+    "rules_url": "http://sa10m.com.ar/wp/rules/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1200ZMar13",
+        "label": "South America 10 Meter Contest",
+        "schedule": "1200Z, Mar 13 to 1200Z, Mar 14"
+      }
+    ]
+  },
+  {
+    "id": "SACW",
+    "name": "South American Integration Contest CW",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "1800Z, Nov 21 to 2100Z, Nov 22",
+    "bands": [
+      "80M",
+      "40M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CWSP Members: RST + \"M\" QRP: RST + \"QRP\" YL: RST + \"YL\" All Others: RST + ITU Zone No.",
+    "received_exchange_hint": "CWSP Members: RST + \"M\" QRP: RST + \"QRP\" YL: RST + \"YL\" All Others: RST + ITU Zone No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://sacw.cwsp.com.br/en/2021/09/21/pdf/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1800ZNov21",
+        "label": "South American Integration Contest CW",
+        "schedule": "1800Z, Nov 21 to 2100Z, Nov 22"
+      }
+    ]
+  },
+  {
+    "id": "VENEZUELAN-IND-DAY-CONTEST",
+    "name": "Venezuelan Ind. Day Contest",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "0000Z-2359Z, Jul 3",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB, PSK contest \u2014 CW exchange: RS(T) + Serial No.",
+    "received_exchange_hint": "CW, SSB, PSK contest \u2014 CW exchange: RS(T) + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://radioclubvenezolano.org/independenciadevenezuela.html",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0000Z2359ZJul3",
+        "label": "Venezuelan Ind. Day Contest",
+        "schedule": "0000Z-2359Z, Jul 3"
+      }
+    ]
+  },
+  {
+    "id": "WWPDX",
+    "name": "World Wide Argentina DX Contest",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "next date not yet announced",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: RS(T) + 4-character grid square",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: RS(T) + 4-character grid square",
+    "dupe_scope": "call+band",
+    "rules_url": "https://worldwideargentina.com.ar/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "nextdatenotyetannounced",
+        "label": "World Wide Argentina DX Contest",
+        "schedule": "next date not yet announced"
+      }
+    ]
+  },
+  {
+    "id": "LABRE-DX",
+    "name": "LABRE DX Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "0000Z, Jul 17 to 2359Z, Jul 18",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: Brazilian: RS(T) + 2-letter state; Non-Brazilian: RS(T) + 2-letter continent",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: Brazilian: RS(T) + 2-letter state; Non-Brazilian: RS(T) + 2-letter continent",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.labre.org.br/contest/en/regulamento/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "Jul17toJul18",
+        "label": "LABRE DX Contest",
+        "schedule": "0000Z, Jul 17 to 2359Z, Jul 18"
+      }
+    ]
   }
 ]
