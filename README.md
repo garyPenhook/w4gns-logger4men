@@ -29,6 +29,7 @@ Your log is stored locally in `w4gns.db` by default. Set `W4GNS_DB` to use anoth
 | `F5` | Import ADIF from QSO Entry |
 | `F6` | QSO Details |
 | `F7` | Events & Contests |
+| `F8` | Back up now to Google Drive |
 | `Tab` / `Shift+Tab` | Move between entry fields |
 | `Enter` | Move to the next field; save a QSO from the final field |
 | `Esc` | Quit from QSO Entry; cancel Station Setup; return to QSO Entry from DX Cluster |
@@ -111,6 +112,15 @@ Export every QSO from the active station profile as ADIF 3 records:
 ```
 
 The export preserves the QSO's CW fields, frequency, details, POTA metadata, contest fields, and UTC start/end times. The export path must not be the SQLite database file.
+
+## Backups
+
+Press `F8` at any time to back up immediately, and every clean shutdown (`Esc`/`Ctrl+C`) backs up automatically before the app exits.
+
+- A backup takes a consistent snapshot of the database (SQLite `VACUUM INTO`, safe even while logging continues) plus a fresh full ADIF export.
+- Both files are uploaded to Google Drive with [rclone](https://rclone.org/) under the remote `gdrive:W4GNS_Logger_Backups`.
+- Only the 5 most recent database backups and 5 most recent ADIF backups are kept; older ones are deleted automatically after each backup.
+- Requires an `rclone` binary in `PATH` with a working `gdrive` remote already configured (`rclone config`). If rclone or the remote is unavailable, the status bar (or terminal output on shutdown) reports the failure and logging continues unaffected — a failed backup never blocks or loses QSO data.
 
 ## License
 

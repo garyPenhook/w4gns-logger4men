@@ -386,6 +386,22 @@ type adifImportedMsg struct {
 	err    error
 }
 
+type backupCompletedMsg struct {
+	result backupResult
+	err    error
+}
+
+func (m model) runBackupCmd() tea.Cmd {
+	st := m.store
+	profileID := m.activeStation.ID
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), backupTimeout)
+		defer cancel()
+		result, err := runBackup(ctx, st, profileID)
+		return backupCompletedMsg{result: result, err: err}
+	}
+}
+
 func (m *model) openADIFImport() {
 	m.adifPathField = newStationTextInput("", 60)
 	m.adifPathField.Placeholder = "/path/to/log.adi"
@@ -704,6 +720,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMsg = "POTA " + message.reference + " from recent POTA spot"
 		}
 		return m, nil
+	}
+	if message, ok := msg.(backupCompletedMsg); ok {
+		if message.err != nil {
+			m.statusMsg = "backup failed: " + message.err.Error()
+		} else {
+			m.statusMsg = fmt.Sprintf("backed up to Google Drive: %s, %s", message.result.dbName, message.result.adifName)
+		}
+		return m, nil
+	}
+	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "f8" {
+		m.statusMsg = "backing up to Google Drive…"
+		return m, m.runBackupCmd()
 	}
 	if m.screen == stationSetupScreen {
 		return m.updateStationSetup(msg)
@@ -1380,7 +1408,7 @@ func screenHotkeys(current screen) string {
 	} else if current == qsoDetailsScreen || current == qsoContestScreen || current == eventCatalogScreen {
 		escape = "Esc: QSO Entry"
 	}
-	return helpStyle.Render("F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF  •  F6: QSO Details  •  F7: Events  •  " + escape)
+	return helpStyle.Render("F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF  •  F6: QSO Details  •  F7: Events  •  F8: Backup  •  " + escape)
 }
 
 func main() {
@@ -1415,9 +1443,24 @@ func main() {
 	// Alt-screen mode gives the logger a clean, dedicated terminal surface and
 	// restores the invoking terminal unchanged when the application exits.
 	p := tea.NewProgram(initialModel(st), tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
+	finalModel, err := p.Run()
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
+	}
+
+	// Every shutdown path (Esc, Ctrl+C, or terminal close) routes through here,
+	// so a single backup-on-exit call covers all of them.
+	if m, ok := finalModel.(model); ok {
+		fmt.Println("backing up to Google Drive…")
+		ctx, cancel := context.WithTimeout(context.Background(), backupTimeout)
+		result, backupErr := runBackup(ctx, m.store, m.activeStation.ID)
+		cancel()
+		if backupErr != nil {
+			fmt.Fprintf(os.Stderr, "backup failed: %v\n", backupErr)
+		} else {
+			fmt.Printf("backup saved: %s, %s\n", result.dbName, result.adifName)
+		}
 	}
 }
 
