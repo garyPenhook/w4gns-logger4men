@@ -251,7 +251,7 @@ func TestDupeCheckUsesFifteenMinuteWindow(t *testing.T) {
 	if _, err := st.insertQSO(q); err != nil {
 		t.Fatalf("insert current-window QSO: %v", err)
 	}
-	dupe, err := st.isDupe("W4GNS", "20M", "", "", "", 0, now)
+	dupe, err := st.isDupe("W4GNS", "20M", "", "", "", 0, 0, now)
 	if err != nil || !dupe {
 		t.Fatalf("dupe inside window = %t, err = %v", dupe, err)
 	}
@@ -261,7 +261,7 @@ func TestDupeCheckUsesFifteenMinuteWindow(t *testing.T) {
 	if _, err := st.insertQSO(q); err != nil {
 		t.Fatalf("insert older QSO: %v", err)
 	}
-	dupe, err = st.isDupe("K1ABC", "20M", "", "", "", 0, now)
+	dupe, err = st.isDupe("K1ABC", "20M", "", "", "", 0, 0, now)
 	if err != nil || dupe {
 		t.Fatalf("dupe outside window = %t, err = %v", dupe, err)
 	}
@@ -284,11 +284,11 @@ func TestDupeCheckHonorsCallBandSessionScope(t *testing.T) {
 		t.Fatalf("insert QSO: %v", err)
 	}
 
-	dupe, err := st.isDupe("W4GNS", "20M", "CWT-1900", "CWT", "call+band+session", 0, now)
+	dupe, err := st.isDupe("W4GNS", "20M", "CWT-1900", "CWT", "call+band+session", 0, 0, now)
 	if err != nil || !dupe {
 		t.Fatalf("same-session dupe = %t, err = %v", dupe, err)
 	}
-	dupe, err = st.isDupe("W4GNS", "20M", "CWT-0300", "CWT", "call+band+session", 0, now)
+	dupe, err = st.isDupe("W4GNS", "20M", "CWT-0300", "CWT", "call+band+session", 0, 0, now)
 	if err != nil || dupe {
 		t.Fatalf("different-session dupe = %t, want false, err = %v", dupe, err)
 	}
@@ -312,11 +312,11 @@ func TestDupeCheckHonorsCallBandContestScope(t *testing.T) {
 		t.Fatalf("insert QSO: %v", err)
 	}
 
-	dupe, err := st.isDupe("W4GNS", "20M", "ARRL-DX-CW", "ARRL-DX-CW", "call+band", 0, now)
+	dupe, err := st.isDupe("W4GNS", "20M", "ARRL-DX-CW", "ARRL-DX-CW", "call+band", 0, 0, now)
 	if err != nil || !dupe {
 		t.Fatalf("whole-contest dupe (3h later) = %t, err = %v", dupe, err)
 	}
-	dupe, err = st.isDupe("W4GNS", "15M", "ARRL-DX-CW", "ARRL-DX-CW", "call+band", 0, now)
+	dupe, err = st.isDupe("W4GNS", "15M", "ARRL-DX-CW", "ARRL-DX-CW", "call+band", 0, 0, now)
 	if err != nil || dupe {
 		t.Fatalf("different-band dupe = %t, want false, err = %v", dupe, err)
 	}
@@ -339,11 +339,11 @@ func TestDupeCheckIsScopedToProfile(t *testing.T) {
 	if _, err := st.insertQSO(q); err != nil {
 		t.Fatalf("insert QSO: %v", err)
 	}
-	dupe, err := st.isDupe("W4GNS", "20M", "", "", "", 1, now)
+	dupe, err := st.isDupe("W4GNS", "20M", "", "", "", 1, 0, now)
 	if err != nil || !dupe {
 		t.Fatalf("same-profile dupe = %t, err = %v", dupe, err)
 	}
-	dupe, err = st.isDupe("W4GNS", "20M", "", "", "", 2, now)
+	dupe, err = st.isDupe("W4GNS", "20M", "", "", "", 2, 0, now)
 	if err != nil || dupe {
 		t.Fatalf("cross-profile dupe = %t, want false, err = %v", dupe, err)
 	}
@@ -390,5 +390,137 @@ func TestInsertQSOPersistsDetailAndContestFields(t *testing.T) {
 	}
 	if got, want := []string{frequency, name, qth, grid, state, sig, sigInfo, comment, contest, stx, stxString, srx, srxString}, []string{"14.025", "Pat", "Raleigh", "FM05", "NC", "POTA", "US-1234", "Great signal", "NAQP", "001", "NC", "014", "VA"}; strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("stored detail fields = %#v, want %#v", got, want)
+	}
+}
+
+func TestQSOByIDLoadsEditableFields(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	q := validTestQSO()
+	q.name, q.qth = "Pat", "Raleigh"
+	id, err := st.insertQSO(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := st.qsoByID(id)
+	if err != nil {
+		t.Fatalf("qsoByID returned error: %v", err)
+	}
+	if got.id != id || got.call != q.call || got.name != "Pat" || got.qth != "Raleigh" {
+		t.Fatalf("qsoByID(%d) = %+v, want call=%q name=Pat qth=Raleigh", id, got, q.call)
+	}
+	// W1AW resolves via the embedded cty.dat/ARRL table; qsoByID must surface
+	// that resolved context too, so updateQSO can carry it forward unchanged
+	// when the callsign isn't part of an edit.
+	if got.country == "" || got.dxccNumber == "" {
+		t.Errorf("qsoByID(%d) country/dxccNumber = %q/%q, want both resolved", id, got.country, got.dxccNumber)
+	}
+
+	if _, err := st.qsoByID(id + 1000); err == nil {
+		t.Fatal("qsoByID returned no error for a nonexistent id")
+	}
+}
+
+// TestUpdateQSOOverwritesEditableFieldsOnly guards the edit workflow's core
+// promise: only the fields shown for editing change; the id, profile_id,
+// start/end time, and station-identity snapshot are untouched.
+func TestUpdateQSOOverwritesEditableFieldsOnly(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	q := validTestQSO()
+	q.stationCallsign, q.operatorName = "W4GNS", "Gary"
+	id, err := st.insertQSO(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	original, err := st.qsoByID(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	edited := original
+	edited.call = "K1ABC"
+	edited.name = "New Name"
+	if err := st.updateQSO(id, edited); err != nil {
+		t.Fatalf("updateQSO returned error: %v", err)
+	}
+
+	got, err := st.qsoByID(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.call != "K1ABC" || got.name != "New Name" {
+		t.Fatalf("updateQSO did not persist edited fields: %+v", got)
+	}
+	if !got.time.Equal(original.time) || !got.timeOff.Equal(original.timeOff) {
+		t.Errorf("updateQSO changed start/end time: got %v/%v, want %v/%v", got.time, got.timeOff, original.time, original.timeOff)
+	}
+	if got.profileID != original.profileID {
+		t.Errorf("updateQSO changed profile_id: got %d, want %d", got.profileID, original.profileID)
+	}
+	var stationCallsign, operatorName string
+	if err := st.db.QueryRow(`SELECT station_callsign, operator_name FROM qso WHERE id = ?`, id).Scan(&stationCallsign, &operatorName); err != nil {
+		t.Fatal(err)
+	}
+	if stationCallsign != "W4GNS" || operatorName != "Gary" {
+		t.Errorf("updateQSO touched the station-identity snapshot: callsign=%q operator=%q", stationCallsign, operatorName)
+	}
+	if count, err := st.count(); err != nil || count != 1 {
+		t.Fatalf("count after update = %d, err = %v, want 1 (update must not insert a new row)", count, err)
+	}
+}
+
+func TestDeleteQSORemovesRow(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	q := validTestQSO()
+	id, err := st.insertQSO(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.deleteQSO(id); err != nil {
+		t.Fatalf("deleteQSO returned error: %v", err)
+	}
+	if count, err := st.count(); err != nil || count != 0 {
+		t.Fatalf("count after delete = %d, err = %v, want 0", count, err)
+	}
+	if _, err := st.qsoByID(id); err == nil {
+		t.Fatal("qsoByID found a row after deleteQSO")
+	}
+}
+
+// TestIsDupeExcludesGivenID covers the parameter the edit workflow relies
+// on: re-saving an edited QSO must not flag itself as a dupe of its own
+// prior state.
+func TestIsDupeExcludesGivenID(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	q := validTestQSO()
+	q.call, q.band = "W4GNS", "20M"
+	id, err := st.insertQSO(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dupe, err := st.isDupe("W4GNS", "20M", "", "", "", 0, 0, q.time)
+	if err != nil || !dupe {
+		t.Fatalf("dupe without exclusion = %t, err = %v, want true", dupe, err)
+	}
+	dupe, err = st.isDupe("W4GNS", "20M", "", "", "", 0, id, q.time)
+	if err != nil || dupe {
+		t.Fatalf("dupe excluding its own id = %t, err = %v, want false", dupe, err)
 	}
 }

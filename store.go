@@ -461,7 +461,10 @@ func (s *store) insertQSOChunk(ctx context.Context, qsos []qso) (int, error) {
 //   - anything else non-blank (almost every catalog entry uses
 //     "call+band"): a dupe anywhere in this contest (any session of eventID),
 //     unbounded in time.
-func (s *store) isDupe(call, band, contestID, eventID, dupeScope string, profileID int64, now time.Time) (bool, error) {
+//
+// excludeID, when non-zero, omits that row's own id from the match — used
+// when re-saving an edited QSO so it doesn't count as a dupe of itself.
+func (s *store) isDupe(call, band, contestID, eventID, dupeScope string, profileID, excludeID int64, now time.Time) (bool, error) {
 	var (
 		query string
 		args  []any
@@ -479,6 +482,10 @@ func (s *store) isDupe(call, band, contestID, eventID, dupeScope string, profile
 		query = `SELECT COUNT(1) FROM qso WHERE call = ? AND band = ? AND profile_id = ? AND (contest_id = ? OR contest_id LIKE ?)`
 		args = []any{call, band, profileID, eventID, eventID + "-%"}
 	}
+	if excludeID != 0 {
+		query += ` AND id != ?`
+		args = append(args, excludeID)
+	}
 	var n int
 	if err := s.db.QueryRow(query, args...).Scan(&n); err != nil {
 		return false, fmt.Errorf("dupe check: %w", err)
@@ -486,10 +493,12 @@ func (s *store) isDupe(call, band, contestID, eventID, dupeScope string, profile
 	return n > 0, nil
 }
 
-// recentQSOs returns the most recent QSOs, newest first, for populating the log table.
+// recentQSOs returns the most recent QSOs, newest first, for populating the
+// log table. Each qso's id is populated so a selected table row can be
+// looked up (for editing or deletion) without a second query.
 func (s *store) recentQSOs(limit int) ([]qso, error) {
 	rows, err := s.db.Query(
-		`SELECT call, band, mode, rst_sent, rst_rcvd, srx_string, qso_date, time_on
+		`SELECT id, call, band, mode, rst_sent, rst_rcvd, srx_string, qso_date, time_on
 		 FROM qso ORDER BY id DESC LIMIT ?`,
 		limit,
 	)
@@ -502,7 +511,7 @@ func (s *store) recentQSOs(limit int) ([]qso, error) {
 	for rows.Next() {
 		var q qso
 		var qsoDate, timeOn string
-		if err := rows.Scan(&q.call, &q.band, &q.mode, &q.rstSent, &q.rstRcvd, &q.exchange, &qsoDate, &timeOn); err != nil {
+		if err := rows.Scan(&q.id, &q.call, &q.band, &q.mode, &q.rstSent, &q.rstRcvd, &q.exchange, &qsoDate, &timeOn); err != nil {
 			return nil, fmt.Errorf("scan qso: %w", err)
 		}
 		t, err := time.Parse("20060102150405", qsoDate+timeOn)
@@ -512,6 +521,72 @@ func (s *store) recentQSOs(limit int) ([]qso, error) {
 		out = append(out, q)
 	}
 	return out, rows.Err()
+}
+
+// qsoByID loads one QSO's editable fields plus its previously-resolved
+// country/CQZ/ITUZ/DXCC context, so updateQSO can carry that context forward
+// unchanged (via resolveDXCC's "prefer an already-set value" rule) when the
+// callsign isn't part of the edit.
+func (s *store) qsoByID(id int64) (qso, error) {
+	var q qso
+	var date, timeOn, dateOff, timeOff string
+	var cqZone, ituZone, dxccNumber sql.NullString
+	err := s.db.QueryRow(`SELECT id, call, qso_date, time_on, COALESCE(qso_date_off, ''), COALESCE(time_off, ''), band,
+		COALESCE(freq, ''), mode, COALESCE(rst_sent, ''), COALESCE(rst_rcvd, ''), COALESCE(name, ''), COALESCE(qth, ''),
+		COALESCE(gridsquare, ''), COALESCE(state, ''), COALESCE(country, ''), CAST(dxcc AS TEXT), CAST(cqz AS TEXT), CAST(ituz AS TEXT),
+		COALESCE(sig_info, ''), COALESCE(comment, ''), COALESCE(contest_id, ''),
+		COALESCE(stx, ''), COALESCE(stx_string, ''), COALESCE(srx, ''), COALESCE(srx_string, ''), profile_id
+		FROM qso WHERE id = ?`, id).Scan(
+		&q.id, &q.call, &date, &timeOn, &dateOff, &timeOff, &q.band, &q.frequency, &q.mode, &q.rstSent, &q.rstRcvd,
+		&q.name, &q.qth, &q.grid, &q.state, &q.country, &dxccNumber, &cqZone, &ituZone, &q.potaRef, &q.comment, &q.contestID,
+		&q.stx, &q.stxString, &q.srx, &q.srxString, &q.profileID,
+	)
+	if err != nil {
+		return qso{}, fmt.Errorf("load qso %d: %w", id, err)
+	}
+	q.cqZone, q.ituZone, q.dxccNumber = cqZone.String, ituZone.String, dxccNumber.String
+	q.time, _ = time.Parse("20060102150405", date+timeOn)
+	q.timeOff, _ = time.Parse("20060102150405", dateOff+timeOff)
+	if q.timeOff.IsZero() {
+		q.timeOff = q.time
+	}
+	return q, nil
+}
+
+// updateQSO overwrites an existing QSO's editable fields in place, keeping
+// its original id, profile_id, and start/end times (editing corrects
+// content, not when the contact happened). country/CQZ/ITUZ/DXCC are
+// refreshed via resolveDXCC exactly as insertQSO does, so correcting a
+// callsign also corrects the DXCC context resolved from it.
+func (s *store) updateQSO(id int64, q qso) error {
+	q.id = id
+	if err := validateQSO(q); err != nil {
+		return fmt.Errorf("validate qso: %w", err)
+	}
+	country, cqZone, ituZone, dxccNumber := resolveDXCC(q)
+	_, err := s.db.Exec(
+		`UPDATE qso SET call = ?, band = ?, freq = NULLIF(?, ''), rst_sent = ?, rst_rcvd = ?, name = ?, qth = ?,
+			gridsquare = ?, state = ?, country = NULLIF(?, ''), dxcc = ?, cqz = ?, ituz = ?, sig = NULLIF(?, ''),
+			sig_info = NULLIF(?, ''), comment = ?, contest_id = ?, stx = ?, stx_string = ?, srx = ?, srx_string = ?
+			WHERE id = ?`,
+		q.call, q.band, q.frequency, q.rstSent, q.rstRcvd, q.name, q.qth,
+		q.grid, q.state, country, dxccNumber, cqZone, ituZone, potaSignal(q.potaRef),
+		q.potaRef, q.comment, q.contestID, q.stx, q.stxString, q.srx, q.srxString,
+		id,
+	)
+	if err != nil {
+		return fmt.Errorf("update qso %d: %w", id, err)
+	}
+	return nil
+}
+
+// deleteQSO permanently removes one QSO. There is no undo; callers must
+// confirm with the operator before calling this.
+func (s *store) deleteQSO(id int64) error {
+	if _, err := s.db.Exec(`DELETE FROM qso WHERE id = ?`, id); err != nil {
+		return fmt.Errorf("delete qso %d: %w", id, err)
+	}
+	return nil
 }
 
 // qsosByCall returns every previously logged contact for a callsign, newest

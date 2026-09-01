@@ -175,6 +175,181 @@ func TestLogCurrentQSORejectsContestDupeEvenIfCachedWarningIsStale(t *testing.T)
 	}
 }
 
+// TestF9TogglesTableFocusAndCursorSurvivesEmptyToNonEmptyTransition guards a
+// real regression: bubbles/table's SetRows leaves the cursor at -1 the
+// first time it's called with zero rows (which happens once at startup,
+// before any QSO exists), and never recovers on its own once real rows
+// exist — so without refreshTableRows correcting it, F9 + Enter could never
+// select anything.
+func TestF9TogglesTableFocusAndCursorSurvivesEmptyToNonEmptyTransition(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.refreshTableRows() // mirrors the startup call with zero QSOs logged yet
+	if m.table.Cursor() != -1 && m.table.Cursor() != 0 {
+		t.Fatalf("cursor on an empty table = %d, want -1 or 0", m.table.Cursor())
+	}
+
+	m.fields[fieldCall].SetValue("W1AW")
+	m, _ = m.logCurrentQSO()
+	if m.table.Cursor() < 0 || m.table.Cursor() >= len(m.recentQSOs) {
+		t.Fatalf("cursor after logging the first QSO = %d, want a valid row index into %d rows", m.table.Cursor(), len(m.recentQSOs))
+	}
+
+	if m.tableFocused {
+		t.Fatal("table should not start focused")
+	}
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyF9})
+	m = updated.(model)
+	if !m.tableFocused || !m.table.Focused() {
+		t.Fatal("F9 did not focus the Recent QSOs table")
+	}
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyF9})
+	m = updated.(model)
+	if m.tableFocused || m.table.Focused() {
+		t.Fatal("second F9 did not unfocus the Recent QSOs table")
+	}
+}
+
+// TestEditQSOFlowSavesChangesWithoutInsertingANewRow drives the full
+// F9 -> Enter -> edit -> save cycle through Update, the way a real
+// keystroke sequence would, and confirms the existing row is updated in
+// place (not duplicated) with its original timestamp preserved.
+func TestEditQSOFlowSavesChangesWithoutInsertingANewRow(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.fields[fieldCall].SetValue("W1AW")
+	m, _ = m.logCurrentQSO()
+	original, err := st.qsoByID(m.recentQSOs[0].id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyF9})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
+	if m.editingQSOID != original.id {
+		t.Fatalf("editingQSOID = %d, want %d", m.editingQSOID, original.id)
+	}
+	if m.tableFocused {
+		t.Fatal("entering edit mode should release table focus")
+	}
+	if m.fields[fieldCall].Value() != "W1AW" {
+		t.Fatalf("Call field = %q after beginEditQSO, want W1AW", m.fields[fieldCall].Value())
+	}
+
+	m.fields[fieldRSTSent].SetValue("579")
+	m, _ = m.logCurrentQSO()
+	if m.editingQSOID != 0 {
+		t.Fatalf("editingQSOID = %d after save, want 0", m.editingQSOID)
+	}
+	if !strings.Contains(m.statusMsg, "updated") {
+		t.Fatalf("statusMsg = %q, want an updated confirmation", m.statusMsg)
+	}
+
+	got, err := st.qsoByID(original.id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.rstSent != "579" {
+		t.Errorf("rstSent = %q, want 579", got.rstSent)
+	}
+	if !got.time.Equal(original.time) {
+		t.Errorf("time = %v, want unchanged %v", got.time, original.time)
+	}
+	if count, err := st.count(); err != nil || count != 1 {
+		t.Fatalf("count = %d, err = %v, want 1 (edit must not insert a new row)", count, err)
+	}
+}
+
+// TestEscCancelsEditWithoutQuitting covers the contextual Esc behavior: it
+// must cancel an in-progress edit (discarding changes) rather than quitting
+// the whole app, which is Esc's normal meaning on this screen.
+func TestEscCancelsEditWithoutQuitting(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.fields[fieldCall].SetValue("W1AW")
+	m, _ = m.logCurrentQSO()
+	m.beginEditQSO(m.recentQSOs[0])
+	m.fields[fieldRSTSent].SetValue("579")
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updated.(model)
+	if cmd != nil {
+		t.Fatal("Esc while editing returned a command (expected no tea.Quit)")
+	}
+	if m.editingQSOID != 0 {
+		t.Fatal("Esc did not cancel the in-progress edit")
+	}
+	got, err := st.qsoByID(m.recentQSOs[0].id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.rstSent == "579" {
+		t.Fatal("Esc-cancelled edit was persisted to the database")
+	}
+}
+
+// TestDeleteRequiresSecondDConfirmation covers the delete-arm/confirm/
+// cancel-on-other-key flow, driven through Update the way real keystrokes
+// would arrive.
+func TestDeleteRequiresSecondDConfirmation(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.fields[fieldCall].SetValue("W1AW")
+	m, _ = m.logCurrentQSO()
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyF9})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("d")})
+	m = updated.(model)
+	if !m.deleteArmed {
+		t.Fatal("first d press did not arm delete")
+	}
+	if count, _ := st.count(); count != 1 {
+		t.Fatal("first d press deleted the row instead of arming confirmation")
+	}
+
+	// Any other key cancels the armed delete.
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = updated.(model)
+	if m.deleteArmed {
+		t.Fatal("a non-d key did not cancel the armed delete")
+	}
+	if count, _ := st.count(); count != 1 {
+		t.Fatal("delete happened despite being cancelled")
+	}
+
+	// Arm again and confirm this time.
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("d")})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("d")})
+	m = updated.(model)
+	if count, err := st.count(); err != nil || count != 0 {
+		t.Fatalf("count after confirmed delete = %d, err = %v, want 0", count, err)
+	}
+}
+
 func TestReturningToCallResetsQSOTimer(t *testing.T) {
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {

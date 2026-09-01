@@ -115,6 +115,7 @@ var fieldLabels = [fieldCount]string{
 }
 
 type qso struct {
+	id         int64 // 0 for a QSO not yet persisted
 	call       string
 	band       string
 	mode       string
@@ -161,9 +162,20 @@ type model struct {
 	fields   []textinput.Model
 	focusIdx int
 
-	store    *store
-	qsoCount int
-	table    table.Model
+	store        *store
+	qsoCount     int
+	table        table.Model
+	recentQSOs   []qso // in the same order as table's rows; index maps a selected row back to a qso.id
+	tableFocused bool
+	deleteArmed  bool
+
+	// editingQSOID is 0 while entering a new QSO, or the id of an existing
+	// QSO currently loaded into the entry/detail/contest fields for editing.
+	// editingOriginal holds that QSO's non-editable fields (start/end time,
+	// station-identity snapshot, DXCC context) so saving an edit only
+	// overwrites what the operator actually changed on screen.
+	editingQSOID    int64
+	editingOriginal qso
 
 	qrzAPIKey string
 
@@ -231,6 +243,12 @@ var (
 			Background(lipgloss.Color("#D8003A")).
 			Padding(0, 2)
 
+	editingStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("0")).
+			Background(lipgloss.Color("11")).
+			Padding(0, 2)
+
 	statusBarStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("250")).
 			Padding(0, 1)
@@ -242,6 +260,22 @@ var (
 			Bold(true).
 			Foreground(lipgloss.Color("11")).
 			Padding(0, 1)
+)
+
+// tableStylesFocused/tableStylesUnfocused control whether the Recent QSOs
+// table's cursor row is visually highlighted. table.DefaultStyles() bolds
+// and recolors the cursor row (row 0 by default) regardless of
+// WithFocused(false), which — since recentQSOs returns newest-first —
+// always singled out the most recent QSO with no meaning until the table
+// became a real interactive selector (F9). Now the highlight only appears
+// while it's actually meaningful: while browsing/selecting a row (F9).
+var (
+	tableStylesFocused   = table.DefaultStyles()
+	tableStylesUnfocused = func() table.Styles {
+		s := table.DefaultStyles()
+		s.Selected = s.Cell
+		return s
+	}()
 )
 
 // maxEventSelectionLength bounds the Contest Name field so it can hold the
@@ -294,18 +328,11 @@ func initialModel(st *store) model {
 		{Title: "Sent", Width: 6},
 		{Title: "Rcvd", Width: 6},
 	}
-	// table.DefaultStyles() bolds and recolors whichever row sits at the
-	// cursor (row 0 by default — the most recent QSO, since recentQSOs
-	// returns newest-first) regardless of WithFocused(false). This table
-	// isn't an interactive selector, so nothing should look "selected";
-	// give Selected the same style as an ordinary cell.
-	tableStyles := table.DefaultStyles()
-	tableStyles.Selected = tableStyles.Cell
 	t := table.New(
 		table.WithColumns(cols),
 		table.WithFocused(false),
 		table.WithHeight(10),
-		table.WithStyles(tableStyles),
+		table.WithStyles(tableStylesUnfocused),
 	)
 
 	m := model{
@@ -505,6 +532,22 @@ func (m model) Init() tea.Cmd {
 	return tea.Batch(textinput.Blink, fetchSolarIndicesCmd(), solarTickCmd())
 }
 
+// setTableFocused toggles whether the Recent QSOs table is the active
+// interactive selector: it takes/releases keyboard focus and swaps in the
+// highlight style that makes the current selection visible only while it's
+// actually a selection.
+func (m *model) setTableFocused(focused bool) {
+	m.tableFocused = focused
+	m.deleteArmed = false
+	if focused {
+		m.table.Focus()
+		m.table.SetStyles(tableStylesFocused)
+	} else {
+		m.table.Blur()
+		m.table.SetStyles(tableStylesUnfocused)
+	}
+}
+
 func (m *model) refreshTableRows() {
 	recent, err := m.store.recentQSOs(50)
 	if err != nil {
@@ -522,10 +565,75 @@ func (m *model) refreshTableRows() {
 		})
 	}
 	m.table.SetRows(rows)
+	m.recentQSOs = recent
+	// table.SetRows leaves the cursor at -1 the first time it's called with
+	// zero rows (its own clamp is cursor = len(rows)-1), and never recovers
+	// it once real rows arrive — reset it whenever it's out of [0, len(rows)).
+	if len(rows) > 0 {
+		if cur := m.table.Cursor(); cur < 0 || cur >= len(rows) {
+			m.table.SetCursor(0)
+		}
+	}
 
 	if n, err := m.store.count(); err == nil {
 		m.qsoCount = n
 	}
+}
+
+// selectedRecentQSO returns the full QSO backing the table's currently
+// highlighted row, if any (empty when there are no recent QSOs to select).
+func (m model) selectedRecentQSO() (qso, bool) {
+	i := m.table.Cursor()
+	if i < 0 || i >= len(m.recentQSOs) {
+		return qso{}, false
+	}
+	return m.recentQSOs[i], true
+}
+
+// beginEditQSO loads an existing QSO into the entry/detail/contest fields
+// for editing. The next final Enter (see logCurrentQSO) saves changes back
+// to this same row instead of inserting a new one.
+func (m *model) beginEditQSO(q qso) {
+	full, err := m.store.qsoByID(q.id)
+	if err != nil {
+		m.statusMsg = fmt.Sprintf("db error: %v", err)
+		return
+	}
+	m.editingQSOID = full.id
+	m.editingOriginal = full
+
+	m.fields[fieldCall].SetValue(full.call)
+	m.fields[fieldRSTSent].SetValue(full.rstSent)
+	m.fields[fieldRSTRcvd].SetValue(full.rstRcvd)
+	m.fields[fieldBand].SetValue(full.band)
+	m.fields[fieldFrequency].SetValue(full.frequency)
+	m.detailFields[detailName].SetValue(full.name)
+	m.detailFields[detailQTH].SetValue(full.qth)
+	m.detailFields[detailGrid].SetValue(full.grid)
+	m.detailFields[detailState].SetValue(full.state)
+	m.detailFields[detailPOTARef].SetValue(full.potaRef)
+	m.detailFields[detailNotes].SetValue(full.comment)
+	m.contestFields[contestName].SetValue(full.contestID)
+	m.contestFields[contestSerialSent].SetValue(full.stx)
+	m.contestFields[contestExchangeSent].SetValue(full.stxString)
+	m.contestFields[contestSerialRcvd].SetValue(full.srx)
+	m.contestFields[contestExchangeRcvd].SetValue(full.srxString)
+
+	m.setTableFocused(false)
+	m.qsoStartedAt = time.Time{} // editing doesn't run the new-QSO timer
+	m.workedCall = ""
+	m.statusMsg = "editing " + full.call + " — Esc cancels, final Enter saves"
+	m.focusField(fieldCall)
+}
+
+// cancelEditQSO discards an in-progress edit and returns to a blank
+// new-QSO form without touching the database.
+func (m *model) cancelEditQSO() {
+	call := m.editingOriginal.call
+	m.editingQSOID = 0
+	m.editingOriginal = qso{}
+	m.clearQSOForm()
+	m.statusMsg = "cancelled editing " + call
 }
 
 // dupeCheckScope resolves the contest_id/event/dupe_scope to check against
@@ -565,7 +673,7 @@ func (m *model) checkDupe() {
 		}
 	}
 	contestID, eventID, dupeScope := m.dupeCheckScope()
-	dupe, err := m.store.isDupe(call, m.qsoBand(), contestID, eventID, dupeScope, m.activeStation.ID, time.Now())
+	dupe, err := m.store.isDupe(call, m.qsoBand(), contestID, eventID, dupeScope, m.activeStation.ID, m.editingQSOID, time.Now())
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
 		return
@@ -695,7 +803,7 @@ func (m model) exchangeChoices() []exchangeOption {
 }
 
 func (m *model) startQSOClockIfLeavingCall() {
-	if m.focusIdx != fieldCall || !m.qsoStartedAt.IsZero() || strings.TrimSpace(m.fields[fieldCall].Value()) == "" {
+	if m.editingQSOID != 0 || m.focusIdx != fieldCall || !m.qsoStartedAt.IsZero() || strings.TrimSpace(m.fields[fieldCall].Value()) == "" {
 		return
 	}
 	m.qsoStartedAt = time.Now().UTC()
@@ -722,6 +830,52 @@ func (m *model) resetQSOClockIfReturningToCall(nextFocus int) {
 	m.statusMsg = "QSO timer reset; enter callsign and continue"
 }
 
+// updateRecentQSOsTable handles input while the Recent QSOs table has
+// focus (toggled by F9): Up/Down (and the table's other built-in bindings)
+// move the selection, Enter opens the selected QSO for editing, "d" deletes
+// it after a second "d" confirms, and Esc/F9 returns focus to the entry
+// fields.
+func (m model) updateRecentQSOsTable(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.setTableFocused(false)
+		m.statusMsg = ""
+		return m, nil
+	case "enter":
+		if q, ok := m.selectedRecentQSO(); ok {
+			m.beginEditQSO(q)
+		}
+		return m, nil
+	case "d":
+		q, ok := m.selectedRecentQSO()
+		if !ok {
+			return m, nil
+		}
+		if !m.deleteArmed {
+			m.deleteArmed = true
+			m.statusMsg = fmt.Sprintf("press d again to permanently delete %s, any other key cancels", q.call)
+			return m, nil
+		}
+		m.deleteArmed = false
+		if err := m.store.deleteQSO(q.id); err != nil {
+			m.statusMsg = fmt.Sprintf("db error: %v", err)
+			return m, nil
+		}
+		m.statusMsg = "deleted " + q.call
+		m.refreshTableRows()
+		return m, nil
+	default:
+		if m.deleteArmed {
+			m.deleteArmed = false
+			m.statusMsg = "delete cancelled"
+			return m, nil
+		}
+		var cmd tea.Cmd
+		m.table, cmd = m.table.Update(msg)
+		return m, cmd
+	}
+}
+
 func (m model) logCurrentQSO() (model, tea.Cmd) {
 	call := normalizeCall(m.fields[fieldCall].Value())
 	if call == "" {
@@ -741,8 +895,9 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 	// (which changes dupe_scope) or the band without every intermediate
 	// state necessarily having gone through checkDupe, and this is the last
 	// chance to catch a real contest duplicate before it's committed.
+	// editingQSOID excludes the record itself from the check when editing.
 	contestID, eventID, dupeScope := m.dupeCheckScope()
-	dupe, err := m.store.isDupe(call, m.qsoBand(), contestID, eventID, dupeScope, m.activeStation.ID, time.Now())
+	dupe, err := m.store.isDupe(call, m.qsoBand(), contestID, eventID, dupeScope, m.activeStation.ID, m.editingQSOID, time.Now())
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
 		return m, nil
@@ -753,21 +908,13 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		return m, nil
 	}
 
-	endedAt := time.Now().UTC()
-	startedAt := m.qsoStartedAt
-	if startedAt.IsZero() {
-		// Tab normally starts the clock. This fallback keeps a QSO valid if an
-		// operator uses a different terminal navigation sequence.
-		startedAt = endedAt
-	}
-	logged := qso{
+	// The fields the operator can actually edit, whether logging a new QSO
+	// or correcting an existing one.
+	edited := qso{
 		call:      call,
 		band:      m.qsoBand(),
-		mode:      cwMode,
-		profileID: m.activeStation.ID,
 		rstSent:   m.fields[fieldRSTSent].Value(),
 		rstRcvd:   m.fields[fieldRSTRcvd].Value(),
-		exchange:  "",
 		frequency: m.qsoFrequency(),
 		name:      strings.TrimSpace(m.detailFields[detailName].Value()),
 		qth:       strings.TrimSpace(m.detailFields[detailQTH].Value()),
@@ -780,23 +927,69 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		stxString: strings.TrimSpace(m.contestFields[contestExchangeSent].Value()),
 		srx:       strings.TrimSpace(m.contestFields[contestSerialRcvd].Value()),
 		srxString: strings.TrimSpace(m.contestFields[contestExchangeRcvd].Value()),
-		time:      startedAt,
-		timeOff:   endedAt,
-
-		myGridSquare:    m.activeStation.MyGridSquare,
-		stationCallsign: m.activeStation.Callsign,
-		operatorName:    m.activeStation.OperatorName,
-		myRig:           m.activeStation.Rig,
-		myAntenna:       m.activeStation.Antenna,
-		txPower:         m.activeStation.PowerWatts,
 	}
+
+	if m.editingQSOID != 0 {
+		// Start from the original record so its start/end time and
+		// station-identity snapshot (never rewritten by a later profile
+		// change — see "Log data" in README.md) survive untouched; only the
+		// fields actually shown for editing are overwritten.
+		logged := m.editingOriginal
+		logged.call, logged.band, logged.rstSent, logged.rstRcvd, logged.frequency = edited.call, edited.band, edited.rstSent, edited.rstRcvd, edited.frequency
+		logged.name, logged.qth, logged.grid, logged.state, logged.potaRef, logged.comment = edited.name, edited.qth, edited.grid, edited.state, edited.potaRef, edited.comment
+		logged.contestID, logged.stx, logged.stxString, logged.srx, logged.srxString = edited.contestID, edited.stx, edited.stxString, edited.srx, edited.srxString
+		if logged.call != m.editingOriginal.call {
+			// A changed callsign can resolve to a different DXCC entity;
+			// don't carry forward context resolved for the old one.
+			logged.country, logged.cqZone, logged.ituZone, logged.dxccNumber = "", "", "", ""
+		}
+		if err := m.store.updateQSO(m.editingQSOID, logged); err != nil {
+			m.statusMsg = fmt.Sprintf("db error: %v", err)
+			return m, nil
+		}
+		m.editingQSOID = 0
+		m.editingOriginal = qso{}
+		m.clearQSOForm()
+		m.statusMsg = "updated " + call
+		m.refreshTableRows()
+		return m, nil
+	}
+
+	endedAt := time.Now().UTC()
+	startedAt := m.qsoStartedAt
+	if startedAt.IsZero() {
+		// Tab normally starts the clock. This fallback keeps a QSO valid if an
+		// operator uses a different terminal navigation sequence.
+		startedAt = endedAt
+	}
+	logged := edited
+	logged.mode = cwMode
+	logged.profileID = m.activeStation.ID
+	logged.time = startedAt
+	logged.timeOff = endedAt
+	logged.myGridSquare = m.activeStation.MyGridSquare
+	logged.stationCallsign = m.activeStation.Callsign
+	logged.operatorName = m.activeStation.OperatorName
+	logged.myRig = m.activeStation.Rig
+	logged.myAntenna = m.activeStation.Antenna
+	logged.txPower = m.activeStation.PowerWatts
 	if _, err := m.store.insertQSO(logged); err != nil {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
 		return m, nil
 	}
-	m.refreshTableRows()
 	m.statusMsg = fmt.Sprintf("logged %s (%s)", call, endedAt.Sub(startedAt).Round(time.Second))
+	m.qsoStartedAt = time.Time{}
+	m.workedCall = ""
+	m.clearQSOForm()
+	m.refreshTableRows()
+	return m, qrzUploadCmd(m.qrzAPIKey, logged)
+}
 
+// clearQSOForm resets the fields that should go blank between QSOs. Band,
+// Frequency, and RST Sent are intentionally left as-is: an operator
+// typically stays on the same band/frequency for consecutive contacts, and
+// 599 is the default sent report.
+func (m *model) clearQSOForm() {
 	m.fields[fieldCall].SetValue("")
 	m.fields[fieldRSTRcvd].SetValue("")
 	for index := range m.detailFields {
@@ -805,11 +998,7 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 	for index := range m.contestFields {
 		m.contestFields[index].SetValue("")
 	}
-	m.qsoStartedAt = time.Time{}
-	m.workedCall = ""
 	m.focusField(fieldCall)
-	m.refreshTableRows()
-	return m, qrzUploadCmd(m.qrzAPIKey, logged)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -889,8 +1078,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if msg.String() == "f9" {
+			m.setTableFocused(!m.tableFocused)
+			if m.tableFocused {
+				m.statusMsg = "Recent QSOs: ↑/↓ select, Enter view/edit, d delete, Esc/F9 done"
+			} else {
+				m.statusMsg = ""
+			}
+			return m, nil
+		}
+		if m.tableFocused {
+			return m.updateRecentQSOsTable(msg)
+		}
 		switch msg.String() {
-		case "ctrl+c", "esc":
+		case "ctrl+c":
+			return m, tea.Quit
+		case "esc":
+			if m.editingQSOID != 0 {
+				m.cancelEditQSO()
+				return m, nil
+			}
 			return m, tea.Quit
 		case "tab":
 			leavingCall := m.focusIdx == fieldCall
@@ -1321,14 +1528,18 @@ func (m model) View() string {
 	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, fieldViews...))
 	b.WriteString("\n")
 
-	if m.dupeWarning {
+	switch {
+	case m.dupeWarning:
 		b.WriteString(dupeStyle.Render("DUPE"))
 		b.WriteString("\n\n")
-	} else {
+	case m.editingQSOID != 0:
+		b.WriteString(editingStyle.Render(fmt.Sprintf("EDITING #%d — Esc cancels, final Enter saves", m.editingQSOID)))
+		b.WriteString("\n\n")
+	default:
 		b.WriteString("\n")
 	}
 
-	workedLabel := "Recent QSOs"
+	workedLabel := "Recent QSOs (F9: browse/edit)"
 	if m.workedCall != "" {
 		workedLabel = "Stations Worked: " + m.workedCall + " (prior contacts)"
 	}
@@ -1570,7 +1781,7 @@ func screenHotkeys(current screen) string {
 	} else if current == qsoDetailsScreen || current == qsoContestScreen || current == eventCatalogScreen {
 		escape = "Esc: QSO Entry"
 	}
-	return helpStyle.Render("F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF  •  F6: QSO Details  •  F7: Events  •  F8: Backup  •  " + escape)
+	return helpStyle.Render("F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF  •  F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  " + escape)
 }
 
 func main() {

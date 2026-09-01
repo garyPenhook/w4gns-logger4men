@@ -62,6 +62,15 @@ Your log is stored locally in `w4gns.db` by default. Set `W4GNS_DB` to use anoth
 - UTC and local time are displayed in the logger header.
 - Current solar-weather propagation indices (SFI, A-index, K-index) are shown below the header, sourced from [N0NBH's solar-data feed](https://www.hamqsl.com/solar.html) and refreshed automatically every 30 minutes. If the feed is unreachable, the line reports why and logging is unaffected.
 
+## Browse, edit, and delete QSOs
+
+Press `F9` to move keyboard focus into the Recent QSOs table (the row under your cursor is highlighted only while browsing — it doesn't imply anything the rest of the time).
+
+- `Up`/`Down` (and the table's other built-in navigation) move the selection.
+- `Enter` loads the selected QSO back into the entry fields for editing — Call, RST Sent/Rcvd, Band, Frequency, and everything on the QSO Details (`F6`) and Events & Contests (`F7`) screens. An **EDITING #&lt;id&gt;** banner replaces the DUPE warning area as a reminder. The QSO's original start/end time and the station-identity snapshot it was logged with are left untouched; only what you actually change is saved. The final `Enter` saves the edit in place (no duplicate row); `Esc` discards the edit and returns to a blank entry instead of quitting the app (a plain `Esc` still quits as usual everywhere else, including a second press after cancelling an edit).
+- `d` arms a delete of the selected QSO — the status bar asks for a second `d` to confirm; any other key cancels it. Deletion is permanent; there is no undo.
+- `Esc` or `F9` again leaves the table and returns focus to the entry fields.
+
 ## QSO Details and Events & Contests
 
 Press `F6` for optional QSO details: operator name, QTH, grid square, state or province, POTA reference, and notes. Press `F7` for the Events & Contests page. Select an event with `Up`/`Down`, select its UTC session with `Left`/`Right`, then press `Enter`; the session-specific ID and exchange templates populate Contest Entry. The catalog shows a scrollable window, so it accommodates hundreds of definitions. The built-in CWops definitions cover all four weekly CWT sessions and the three CW Open sessions. Each definition can include a score-submission URL; CWT points to 3830scores.com. Events are JSON files embedded from `events/`, so definitions can be added without modifying Go code. These pages retain their values until the QSO is logged from the main QSO Entry screen.
@@ -370,6 +379,10 @@ Press `F8` at any time to back up immediately, and every shutdown backs up autom
 - Backups are serialized: pressing `F8` again while one is already running is ignored (the status bar shows "backup already in progress…"), and the mandatory backup-on-exit waits for any backup still in flight instead of racing it. This avoids two backups writing to the same second-resolution filenames or running `VACUUM INTO` concurrently.
 
 ## Changelog
+
+### v1.4.0
+
+- Added an in-app way to view, edit, and delete logged QSOs: press `F9` to browse the Recent QSOs table, `Enter` to load one back into the entry fields for editing, and `d` `d` to delete it (with confirmation). The table's selection highlight — previously always shown on the most recent QSO with no interactive meaning — now only appears while actually browsing.
 
 ### v1.3.2
 
