@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -1443,14 +1446,33 @@ func main() {
 	// Alt-screen mode gives the logger a clean, dedicated terminal surface and
 	// restores the invoking terminal unchanged when the application exits.
 	p := tea.NewProgram(initialModel(st), tea.WithAltScreen())
+
+	// bubbletea only listens for SIGINT/SIGTERM. SIGHUP (sent when the
+	// controlling terminal window is closed) would otherwise kill the process
+	// immediately and skip the shutdown backup below, so route it through the
+	// same graceful QuitMsg path as Esc/Ctrl+C.
+	hangup := make(chan os.Signal, 1)
+	signal.Notify(hangup, syscall.SIGHUP)
+	go func() {
+		if _, ok := <-hangup; ok {
+			p.Send(tea.Quit())
+		}
+	}()
+
 	finalModel, err := p.Run()
-	if err != nil {
+	signal.Stop(hangup)
+
+	// A plain kill -INT (as opposed to an in-terminal Ctrl+C, which arrives as
+	// a KeyMsg handled in Update) makes bubbletea return ErrInterrupted. That
+	// is still an orderly shutdown request, not a crash, so it must still run
+	// the backup below rather than exiting immediately.
+	if err != nil && !errors.Is(err, tea.ErrInterrupted) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Every shutdown path (Esc, Ctrl+C, or terminal close) routes through here,
-	// so a single backup-on-exit call covers all of them.
+	// Every shutdown path (Esc, Ctrl+C, SIGTERM, SIGHUP, or kill -INT) routes
+	// through here, so a single backup-on-exit call covers all of them.
 	if m, ok := finalModel.(model); ok {
 		fmt.Println("backing up to Google Drive…")
 		ctx, cancel := context.WithTimeout(context.Background(), backupTimeout)
@@ -1461,6 +1483,10 @@ func main() {
 		} else {
 			fmt.Printf("backup saved: %s, %s\n", result.dbName, result.adifName)
 		}
+	}
+
+	if err != nil {
+		os.Exit(130)
 	}
 }
 

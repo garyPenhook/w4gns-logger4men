@@ -115,7 +115,7 @@ The export preserves the QSO's CW fields, frequency, details, POTA metadata, con
 
 ## Backups
 
-Press `F8` at any time to back up immediately, and every clean shutdown (`Esc`/`Ctrl+C`) backs up automatically before the app exits.
+Press `F8` at any time to back up immediately, and every shutdown backs up automatically before the app exits — whether that's `Esc`/`Ctrl+C` from the keyboard, closing the terminal window (`SIGHUP`), or `kill`/`kill -INT` from another process. A backup always finishes (or fails and reports why) before the database closes and the process exits.
 
 - A backup takes a consistent snapshot of the database (SQLite `VACUUM INTO`, safe even while logging continues) plus a fresh full ADIF export.
 - Both files are uploaded to Google Drive with [rclone](https://rclone.org/) under the remote `gdrive:W4GNS_Logger_Backups`.
