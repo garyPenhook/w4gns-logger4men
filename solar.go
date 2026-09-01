@@ -65,6 +65,12 @@ func solarTickCmd() tea.Cmd {
 }
 
 // solarLine renders the SFI/A/K summary shown on the QSO-entry home screen.
+// A failed refresh keeps showing the last known-good values (stale data
+// beats no data for a slowly-changing indicator like this), but must not
+// hide the failure: it appends a stale marker with the error, and the
+// source's own "updated" timestamp is always shown when known so the
+// operator can judge freshness independently of whether the last refresh
+// succeeded.
 func (m model) solarLine() string {
 	if m.solar.SFI == "" && m.solar.AIndex == "" && m.solar.KIndex == "" {
 		if m.solarErr != "" {
@@ -72,7 +78,14 @@ func (m model) solarLine() string {
 		}
 		return "Solar: loading…"
 	}
-	return fmt.Sprintf("Solar: SFI %s  A %s  K %s", m.solar.SFI, m.solar.AIndex, m.solar.KIndex)
+	line := fmt.Sprintf("Solar: SFI %s  A %s  K %s", m.solar.SFI, m.solar.AIndex, m.solar.KIndex)
+	if m.solar.Updated != "" {
+		line += "  as of " + m.solar.Updated
+	}
+	if m.solarErr != "" {
+		line += "  [STALE: refresh failed — " + m.solarErr + "]"
+	}
+	return line
 }
 
 func fetchSolarIndices(parent context.Context) (solarIndices, error) {

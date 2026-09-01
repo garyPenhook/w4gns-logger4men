@@ -27,30 +27,34 @@ func TestAdifQSOFieldsExportsIntegerSTXSRXOnly(t *testing.T) {
 	}
 }
 
-func TestAdifQSOFieldsUsesIntlFieldForNonASCII(t *testing.T) {
+// TestAdifQSOFieldsTransliteratesNonASCII guards ADI compliance: ADIF 3.1.7
+// restricts IntlString "_INTL" fields to ADX/XML files, so a .adi export
+// must never emit e.g. NAME_INTL. Accented Latin letters are transliterated
+// to plain ASCII instead.
+func TestAdifQSOFieldsTransliteratesNonASCII(t *testing.T) {
 	q := validTestQSO()
 	q.name = "José"
 	fields := adifQSOFields(q)
-	if _, ok := fieldValue(fields, "NAME"); ok {
-		t.Error("NAME should not be present for non-ASCII values")
+	if _, ok := fieldValue(fields, "NAME_INTL"); ok {
+		t.Error("NAME_INTL must never appear in ADI output (ADIF 3.1.7 restricts IntlString to ADX/XML)")
 	}
-	if value, ok := fieldValue(fields, "NAME_INTL"); !ok || value != "José" {
-		t.Errorf("NAME_INTL = %q, ok=%v, want %q", value, ok, "José")
+	if value, ok := fieldValue(fields, "NAME"); !ok || value != "Jose" {
+		t.Errorf("NAME = %q, ok=%v, want the transliterated ASCII form %q", value, ok, "Jose")
 	}
 }
 
-func TestAdifQSOFieldsUsesIntlFieldForNonASCIIStationFields(t *testing.T) {
+func TestAdifQSOFieldsTransliteratesNonASCIIStationFields(t *testing.T) {
 	q := validTestQSO()
 	q.operatorName, q.myRig, q.myAntenna = "José", "FTδ-891", "Δ-loop"
 	fields := adifQSOFields(q)
 	for _, tc := range []struct{ base, want string }{
-		{"OPERATOR", "José"}, {"MY_RIG", "FTδ-891"}, {"MY_ANTENNA", "Δ-loop"},
+		{"MY_NAME", "Jose"}, {"MY_RIG", "FT?-891"}, {"MY_ANTENNA", "?-loop"},
 	} {
-		if _, ok := fieldValue(fields, tc.base); ok {
-			t.Errorf("%s should not be present for non-ASCII values", tc.base)
+		if _, ok := fieldValue(fields, tc.base+"_INTL"); ok {
+			t.Errorf("%s_INTL must never appear in ADI output", tc.base)
 		}
-		if value, ok := fieldValue(fields, tc.base+"_INTL"); !ok || value != tc.want {
-			t.Errorf("%s_INTL = %q, ok=%v, want %q", tc.base, value, ok, tc.want)
+		if value, ok := fieldValue(fields, tc.base); !ok || value != tc.want {
+			t.Errorf("%s = %q, ok=%v, want %q", tc.base, value, ok, tc.want)
 		}
 	}
 }
@@ -79,6 +83,11 @@ func TestAdifQSOFieldsExportsPotaRefAlongsideSig(t *testing.T) {
 	}
 }
 
+// TestAdifQSOFieldsExportsStationSnapshot also guards the ADIF field
+// semantics: OPERATOR is defined as the logging operator's *callsign*, not
+// their name, so the human name (q.operatorName) must go in MY_NAME, and
+// OPERATOR must be left unset (this app has no distinct operator-callsign
+// concept from STATION_CALLSIGN).
 func TestAdifQSOFieldsExportsStationSnapshot(t *testing.T) {
 	q := validTestQSO()
 	q.myGridSquare, q.stationCallsign, q.operatorName = "FN31PR", "W4GNS", "Gary"
@@ -86,11 +95,14 @@ func TestAdifQSOFieldsExportsStationSnapshot(t *testing.T) {
 	for name, want := range map[string]string{
 		"MY_GRIDSQUARE":    "FN31PR",
 		"STATION_CALLSIGN": "W4GNS",
-		"OPERATOR":         "Gary",
+		"MY_NAME":          "Gary",
 	} {
 		if value, _ := fieldValue(fields, name); value != want {
 			t.Errorf("%s = %q, want %q", name, value, want)
 		}
+	}
+	if _, ok := fieldValue(fields, "OPERATOR"); ok {
+		t.Error("OPERATOR should not be populated from the operator's name — it means the operator's callsign in ADIF")
 	}
 }
 

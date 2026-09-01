@@ -85,11 +85,31 @@ func TestSolarLineFormatsIndicesOrFallsBack(t *testing.T) {
 
 	m.solarErr = "network error"
 	if got := m.solarLine(); !strings.Contains(got, "network error") {
-		t.Errorf("solarLine() with an error = %q, want it to mention the error", got)
+		t.Errorf("solarLine() with an error and no prior data = %q, want it to mention the error", got)
 	}
 
-	m.solar = solarIndices{SFI: "107", AIndex: "12", KIndex: "2"}
-	if got := m.solarLine(); got != "Solar: SFI 107  A 12  K 2" {
-		t.Errorf("solarLine() = %q, want the formatted indices", got)
+	m.solarErr = ""
+	m.solar = solarIndices{SFI: "107", AIndex: "12", KIndex: "2", Updated: "01 Sep 2026 1300 GMT"}
+	if got := m.solarLine(); got != "Solar: SFI 107  A 12  K 2  as of 01 Sep 2026 1300 GMT" {
+		t.Errorf("solarLine() = %q, want the formatted indices with the source timestamp", got)
+	}
+}
+
+// TestSolarLineMarksStaleDataAfterFailedRefresh guards against a failed
+// refresh silently keeping old data on screen with no indication anything
+// went wrong: once indices have been fetched at least once, a later failure
+// must still show the last known-good values (better than blanking them)
+// but flag them as stale.
+func TestSolarLineMarksStaleDataAfterFailedRefresh(t *testing.T) {
+	m := model{
+		solar:    solarIndices{SFI: "107", AIndex: "12", KIndex: "2", Updated: "01 Sep 2026 1300 GMT"},
+		solarErr: "fetch solar data: 503 Service Unavailable",
+	}
+	got := m.solarLine()
+	if !strings.Contains(got, "SFI 107") {
+		t.Errorf("solarLine() = %q, want it to keep showing the last known-good indices", got)
+	}
+	if !strings.Contains(got, "STALE") || !strings.Contains(got, "503 Service Unavailable") {
+		t.Errorf("solarLine() = %q, want a stale marker mentioning the refresh error", got)
 	}
 }

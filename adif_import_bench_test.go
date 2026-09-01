@@ -52,4 +52,16 @@ func TestImportADIF100kQSOsBenchmark(t *testing.T) {
 		t.Fatalf("stored count = %d, want %d", count, total)
 	}
 	t.Logf("imported %d QSOs in %s (%.0f QSOs/sec)", total, elapsed, float64(total)/elapsed.Seconds())
+	if raceEnabled {
+		// The race detector's per-access overhead makes any fixed time
+		// budget meaningless (and flaky) here; correctness was already
+		// checked above.
+		return
+	}
+	// Generous ceiling, not a target: catches a catastrophic regression (e.g.
+	// an accidental O(n^2) path) without being flaky on slower CI hardware.
+	const budget = 30 * time.Second
+	if elapsed > budget {
+		t.Fatalf("import took %s, want under %s", elapsed, budget)
+	}
 }

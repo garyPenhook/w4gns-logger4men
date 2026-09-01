@@ -104,7 +104,11 @@ func TestEventDetailLineSurfacesPreviouslyUnusedFields(t *testing.T) {
 	}
 }
 
-func TestLogCurrentQSOWarnsWhenBandOutsideEventAllowedBands(t *testing.T) {
+// TestLogCurrentQSORejectsBandOutsideEventAllowedBands guards against
+// committing a QSO on a band outside the selected event's allowed bands: the
+// check must block the insert (there's no in-app way to fix a bad record
+// afterward), not just append a warning once it's already in the database.
+func TestLogCurrentQSORejectsBandOutsideEventAllowedBands(t *testing.T) {
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {
 		t.Fatalf("openStore returned error: %v", err)
@@ -120,6 +124,54 @@ func TestLogCurrentQSOWarnsWhenBandOutsideEventAllowedBands(t *testing.T) {
 	m, _ = m.logCurrentQSO()
 	if !strings.Contains(m.statusMsg, "not in") {
 		t.Fatalf("statusMsg = %q, want an allowed-bands warning", m.statusMsg)
+	}
+	if count, err := st.count(); err != nil || count != 0 {
+		t.Fatalf("count = %d, err = %v, want 0 — the QSO must not be committed", count, err)
+	}
+	if m.fields[fieldCall].Value() != "W1AW" {
+		t.Fatal("Call field was cleared even though the QSO was rejected")
+	}
+}
+
+// TestLogCurrentQSORejectsContestDupeEvenIfCachedWarningIsStale guards
+// against relying solely on the cached dupeWarning indicator: it is only
+// recomputed by checkDupe, which runs on the call/band/contest-name Update
+// paths, not on every possible way a field can change (e.g. SetValue calls
+// from tests, or future code paths). logCurrentQSO must re-verify against
+// the database immediately before insert regardless of what dupeWarning
+// currently holds.
+func TestLogCurrentQSORejectsContestDupeEvenIfCachedWarningIsStale(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	arrl := m.events[eventIndex(t, m.events, "ARRL-DX-CW")]
+	m.selectEvent(arrl, arrl.Sessions[0])
+	contestID := m.contestFields[contestName].Value()
+
+	prior := validTestQSO()
+	prior.call, prior.band, prior.contestID, prior.profileID = "W4GNS", "20M", contestID, m.activeStation.ID
+	if _, err := st.insertQSO(prior); err != nil {
+		t.Fatalf("insert prior QSO: %v", err)
+	}
+
+	// Set the callsign/band directly (bypassing Update, which is what
+	// recalculates dupeWarning) so the cached indicator is left stale.
+	m.fields[fieldCall].SetValue("W4GNS")
+	m.fields[fieldBand].SetValue("20M")
+	if m.dupeWarning {
+		t.Fatal("test setup invalid: dupeWarning should still be stale (false) at this point")
+	}
+
+	m, _ = m.logCurrentQSO()
+	if !strings.Contains(m.statusMsg, "DUPE") {
+		t.Fatalf("statusMsg = %q, want a DUPE rejection despite the stale cached indicator", m.statusMsg)
+	}
+	if count, err := st.count(); err != nil || count != 1 {
+		t.Fatalf("count = %d, err = %v, want 1 (only the pre-existing QSO)", count, err)
 	}
 }
 

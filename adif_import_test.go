@@ -56,9 +56,10 @@ func TestExportADIFRoundTripPreservesQSOFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("exportADIF: %v", err)
 	}
-	// "José" is non-ASCII, so ADIF-compliant output must carry it under the
-	// paired NAME_INTL field (IntlString), not the ASCII-only NAME field.
-	if count != 1 || !strings.Contains(adif.String(), "<NAME_INTL:5>José") || strings.Contains(adif.String(), "<NAME:5>") {
+	// "José" is non-ASCII; ADIF 3.1.7 restricts IntlString "_INTL" fields to
+	// ADX/XML files, so ADI-compliant output must transliterate it into the
+	// ASCII-only NAME field ("Jose") instead of emitting NAME_INTL.
+	if count != 1 || !strings.Contains(adif.String(), "<NAME:4>Jose") || strings.Contains(adif.String(), "NAME_INTL") {
 		t.Fatalf("export = %q, count = %d", adif.String(), count)
 	}
 
@@ -89,8 +90,13 @@ func TestExportADIFRoundTripPreservesQSOFields(t *testing.T) {
 	got.time, _ = time.Parse("20060102150405", date+timeOn)
 	got.timeOff, _ = time.Parse("20060102150405", dateOff+timeOff)
 	got.profileID = destinationProfile.ID
-	if got != q {
-		t.Fatalf("round-trip QSO = %#v, want %#v", got, q)
+	// name is expected to come back transliterated ("Jose", not "José"): ADI
+	// export cannot round-trip non-ASCII losslessly under the ADIF 3.1.7
+	// ASCII-only String rule, so this is intentional lossy behavior, not a bug.
+	want := q
+	want.name = "Jose"
+	if got != want {
+		t.Fatalf("round-trip QSO = %#v, want %#v", got, want)
 	}
 }
 

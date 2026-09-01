@@ -323,7 +323,7 @@ Press `F4` to open Cluster Filters.
 - A local-time display is shown alongside UTC.
 - Station profiles and QSOs remain on your computer.
 - Each QSO also stores a snapshot of the active station profile at log time (grid square, callsign, operator, rig, antenna, power), so editing the station profile later never rewrites the operating context of a past contact.
-- Verified with an automated test: importing 100,000 QSOs from a single ADIF file completes in well under 10 seconds (~15,000 QSOs/sec on a typical dev machine) and every record lands correctly.
+- Verified with an automated test: importing 100,000 QSOs from a single ADIF file completes in a few seconds on a typical dev machine and every record lands correctly. Exact throughput is hardware-dependent; the test only asserts correctness and a generous time budget, not a specific rate.
 
 ## Import ADIF
 
@@ -335,7 +335,7 @@ Import an ADIF file directly into the active station profile:
 ./bin/w4gns-logger --import-adif path/to/log.adi
 ```
 
-The importer accepts CW records, preserves QSO times when present, and reports skipped records. Non-CW or incomplete records are skipped, including ones with a malformed `TIME_ON`/`TIME_OFF` (ADIF Time must be 4 or 6 digits). Records are parsed and inserted in batches of 1,000 rather than all held in memory at once; if an import fails partway through (a malformed record later in the file, a database error), the batches inserted before the failure stay committed — re-running the import after fixing the file does not lose that progress or duplicate it.
+The importer accepts CW records and reports skipped records. Non-CW records, and records missing `CALL`/`QSO_DATE`/`BAND`, or with a malformed `TIME_ON` (ADIF Time must be 4 or 6 digits), are skipped entirely. A missing or malformed `TIME_OFF`/`QSO_DATE_OFF` does *not* skip the record — it falls back to using the start time as the end time, since many programs don't export an end time at all. The file is streamed rather than read into memory up front, and records are inserted in batches of 1,000, so peak memory is bounded by one batch, not by file size. If an import fails partway through (a malformed record later in the file, a database error), the batches inserted before the failure stay committed, and re-running the import after fixing the file skips records that already landed instead of duplicating them.
 
 ## Export ADIF
 
@@ -345,7 +345,7 @@ Export every QSO from the active station profile as ADIF records (targeting ADIF
 ./bin/w4gns-logger --export-adif path/to/log.adi
 ```
 
-The export preserves the QSO's CW fields, frequency, details, POTA metadata (both the legacy `SIG`/`SIG_INFO` convention and the modern `POTA_REF` field), contest fields, the station-identity snapshot (`MY_GRIDSQUARE`, `STATION_CALLSIGN`, `OPERATOR`, `MY_RIG`, `MY_ANTENNA`, `TX_PWR`), country/CQ-zone/ITU-zone context resolved from the worked callsign, and UTC start/end times. `STX`/`SRX` are only written when they parse as ADIF's integer type; non-numeric contest exchanges stay in `STX_STRING`/`SRX_STRING`. Non-ASCII text (an accented name, for example) is written under the paired `_INTL` field (e.g. `NAME_INTL`) instead of the ASCII-only base field, per the ADIF IntlString convention. CWT and CW Open contest IDs are mapped to the official ADIF Contest ID List values (`CWOPS-CWT`, `CWOPS-CW-OPEN`) on export, even though the database keeps its own session-specific IDs (e.g. `CWT-1900`) for dupe checking. The export path must not be the SQLite database file.
+The export preserves the QSO's CW fields, frequency, details, POTA metadata (both the legacy `SIG`/`SIG_INFO` convention and the modern `POTA_REF` field), contest fields, the station-identity snapshot (`MY_GRIDSQUARE`, `STATION_CALLSIGN`, `MY_NAME`, `MY_RIG`, `MY_ANTENNA`, `TX_PWR`), country/CQ-zone/ITU-zone context resolved from the worked callsign, and UTC start/end times. `STX`/`SRX` are only written when they parse as ADIF's integer type; non-numeric contest exchanges stay in `STX_STRING`/`SRX_STRING`. `MY_NAME` (not `OPERATOR`) carries the station operator's name — ADIF defines `OPERATOR` as the operator's *callsign*, and this app has no separate operator-callsign concept from `STATION_CALLSIGN`, so `OPERATOR` is intentionally left unset. The output is a `.adi` file, which ADIF 3.1.7 restricts to ASCII String fields; the IntlString data type (the `_INTL` field suffix, e.g. `NAME_INTL`) is only valid in ADX/XML files, so this exporter never emits it. Non-ASCII text (an accented name, for example) is transliterated to its plain ASCII base letter where a common mapping exists (e.g. "José" → "Jose"), and any other non-ASCII character becomes `?`. CWT and CW Open contest IDs are mapped to the official ADIF Contest ID List values (`CWOPS-CWT`, `CWOPS-CW-OPEN`) on export, even though the database keeps its own session-specific IDs (e.g. `CWT-1900`) for dupe checking. The export path must not be the SQLite database file.
 
 This exporter does not populate the ADIF `DXCC` field (the numeric entity code); the bundled country database (`data/cty.dat`) does not include that mapping, and guessing entity numbers would be worse than leaving the field out. `COUNTRY`, `CQZ`, and `ITUZ` are populated instead.
 
@@ -370,6 +370,18 @@ Press `F8` at any time to back up immediately, and every shutdown backs up autom
 - Backups are serialized: pressing `F8` again while one is already running is ignored (the status bar shows "backup already in progress…"), and the mandatory backup-on-exit waits for any backup still in flight instead of racing it. This avoids two backups writing to the same second-resolution filenames or running `VACUUM INTO` concurrently.
 
 ## Changelog
+
+### v1.2.0
+
+- ADIF `.adi` export is now ASCII-compliant: ADIF 3.1.7 restricts the IntlString data type (`_INTL` fields) to ADX/XML files, so non-ASCII text is transliterated to plain ASCII on export instead of being written under a `_INTL` field name.
+- The station operator's name now exports to `MY_NAME` instead of `OPERATOR` — ADIF defines `OPERATOR` as the operator's *callsign*, not their name.
+- Contest duplicate checking is re-verified against the database immediately before a QSO is logged, and the on-screen dupe indicator now updates whenever the selected contest changes, not just the callsign or band.
+- Logging a QSO on a band outside the selected event's allowed bands is now rejected before it's saved, instead of being saved with a warning appended afterward.
+- The solar indices line now shows the source's own "as of" timestamp, and keeps showing the last known-good values with a stale marker (instead of silently going quiet) if a refresh fails.
+- Station power now rejects `NaN` and `Inf` instead of accepting them as valid wattage.
+- ADIF import is now fully streamed — the source file is never read into memory all at once, only one field/batch at a time.
+- DX cluster filter fields are labelled "DX/DE Country" instead of "DX/DE DXCC", matching what they actually match against (a country name, not a numeric DXCC entity code).
+- CI now also runs `go test -race` and `govulncheck`.
 
 ### v1.1.1
 

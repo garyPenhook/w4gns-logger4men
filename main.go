@@ -92,9 +92,14 @@ const (
 	clusterFilterFieldCount
 )
 
+// "Country", not "DXCC": these filters match substrings of the resolved
+// entity's country name (e.g. "United States"), not the numeric ADIF/ARRL
+// DXCC entity code — the bundled cty.dat has no reliable mapping to that
+// code (see dxccEntity's doc comment), so this app never resolves or filters
+// on it.
 var clusterFilterLabels = [clusterFilterFieldCount]string{
-	"DX DXCC", "DX ITU", "DX CQ", "DX Continent",
-	"DE DXCC", "DE ITU", "DE CQ", "DE Continent",
+	"DX Country", "DX ITU", "DX CQ", "DX Continent",
+	"DE Country", "DE ITU", "DE CQ", "DE Continent",
 }
 
 var fieldLabels = [fieldCount]string{
@@ -513,6 +518,23 @@ func (m *model) refreshTableRows() {
 	}
 }
 
+// dupeCheckScope resolves the contest_id/event/dupe_scope to check against
+// for the currently selected contest (blank fields mean "no known contest",
+// which isDupe treats as the casual 15-minute window). Shared by the live
+// dupeWarning indicator (checkDupe) and the authoritative check performed
+// immediately before insert (logCurrentQSO), so both always agree.
+func (m model) dupeCheckScope() (contestID, eventID, dupeScope string) {
+	if event, ok := m.eventForContestID(); ok {
+		return strings.TrimSpace(m.contestFields[contestName].Value()), event.ID, event.DupeScope
+	}
+	return "", "", ""
+}
+
+// checkDupe refreshes the dupeWarning indicator shown while a QSO is being
+// entered. It must be called whenever anything the dupe check depends on
+// changes — not just the callsign or band, but also which contest is
+// selected — or the indicator can go stale and disagree with the
+// authoritative check logCurrentQSO performs right before insert.
 func (m *model) checkDupe() {
 	call := normalizeCall(m.fields[fieldCall].Value())
 	m.dupeWarning = false
@@ -526,15 +548,13 @@ func (m *model) checkDupe() {
 	if m.workedCall != call {
 		m.showWorkedCall(call)
 	}
-	var contestID, eventID, dupeScope string
-	if event, ok := m.eventForContestID(); ok {
-		contestID = strings.TrimSpace(m.contestFields[contestName].Value())
-		eventID = event.ID
-		dupeScope = event.DupeScope
-	} else if raw := strings.TrimSpace(m.contestFields[contestName].Value()); raw != "" && raw != m.contestScopeFallbackFor {
-		m.contestScopeFallbackFor = raw
-		m.statusMsg = fmt.Sprintf("contest %q not found in event catalog — dupe check uses the 15-minute casual window", raw)
+	if _, ok := m.eventForContestID(); !ok {
+		if raw := strings.TrimSpace(m.contestFields[contestName].Value()); raw != "" && raw != m.contestScopeFallbackFor {
+			m.contestScopeFallbackFor = raw
+			m.statusMsg = fmt.Sprintf("contest %q not found in event catalog — dupe check uses the 15-minute casual window", raw)
+		}
 	}
+	contestID, eventID, dupeScope := m.dupeCheckScope()
 	dupe, err := m.store.isDupe(call, m.qsoBand(), contestID, eventID, dupeScope, m.activeStation.ID, time.Now())
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
@@ -634,6 +654,10 @@ func (m *model) selectEvent(event eventDefinition, session eventSession) {
 	m.statusMsg = event.Name + " selected"
 	m.exchangeChoiceFocus = -1
 	m.openQSOContest()
+	// Selecting a contest changes its dupe_scope, so the dupeWarning
+	// indicator (set for whatever contest — or none — was active before)
+	// must be recomputed against the new scope.
+	m.checkDupe()
 }
 
 func (m model) eventForContestID() (eventDefinition, bool) {
@@ -702,7 +726,23 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		m.statusMsg = err.Error()
 		return m, nil
 	}
-	if m.dupeWarning {
+	if event, ok := m.eventForContestID(); ok && len(event.Bands) > 0 && !bandAllowed(event.Bands, m.qsoBand()) {
+		m.statusMsg = fmt.Sprintf("%s is not in %s's allowed bands (%s) — not logged", m.qsoBand(), event.Name, strings.Join(event.Bands, "/"))
+		return m, nil
+	}
+	// Re-check against the database rather than trusting the cached
+	// dupeWarning indicator: the operator can change the contest selection
+	// (which changes dupe_scope) or the band without every intermediate
+	// state necessarily having gone through checkDupe, and this is the last
+	// chance to catch a real contest duplicate before it's committed.
+	contestID, eventID, dupeScope := m.dupeCheckScope()
+	dupe, err := m.store.isDupe(call, m.qsoBand(), contestID, eventID, dupeScope, m.activeStation.ID, time.Now())
+	if err != nil {
+		m.statusMsg = fmt.Sprintf("db error: %v", err)
+		return m, nil
+	}
+	if dupe {
+		m.dupeWarning = true
 		m.statusMsg = fmt.Sprintf("DUPE: %s already worked on %s — not logged", call, m.qsoBand())
 		return m, nil
 	}
@@ -744,16 +784,12 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		myAntenna:       m.activeStation.Antenna,
 		txPower:         m.activeStation.PowerWatts,
 	}
-	_, err := m.store.insertQSO(logged)
-	if err != nil {
+	if _, err := m.store.insertQSO(logged); err != nil {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
 		return m, nil
 	}
 	m.refreshTableRows()
 	m.statusMsg = fmt.Sprintf("logged %s (%s)", call, endedAt.Sub(startedAt).Round(time.Second))
-	if event, ok := m.eventForContestID(); ok && len(event.Bands) > 0 && !bandAllowed(event.Bands, logged.band) {
-		m.statusMsg += fmt.Sprintf(" — warning: %s is not in %s's allowed bands (%s)", logged.band, event.Name, strings.Join(event.Bands, "/"))
-	}
 
 	m.fields[fieldCall].SetValue("")
 	m.fields[fieldRSTRcvd].SetValue("")
@@ -993,6 +1029,11 @@ func (m model) updateQSOContest(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.contestFields[m.contestFocusIdx], cmd = m.contestFields[m.contestFocusIdx].Update(msg)
 	m.exchangeChoiceFocus = -1
+	if m.contestFocusIdx == contestName {
+		// The contest name determines dupe_scope; keep the dupeWarning
+		// indicator in sync as the operator types it.
+		m.checkDupe()
+	}
 	return m, cmd
 }
 

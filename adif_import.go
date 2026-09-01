@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -13,14 +14,10 @@ type adifImportResult struct {
 	Skipped  int
 }
 
-// importADIF parses and inserts records one at a time as parseADIRecords
-// scans them, so peak memory is bounded by one importBatchSize-sized batch
-// of qso values rather than every parsed record in the file (previously a
-// []map[string]string per record, for the whole file, before any insert
-// began). The underlying byte read is still proportional to file size:
-// ADIF's explicit byte-length-prefixed fields must be read as one contiguous
-// buffer to parse correctly, so this does not bound memory by file size, only
-// by parsed-record overhead.
+// importADIF streams reader through parseADIRecords and inserts records one
+// batch at a time, so peak memory is bounded by one importBatchSize-sized
+// batch of qso values plus a small read buffer — not by the size of the
+// source file, which is never read into memory all at once.
 //
 // A failure partway through still leaves the batches inserted so far
 // committed and the rest un-imported (result.Imported reports how much
@@ -30,10 +27,6 @@ type adifImportResult struct {
 // already on file, so re-running the same file doesn't double-insert the
 // batches that already landed.
 func importADIF(ctx context.Context, reader io.Reader, profileID int64, st *store) (adifImportResult, error) {
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		return adifImportResult{}, fmt.Errorf("read ADIF: %w", err)
-	}
 	result := adifImportResult{}
 	batch := make([]qso, 0, importBatchSize)
 	flush := func() error {
@@ -46,7 +39,7 @@ func importADIF(ctx context.Context, reader io.Reader, profileID int64, st *stor
 		batch = batch[:0]
 		return err
 	}
-	parseErr := parseADIRecords(data, func(record map[string]string) error {
+	parseErr := parseADIRecords(reader, func(record map[string]string) error {
 		q, ok := qsoFromADI(record, profileID)
 		if !ok {
 			result.Skipped++
@@ -127,10 +120,14 @@ func qsoFromADI(record map[string]string, profileID int64) (qso, bool) {
 
 		myGridSquare:    strings.TrimSpace(record["MY_GRIDSQUARE"]),
 		stationCallsign: strings.ToUpper(strings.TrimSpace(record["STATION_CALLSIGN"])),
-		operatorName:    strings.TrimSpace(firstNonEmpty(record["OPERATOR_INTL"], record["OPERATOR"])),
-		myRig:           strings.TrimSpace(firstNonEmpty(record["MY_RIG_INTL"], record["MY_RIG"])),
-		myAntenna:       strings.TrimSpace(firstNonEmpty(record["MY_ANTENNA_INTL"], record["MY_ANTENNA"])),
-		txPower:         strings.TrimSpace(record["TX_PWR"]),
+		// MY_NAME is the logging operator's name per the ADIF field table;
+		// OPERATOR means the operator's *callsign*. OPERATOR/OPERATOR_INTL
+		// are still accepted as a fallback for logs this app exported before
+		// that distinction was fixed here, which wrote the name into OPERATOR.
+		operatorName: strings.TrimSpace(firstNonEmpty(record["MY_NAME_INTL"], record["MY_NAME"], record["OPERATOR_INTL"], record["OPERATOR"])),
+		myRig:        strings.TrimSpace(firstNonEmpty(record["MY_RIG_INTL"], record["MY_RIG"])),
+		myAntenna:    strings.TrimSpace(firstNonEmpty(record["MY_ANTENNA_INTL"], record["MY_ANTENNA"])),
+		txPower:      strings.TrimSpace(record["TX_PWR"]),
 	}, true
 }
 
@@ -159,25 +156,30 @@ func adifPOTAReference(record map[string]string) string {
 	return strings.TrimSpace(firstNonEmpty(record["SIG_INFO_INTL"], record["SIG_INFO"]))
 }
 
-// parseADIRecords scans data for ADIF records and invokes onRecord for each
-// one as soon as its <EOR> is seen, rather than accumulating every record in
-// memory before the caller can act on any of them.
-func parseADIRecords(data []byte, onRecord func(map[string]string) error) error {
+// parseADIRecords streams reader for ADIF records and invokes onRecord for
+// each one as soon as its <EOR> is seen. Memory use is bounded by one
+// buffered tag/field at a time (plus whatever onRecord itself retains, e.g.
+// importADIF's batch), not by the size of the source file: ADIF's explicit
+// byte-length-prefixed fields let each field be read with a single
+// io.ReadFull instead of requiring the whole file in memory up front.
+func parseADIRecords(reader io.Reader, onRecord func(map[string]string) error) error {
+	br := bufio.NewReaderSize(reader, 64*1024)
 	record := make(map[string]string)
 	// ADIF permits an omitted header, so records are accepted from the first
 	// field unless an explicit <EOH> resets the accumulated header fields.
 	inRecords := true
-	for offset := 0; offset < len(data); {
-		if data[offset] != '<' {
-			offset++
-			continue
+	for {
+		if _, err := br.ReadBytes('<'); err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return fmt.Errorf("read ADIF: %w", err)
 		}
-		endTag := bytesIndexByte(data, '>', offset+1)
-		if endTag < 0 {
-			return fmt.Errorf("ADIF tag at byte %d is unterminated", offset)
+		tag, err := br.ReadBytes('>')
+		if err != nil {
+			return fmt.Errorf("ADIF tag is unterminated: %w", err)
 		}
-		descriptor := strings.TrimSpace(string(data[offset+1 : endTag]))
-		offset = endTag + 1
+		descriptor := strings.TrimSpace(string(tag[:len(tag)-1]))
 		switch strings.ToUpper(descriptor) {
 		case "EOH":
 			inRecords = true
@@ -197,24 +199,17 @@ func parseADIRecords(data []byte, onRecord func(map[string]string) error) error 
 			return fmt.Errorf("invalid ADIF field descriptor %q", descriptor)
 		}
 		length, err := parseADIFLength(parts[1])
-		if err != nil || offset+length > len(data) {
+		if err != nil {
+			return fmt.Errorf("invalid ADIF field length for %q", parts[0])
+		}
+		value := make([]byte, length)
+		if _, err := io.ReadFull(br, value); err != nil {
 			return fmt.Errorf("invalid ADIF field length for %q", parts[0])
 		}
 		if inRecords {
-			record[strings.ToUpper(strings.TrimSpace(parts[0]))] = string(data[offset : offset+length])
-		}
-		offset += length
-	}
-	return nil
-}
-
-func bytesIndexByte(data []byte, want byte, start int) int {
-	for i := start; i < len(data); i++ {
-		if data[i] == want {
-			return i
+			record[strings.ToUpper(strings.TrimSpace(parts[0]))] = string(value)
 		}
 	}
-	return -1
 }
 
 func parseADIFLength(value string) (int, error) {

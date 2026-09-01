@@ -69,36 +69,65 @@ func adifQSOFields(q qso) []struct{ name, value string } {
 		{"CALL", q.call}, {"QSO_DATE", q.time.UTC().Format("20060102")}, {"TIME_ON", q.time.UTC().Format("150405")},
 		{"QSO_DATE_OFF", q.timeOff.UTC().Format("20060102")}, {"TIME_OFF", q.timeOff.UTC().Format("150405")},
 		{"BAND", q.band}, {"FREQ", q.frequency}, {"MODE", q.mode}, {"RST_SENT", q.rstSent}, {"RST_RCVD", q.rstRcvd},
-		asciiOrIntlField("NAME", q.name), asciiOrIntlField("QTH", q.qth),
+		{"NAME", asciiField(q.name)}, {"QTH", asciiField(q.qth)},
 		{"GRIDSQUARE", q.grid}, {"STATE", q.state}, {"COUNTRY", q.country}, {"CQZ", q.cqZone}, {"ITUZ", q.ituZone},
-		{"SIG", potaSignal(q.potaRef)}, asciiOrIntlField("SIG_INFO", q.potaRef), {"POTA_REF", q.potaRef},
-		asciiOrIntlField("COMMENT", q.comment),
+		{"SIG", potaSignal(q.potaRef)}, {"SIG_INFO", asciiField(q.potaRef)}, {"POTA_REF", q.potaRef},
+		{"COMMENT", asciiField(q.comment)},
 		{"CONTEST_ID", adifContestID(q.contestID)}, integerOnlyField("STX", q.stx), {"STX_STRING", q.stxString},
 		integerOnlyField("SRX", q.srx), {"SRX_STRING", q.srxString},
-		{"MY_GRIDSQUARE", q.myGridSquare}, {"STATION_CALLSIGN", q.stationCallsign}, asciiOrIntlField("OPERATOR", q.operatorName),
-		asciiOrIntlField("MY_RIG", q.myRig), asciiOrIntlField("MY_ANTENNA", q.myAntenna), {"TX_PWR", q.txPower},
+		// OPERATOR is the operator's *callsign* per the ADIF field table; the
+		// human-readable name belongs in MY_NAME. STATION_CALLSIGN already
+		// covers the callsign, and this app has no separate operator-callsign
+		// concept, so OPERATOR is intentionally left unset rather than
+		// populated with the wrong kind of value.
+		{"MY_GRIDSQUARE", q.myGridSquare}, {"STATION_CALLSIGN", q.stationCallsign}, {"MY_NAME", asciiField(q.operatorName)},
+		{"MY_RIG", asciiField(q.myRig)}, {"MY_ANTENNA", asciiField(q.myAntenna)}, {"TX_PWR", q.txPower},
 	}
 }
 
-// asciiOrIntlField returns the field under its normal ADIF name when value is
-// pure ASCII (the ADIF String data type), or under the paired "_INTL" field
-// name (the ADIF IntlString data type) when it contains non-ASCII characters
-// such as accented names. Writing arbitrary UTF-8 into an ASCII String field
-// is not ADIF-compliant.
-func asciiOrIntlField(base, value string) struct{ name, value string } {
-	if isASCII(value) {
-		return struct{ name, value string }{base, value}
-	}
-	return struct{ name, value string }{base + "_INTL", value}
+// diacriticToASCII maps common Latin letters with diacritics to their plain
+// ASCII base letter for asciiField's transliteration.
+var diacriticToASCII = map[rune]rune{
+	'á': 'a', 'à': 'a', 'â': 'a', 'ä': 'a', 'ã': 'a', 'å': 'a', 'ā': 'a', 'ă': 'a', 'ą': 'a',
+	'Á': 'A', 'À': 'A', 'Â': 'A', 'Ä': 'A', 'Ã': 'A', 'Å': 'A', 'Ā': 'A', 'Ă': 'A', 'Ą': 'A',
+	'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e', 'ē': 'e', 'ĕ': 'e', 'ę': 'e',
+	'É': 'E', 'È': 'E', 'Ê': 'E', 'Ë': 'E', 'Ē': 'E', 'Ĕ': 'E', 'Ę': 'E',
+	'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i', 'ī': 'i',
+	'Í': 'I', 'Ì': 'I', 'Î': 'I', 'Ï': 'I', 'Ī': 'I',
+	'ó': 'o', 'ò': 'o', 'ô': 'o', 'ö': 'o', 'õ': 'o', 'ø': 'o', 'ō': 'o',
+	'Ó': 'O', 'Ò': 'O', 'Ô': 'O', 'Ö': 'O', 'Õ': 'O', 'Ø': 'O', 'Ō': 'O',
+	'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u', 'ū': 'u',
+	'Ú': 'U', 'Ù': 'U', 'Û': 'U', 'Ü': 'U', 'Ū': 'U',
+	'ý': 'y', 'ÿ': 'y', 'Ý': 'Y',
+	'ñ': 'n', 'Ñ': 'N',
+	'ç': 'c', 'Ç': 'C', 'ć': 'c', 'Ć': 'C', 'č': 'c', 'Č': 'C',
+	'ß': 's',
+	'ł': 'l', 'Ł': 'L',
+	'ś': 's', 'Ś': 'S', 'š': 's', 'Š': 'S',
+	'ž': 'z', 'Ž': 'Z', 'ź': 'z', 'Ź': 'Z', 'ż': 'z', 'Ż': 'Z',
+	'đ': 'd', 'Đ': 'D',
 }
 
-func isASCII(value string) bool {
+// asciiField makes value ADIF-compliant for an ASCII String field. ADIF
+// 3.1.7 restricts the IntlString data type (and its paired "_INTL" field
+// names, e.g. NAME_INTL) to ADX/XML files; a .adi file — what this exporter
+// and the QRZ Logbook upload both produce — must stay ASCII. Common accented
+// Latin letters are transliterated to their plain base letter; any other
+// non-ASCII rune becomes "?" so the file stays valid instead of silently
+// carrying an invalid field or a fabricated one.
+func asciiField(value string) string {
+	var b strings.Builder
 	for _, r := range value {
-		if r > unicode.MaxASCII {
-			return false
+		switch {
+		case r <= unicode.MaxASCII:
+			b.WriteRune(r)
+		case diacriticToASCII[r] != 0:
+			b.WriteRune(diacriticToASCII[r])
+		default:
+			b.WriteByte('?')
 		}
 	}
-	return true
+	return b.String()
 }
 
 // integerOnlyField exports STX/SRX only when the stored value is a valid

@@ -67,4 +67,14 @@ func TestSaveStationProfileRejectsInvalidSettings(t *testing.T) {
 	if _, err := st.saveStationProfile(profile); err == nil {
 		t.Fatal("saveStationProfile accepted invalid power")
 	}
+	// strconv.ParseFloat accepts the literals "NaN" and "Inf"/"+Inf" with no
+	// error, and value < 0 is false for both — so a plain "err != nil ||
+	// value < 0" guard lets them through into the database and into
+	// ADIF TX_PWR on export.
+	for _, bad := range []string{"NaN", "Inf", "+Inf", "-Inf"} {
+		profile.PowerWatts = bad
+		if _, err := st.saveStationProfile(profile); err == nil {
+			t.Fatalf("saveStationProfile accepted power = %q", bad)
+		}
+	}
 }

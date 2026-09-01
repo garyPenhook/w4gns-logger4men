@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -37,7 +38,7 @@ func (s *store) activeStationProfile() (stationProfile, error) {
 	profile.Longitude = longitude.pointer()
 	if profile.PowerWatts != "" {
 		value, err := strconv.ParseFloat(profile.PowerWatts, 64)
-		if err != nil || value < 0 {
+		if err != nil || math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
 			return stationProfile{}, fmt.Errorf("read station power: invalid stored value %q", profile.PowerWatts)
 		}
 		profile.PowerWatts = strconv.FormatFloat(value, 'f', -1, 64)
@@ -73,8 +74,8 @@ func (s *store) saveStationProfile(profile stationProfile) (stationProfile, erro
 	var powerWatts any
 	if profile.PowerWatts != "" {
 		value, err := strconv.ParseFloat(profile.PowerWatts, 64)
-		if err != nil || value < 0 {
-			return stationProfile{}, fmt.Errorf("power must be a non-negative number of watts")
+		if err != nil || math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
+			return stationProfile{}, fmt.Errorf("power must be a non-negative, finite number of watts")
 		}
 		powerWatts = value
 		profile.PowerWatts = strconv.FormatFloat(value, 'f', -1, 64)
