@@ -228,6 +228,11 @@ var (
 
 	helpStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("240"))
+
+	solarStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("11")).
+			Padding(0, 1)
 )
 
 // maxEventSelectionLength bounds the Contest Name field so it can hold the
@@ -1260,7 +1265,7 @@ func (m model) View() string {
 	)
 	b.WriteString(headerStyle.Render(header))
 	b.WriteString("\n")
-	b.WriteString(helpStyle.Render(m.solarLine()))
+	b.WriteString(solarStyle.Render(m.solarLine()))
 	b.WriteString("\n\n")
 
 	fieldViews := make([]string, fieldCount)
