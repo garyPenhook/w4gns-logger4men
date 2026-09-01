@@ -4,6 +4,10 @@
 
 Keep routine CW logging fast in a small terminal while making optional QSO and contest data available before a QSO is saved.
 
+## Build and installation
+
+`make install` builds the executable at `bin/w4gns-logger` and creates the user-local command `~/.local/bin/w4gns-logger` as a symlink to it. Because `~/.local/bin` is on the configured Bash `PATH`, the logger can be started as `w4gns-logger` from any directory. The symlink follows every subsequent `make build` or `make install`, so it always runs the most recently rebuilt repository binary. This installation is entirely user-owned and requires no `sudo`.
+
 ## Pages and navigation
 
 | Key | Page | Purpose |

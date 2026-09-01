@@ -1,0 +1,1066 @@
+[
+  {
+    "id": "NAQP-CW",
+    "name": "North American QSO Party, CW",
+    "organizer": "NCJ",
+    "kind": "annual contest",
+    "schedule": "1800Z, Aug 1 to 0559Z, Aug 2",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "Name + state/province/country",
+    "received_exchange_hint": "Name + state/province/country",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=218",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1800ZAug1",
+        "label": "North American QSO Party, CW",
+        "schedule": "1800Z, Aug 1 to 0559Z, Aug 2"
+      }
+    ]
+  },
+  {
+    "id": "DARC-WAEDC-CW",
+    "name": "WAE DX Contest, CW",
+    "organizer": "DARC",
+    "kind": "annual contest",
+    "schedule": "0000Z, Aug 8 to 2359Z, Aug 9",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "RST + serial (plus QTC traffic reports)",
+    "received_exchange_hint": "RST + serial (plus QTC traffic reports)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=85",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0000ZAug8",
+        "label": "WAE DX Contest, CW",
+        "schedule": "0000Z, Aug 8 to 2359Z, Aug 9"
+      }
+    ]
+  },
+  {
+    "id": "NAQCC-CW-SPRINT",
+    "name": "NAQCC CW Sprint",
+    "organizer": "NAQCC",
+    "kind": "annual contest",
+    "schedule": "0030Z-0230Z, Aug 12",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=358",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0030Z0230ZAug12",
+        "label": "NAQCC CW Sprint",
+        "schedule": "0030Z-0230Z, Aug 12"
+      }
+    ]
+  },
+  {
+    "id": "CVA-DX-CONTEST",
+    "name": "CVA DX Contest, CW",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1800Z, Aug 15 to 2100Z, Aug 16",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=534",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1800ZAug15",
+        "label": "CVA DX Contest, CW",
+        "schedule": "1800Z, Aug 15 to 2100Z, Aug 16"
+      }
+    ]
+  },
+  {
+    "id": "SARL-HF-CW-CONTEST",
+    "name": "SARL HF CW Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z-1700Z, Aug 23",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=101",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400Z1700ZAug23",
+        "label": "SARL HF CW Contest",
+        "schedule": "1400Z-1700Z, Aug 23"
+      }
+    ]
+  },
+  {
+    "id": "MI-QRP-LABOR-DAY-CW-SPRINT",
+    "name": "MI QRP Labor Day CW Sprint",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "2300Z, Sep 7 to 0300Z, Sep 8",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=108",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "2300ZSep7",
+        "label": "MI QRP Labor Day CW Sprint",
+        "schedule": "2300Z, Sep 7 to 0300Z, Sep 8"
+      }
+    ]
+  },
+  {
+    "id": "DARC-CW-TRAINING-CONTEST",
+    "name": "DARC CW-Training Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1800Z-1859Z, Sep 8",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=776",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1800Z1859ZSep8",
+        "label": "DARC CW-Training Contest",
+        "schedule": "1800Z-1859Z, Sep 8"
+      }
+    ]
+  },
+  {
+    "id": "NA-SPRINT-CW",
+    "name": "North American Sprint, CW",
+    "organizer": "NCJ",
+    "kind": "annual contest",
+    "schedule": "0000Z-0400Z, Sep 13",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "Serial + name + state/province/country",
+    "received_exchange_hint": "Serial + name + state/province/country",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=253",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0000Z0400ZSep13",
+        "label": "North American Sprint, CW",
+        "schedule": "0000Z-0400Z, Sep 13"
+      }
+    ]
+  },
+  {
+    "id": "RSGB-80M-AUTUMN-SERIES",
+    "name": "RSGB 80m Autumn Series, CW",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1900Z-2030Z, Sep 16",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=458",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1900Z2030ZSep16",
+        "label": "RSGB 80m Autumn Series, CW",
+        "schedule": "1900Z-2030Z, Sep 16"
+      }
+    ]
+  },
+  {
+    "id": "SAC-CW",
+    "name": "Scandinavian Activity Contest, CW",
+    "organizer": "SSA/NRAU",
+    "kind": "annual contest",
+    "schedule": "1200Z, Sep 19 to 1200Z, Sep 20",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "RST + serial (Scandinavian stations send county)",
+    "received_exchange_hint": "RST + serial (Scandinavian stations send county)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=121",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1200ZSep19",
+        "label": "Scandinavian Activity Contest, CW",
+        "schedule": "1200Z, Sep 19 to 1200Z, Sep 20"
+      }
+    ]
+  },
+  {
+    "id": "OCEANIA-DX-CW",
+    "name": "Oceania DX Contest, CW",
+    "organizer": "WIA",
+    "kind": "annual contest",
+    "schedule": "0600Z, Oct 10 to 0600Z, Oct 11",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "RST + serial",
+    "received_exchange_hint": "RST + serial",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=151",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0600ZOct10",
+        "label": "Oceania DX Contest, CW",
+        "schedule": "0600Z, Oct 10 to 0600Z, Oct 11"
+      }
+    ]
+  },
+  {
+    "id": "UBA-ON-CONTEST",
+    "name": "UBA ON Contest, CW",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "0600Z-1000Z, Oct 11",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=157",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0600Z1000ZOct11",
+        "label": "UBA ON Contest, CW",
+        "schedule": "0600Z-1000Z, Oct 11"
+      }
+    ]
+  },
+  {
+    "id": "ASIA-PACIFIC-FALL-SPRINT",
+    "name": "Asia-Pacific Fall Sprint, CW",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "0000Z-0200Z, Oct 18",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=164",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0000Z0200ZOct18",
+        "label": "Asia-Pacific Fall Sprint, CW",
+        "schedule": "0000Z-0200Z, Oct 18"
+      }
+    ]
+  },
+  {
+    "id": "CLASSIC-EXCHANGE",
+    "name": "Classic Exchange, CW",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z, Nov 1 to 0800Z, Nov 2 and 1400Z, Nov 3 to 0800Z, Nov 4",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=493",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400ZNov1",
+        "label": "Classic Exchange, CW",
+        "schedule": "1400Z, Nov 1 to 0800Z, Nov 2 and 1400Z, Nov 3 to 0800Z, Nov 4"
+      }
+    ]
+  },
+  {
+    "id": "HIGH-SPEED-CLUB-CW-CONTEST",
+    "name": "High Speed Club CW Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z-1700Z, Nov 1",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=264",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400Z1700ZNov1",
+        "label": "High Speed Club CW Contest",
+        "schedule": "1400Z-1700Z, Nov 1"
+      }
+    ]
+  },
+  {
+    "id": "ARRL-SS-CW",
+    "name": "ARRL Sweepstakes Contest, CW",
+    "organizer": "ARRL",
+    "kind": "annual contest",
+    "schedule": "2100Z, Nov 7 to 0300Z, Nov 9",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "Serial + precedence + call + check + ARRL/RAC section",
+    "received_exchange_hint": "Serial + precedence + call + check + ARRL/RAC section",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=177",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "2100ZNov7",
+        "label": "ARRL Sweepstakes Contest, CW",
+        "schedule": "2100Z, Nov 7 to 0300Z, Nov 9"
+      }
+    ]
+  },
+  {
+    "id": "OK-OM-DX-CONTEST",
+    "name": "OK/OM DX Contest, CW",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1200Z, Nov 14 to 1200Z, Nov 15",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=185",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1200ZNov14",
+        "label": "OK/OM DX Contest, CW",
+        "schedule": "1200Z, Nov 14 to 1200Z, Nov 15"
+      }
+    ]
+  },
+  {
+    "id": "CQ-WW-CW",
+    "name": "CQ Worldwide DX Contest, CW",
+    "organizer": "CQ Magazine",
+    "kind": "annual contest",
+    "schedule": "0000Z, Nov 28 to 2400Z, Nov 29",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "RST + CQ zone",
+    "received_exchange_hint": "RST + CQ zone",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=192",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0000ZNov28",
+        "label": "CQ Worldwide DX Contest, CW",
+        "schedule": "0000Z, Nov 28 to 2400Z, Nov 29"
+      }
+    ]
+  },
+  {
+    "id": "PRO-CW-CONTEST",
+    "name": "PRO CW Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1600Z, Dec 5 to 1559Z, Dec 6",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=266",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1600ZDec5",
+        "label": "PRO CW Contest",
+        "schedule": "1600Z, Dec 5 to 1559Z, Dec 6"
+      }
+    ]
+  },
+  {
+    "id": "ARRL-RR-CW",
+    "name": "ARRL Rookie Roundup, CW",
+    "organizer": "ARRL",
+    "kind": "annual contest",
+    "schedule": "1800Z-2359Z, Dec 20",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "RST + year first licensed + state/province/country",
+    "received_exchange_hint": "RST + year first licensed + state/province/country",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=502",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1800Z2359ZDec20",
+        "label": "ARRL Rookie Roundup, CW",
+        "schedule": "1800Z-2359Z, Dec 20"
+      }
+    ]
+  },
+  {
+    "id": "NRAU-BALTIC-CONTEST",
+    "name": "NRAU-Baltic Contest, CW",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "0900Z-1100Z, Jan 10",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=220",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0900Z1100ZJan10",
+        "label": "NRAU-Baltic Contest, CW",
+        "schedule": "0900Z-1100Z, Jan 10"
+      }
+    ]
+  },
+  {
+    "id": "CQ-160-CW",
+    "name": "CQ 160-Meter Contest, CW",
+    "organizer": "CQ Magazine",
+    "kind": "annual contest",
+    "schedule": "2200Z, Jan 29 to 2159Z, Jan 31",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "RST + state/province (W/VE) or serial (DX)",
+    "received_exchange_hint": "RST + state/province (W/VE) or serial (DX)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=232",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "2200ZJan29",
+        "label": "CQ 160-Meter Contest, CW",
+        "schedule": "2200Z, Jan 29 to 2159Z, Jan 31"
+      }
+    ]
+  },
+  {
+    "id": "REF-CW",
+    "name": "REF Contest, CW",
+    "organizer": "REF",
+    "kind": "annual contest",
+    "schedule": "0600Z, Jan 30 to 1800Z, Jan 31",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "RST + serial (French stations send department)",
+    "received_exchange_hint": "RST + serial (French stations send department)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=233",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0600ZJan30",
+        "label": "REF Contest, CW",
+        "schedule": "0600Z, Jan 30 to 1800Z, Jan 31"
+      }
+    ]
+  },
+  {
+    "id": "MARCONI-CLUB-ARI-LOANO-SLOW-CW-Q",
+    "name": "Marconi Club ARI Loano Slow CW QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1300Z-2300Z, Feb 7",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=769",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1300Z2300ZFeb7",
+        "label": "Marconi Club ARI Loano Slow CW QSO Party",
+        "schedule": "1300Z-2300Z, Feb 7"
+      }
+    ]
+  },
+  {
+    "id": "ASIA-PACIFIC-SPRING-SPRINT",
+    "name": "Asia-Pacific Spring Sprint, CW",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1100Z-1300Z, Feb 13",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=248",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1100Z1300ZFeb13",
+        "label": "Asia-Pacific Spring Sprint, CW",
+        "schedule": "1100Z-1300Z, Feb 13"
+      }
+    ]
+  },
+  {
+    "id": "ARRL-DX-CW",
+    "name": "ARRL Inter. DX Contest, CW",
+    "organizer": "ARRL",
+    "kind": "annual contest",
+    "schedule": "0000Z, Feb 20 to 2400Z, Feb 21",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "RST + power (DX) or state/province (W/VE)",
+    "received_exchange_hint": "RST + power (DX) or state/province (W/VE)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=256",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0000ZFeb20",
+        "label": "ARRL Inter. DX Contest, CW",
+        "schedule": "0000Z, Feb 20 to 2400Z, Feb 21"
+      }
+    ]
+  },
+  {
+    "id": "UBA-DX-CW",
+    "name": "UBA DX Contest, CW",
+    "organizer": "UBA",
+    "kind": "annual contest",
+    "schedule": "1300Z, Feb 27 to 1300Z, Feb 28",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "RST + serial (Belgian stations send UBA section)",
+    "received_exchange_hint": "RST + serial (Belgian stations send UBA section)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=261",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1300ZFeb27",
+        "label": "UBA DX Contest, CW",
+        "schedule": "1300Z, Feb 27 to 1300Z, Feb 28"
+      }
+    ]
+  },
+  {
+    "id": "AGCW-YL-CW-PARTY",
+    "name": "AGCW YL-CW Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1900Z-2100Z, Mar 2",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=287",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1900Z2100ZMar2",
+        "label": "AGCW YL-CW Party",
+        "schedule": "1900Z-2100Z, Mar 2"
+      }
+    ]
+  },
+  {
+    "id": "JIDX-CW",
+    "name": "JIDX CW Contest",
+    "organizer": "JARL/JIDXA",
+    "kind": "annual contest",
+    "schedule": "0700Z, Apr 10 to 1300Z, Apr 11",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "RST + CQ zone (DX) or prefecture number (JA)",
+    "received_exchange_hint": "RST + CQ zone (DX) or prefecture number (JA)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=314",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0700ZApr10",
+        "label": "JIDX CW Contest",
+        "schedule": "0700Z, Apr 10 to 1300Z, Apr 11"
+      }
+    ]
+  },
+  {
+    "id": "DIG-QSO-PARTY",
+    "name": "DIG QSO Party, CW",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1200Z, Apr 10 to 1100Z, Apr 11",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=691",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1200ZApr10",
+        "label": "DIG QSO Party, CW",
+        "schedule": "1200Z, Apr 10 to 1100Z, Apr 11"
+      }
+    ]
+  },
+  {
+    "id": "EA-QRP-CW-CONTEST",
+    "name": "EA-QRP CW Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1700Z, Apr 17 to 1200Z, Apr 18",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=369",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1700ZApr17",
+        "label": "EA-QRP CW Contest",
+        "schedule": "1700Z, Apr 17 to 1200Z, Apr 18"
+      }
+    ]
+  },
+  {
+    "id": "UK-EI-DX-CONTEST",
+    "name": "UK/EI DX Contest, CW",
+    "organizer": "IRTS/RSGB",
+    "kind": "annual contest",
+    "schedule": "1200Z, Apr 24 to 1200Z, Apr 25",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=597",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1200ZApr24",
+        "label": "UK/EI DX Contest, CW",
+        "schedule": "1200Z, Apr 24 to 1200Z, Apr 25"
+      }
+    ]
+  },
+  {
+    "id": "HIS-MAJ-KING-OF-SPAIN-CONTEST",
+    "name": "His Maj. King of Spain Contest, CW",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1200Z, May 15 to 1200Z, May 16",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=23",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1200ZMay15",
+        "label": "His Maj. King of Spain Contest, CW",
+        "schedule": "1200Z, May 15 to 1200Z, May 16"
+      }
+    ]
+  },
+  {
+    "id": "CQ-WPX-CW",
+    "name": "CQ WW WPX Contest, CW",
+    "organizer": "CQ Magazine",
+    "kind": "annual contest",
+    "schedule": "0000Z, May 29 to 2400Z, May 30",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "RST + serial",
+    "received_exchange_hint": "RST + serial",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=29",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0000ZMay29",
+        "label": "CQ WW WPX Contest, CW",
+        "schedule": "0000Z, May 29 to 2400Z, May 30"
+      }
+    ]
+  },
+  {
+    "id": "TISZA-CUP-CW-CONTEST",
+    "name": "Tisza Cup CW Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "0200Z-1459Z, Jun 5",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=678",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0200Z1459ZJun5",
+        "label": "Tisza Cup CW Contest",
+        "schedule": "0200Z-1459Z, Jun 5"
+      }
+    ]
+  },
+  {
+    "id": "IARU-REGION-1-FIELD-DAY",
+    "name": "IARU Region 1 Field Day, CW",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1500Z, Jun 5 to 1459Z, Jun 6",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=35",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1500ZJun5",
+        "label": "IARU Region 1 Field Day, CW",
+        "schedule": "1500Z, Jun 5 to 1459Z, Jun 6"
+      }
+    ]
+  },
+  {
+    "id": "GACW-WWSA-CW-DX-CONTEST",
+    "name": "GACW WWSA CW DX Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1500Z, Jun 12 to 1500Z, Jun 13",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "See official contest rules for the required exchange",
+    "received_exchange_hint": "See official contest rules for the required exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=45",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1500ZJun12",
+        "label": "GACW WWSA CW DX Contest",
+        "schedule": "1500Z, Jun 12 to 1500Z, Jun 13"
+      }
+    ]
+  },
+  {
+    "id": "ALL-ASIAN-DX-CW",
+    "name": "All Asian DX Contest, CW",
+    "organizer": "JARL",
+    "kind": "annual contest",
+    "schedule": "0000Z, Jun 19 to 2400Z, Jun 20",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "RST + operator's age",
+    "received_exchange_hint": "RST + operator's age",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contestcalendar.com/contestdetails.php?ref=47",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0000ZJun19",
+        "label": "All Asian DX Contest, CW",
+        "schedule": "0000Z, Jun 19 to 2400Z, Jun 20"
+      }
+    ]
+  }
+]

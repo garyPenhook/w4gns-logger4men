@@ -4,7 +4,21 @@ CW only logger, life is too short for QRM.
 
 ## Start
 
-Run the application:
+Build and install the application into your user-local command path:
+
+```bash
+make install
+```
+
+This creates `~/.local/bin/w4gns-logger` as a symlink to the repository build. `~/.local/bin` is on the configured Bash `PATH`, so run the application from any directory with:
+
+```bash
+w4gns-logger
+```
+
+Every `make build` or `make install` refreshes `bin/w4gns-logger`; the installed command immediately uses that rebuilt version. No `sudo` or system-wide installation is used.
+
+You can also run the repository build directly:
 
 ```bash
 ./bin/w4gns-logger
@@ -50,6 +64,8 @@ Your log is stored locally in `w4gns.db` by default. Set `W4GNS_DB` to use anoth
 ## QSO Details and Events & Contests
 
 Press `F6` for optional QSO details: operator name, QTH, grid square, state or province, POTA reference, and notes. Press `F7` for the Events & Contests page. Select an event with `Up`/`Down`, select its UTC session with `Left`/`Right`, then press `Enter`; the session-specific ID and exchange templates populate Contest Entry. The catalog shows a scrollable window, so it accommodates hundreds of definitions. The built-in CWops definitions cover all four weekly CWT sessions and the three CW Open sessions. Each definition can include a score-submission URL; CWT points to 3830scores.com. Events are JSON files embedded from `events/`, so definitions can be added without modifying Go code. These pages retain their values until the QSO is logged from the main QSO Entry screen.
+
+`events/contestcalendar.json` adds the next occurrence of every major CW contest on the [WA7BNM Contest Calendar](https://www.contestcalendar.com/contestcal.php) (CQ WW CW, CQ WPX CW, ARRL DX CW, ARRL Sweepstakes CW, NAQP CW, WAE CW, and 30+ more, from club sprints up to the majors). Each definition's `rules_url` links to its contest-calendar detail page. Exchange hints are filled in from well-established convention for the majors (e.g. CQ WW CW is RST + CQ zone); contests whose exchange isn't common knowledge show "See official contest rules for the required exchange" rather than a guess — check the linked rules before operating those.
 
 TNQP is configured for an out-of-state operator. Its received-exchange field offers Tennessee county codes as you type; use `Up`/`Down` and `Enter` to insert the official four-letter county abbreviation.
 
