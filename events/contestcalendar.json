@@ -3746,5 +3746,1031 @@
         "schedule": "1200Z, Jul 25 to 1200Z, Jul 26"
       }
     ]
+  },
+  {
+    "id": "ALL-AUSTRIAN-160-METER-CONTEST",
+    "name": "All Austrian 160-Meter Contest",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "1600Z-2359Z, Nov 21",
+    "bands": [
+      "160M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "OE: RST + Serial No. + District Code non-OE: RST + Serial No.",
+    "received_exchange_hint": "OE: RST + Serial No. + District Code non-OE: RST + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.oevsv.at/export/shared/.content/.galleries/Downloads_Referate/HF-Referat-Downloads/Rules_AOEC_160m.pdf",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1600Z2359ZNov21",
+        "label": "All Austrian 160-Meter Contest",
+        "schedule": "1600Z-2359Z, Nov 21"
+      }
+    ]
+  },
+  {
+    "id": "40-80",
+    "name": "ARI 40/80 Contest",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "1300Z, Dec 12 to 1359Z, Dec 13",
+    "bands": [
+      "80M",
+      "40M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "Phone, CW, Digital contest \u2014 CW exchange: RS(T) + 2-letter province car code",
+    "received_exchange_hint": "Phone, CW, Digital contest \u2014 CW exchange: RS(T) + 2-letter province car code",
+    "dupe_scope": "call+band",
+    "rules_url": "http://www.ari.it/en/contest-hf/contest-4080.html",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1300ZDec12",
+        "label": "ARI 40/80 Contest",
+        "schedule": "1300Z, Dec 12 to 1359Z, Dec 13"
+      }
+    ]
+  },
+  {
+    "id": "ARI-DX",
+    "name": "ARI International DX Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1200Z, May 2 to 1159Z, May 3",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "Phone, CW, RTTY contest \u2014 CW exchange: I: RS(T) + 2-letter province non-I: RS(T) + Serial No.",
+    "received_exchange_hint": "Phone, CW, RTTY contest \u2014 CW exchange: I: RS(T) + 2-letter province non-I: RS(T) + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.ari.it/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1200ZMay2",
+        "label": "ARI International DX Contest",
+        "schedule": "1200Z, May 2 to 1159Z, May 3"
+      }
+    ]
+  },
+  {
+    "id": "BALKAN-HF",
+    "name": "Balkan HF Contest",
+    "organizer": "",
+    "kind": "annual contest (Active, but no recent results)",
+    "schedule": "1300Z-1700Z, Feb 15",
+    "bands": [
+      "80M",
+      "40M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: RS(T) + QSO No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: RS(T) + QSO No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://bfra.bg/en/news/578",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1300Z1700ZFeb15",
+        "label": "Balkan HF Contest",
+        "schedule": "1300Z-1700Z, Feb 15"
+      }
+    ]
+  },
+  {
+    "id": "BALTIC-CONTEST",
+    "name": "Baltic Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "2100Z, May 16 to 0200Z, May 17",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: RS(T) + Serial No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: RS(T) + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "http://www.lrsf.lt/en/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "2100ZMay16",
+        "label": "Baltic Contest",
+        "schedule": "2100Z, May 16 to 0200Z, May 17"
+      }
+    ]
+  },
+  {
+    "id": "9A-DX",
+    "name": "Croatian DX Contest",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "1400Z, Dec 19 to 1400Z, Dec 20",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: 9A: RS(T) + county non-9A: RS(T) + ITU Zone",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: 9A: RS(T) + county non-9A: RS(T) + ITU Zone",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.hamradio.hr/9a-dx-contest/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400ZDec19",
+        "label": "Croatian DX Contest",
+        "schedule": "1400Z, Dec 19 to 1400Z, Dec 20"
+      }
+    ]
+  },
+  {
+    "id": "DARC-10",
+    "name": "DARC 10-Meter Contest",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "0900Z-1059Z, Jan 11",
+    "bands": [
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: DL: RS(T) + QSO No. + DOK non-DL: RS(T) + QSO No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: DL: RS(T) + QSO No. + DOK non-DL: RS(T) + QSO No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.darc.de/der-club/referate/conteste/darc-10m-contest/regeln/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0900Z1059ZJan11",
+        "label": "DARC 10-Meter Contest",
+        "schedule": "0900Z-1059Z, Jan 11"
+      }
+    ]
+  },
+  {
+    "id": "XMAS",
+    "name": "DARC Christmas Contest",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "0830Z-1059Z, Dec 26",
+    "bands": [
+      "80M",
+      "40M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: DL: RS(T) + DOK (or \"NM\" if not a DARC member) non-DL: RS(T) + QSO No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: DL: RS(T) + DOK (or \"NM\" if not a DARC member) non-DL: RS(T) + QSO No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.darc.de/der-club/referate/conteste/weihnachtswettbewerb/en/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0830Z1059ZDec26",
+        "label": "DARC Christmas Contest",
+        "schedule": "0830Z-1059Z, Dec 26"
+      }
+    ]
+  },
+  {
+    "id": "EASTER",
+    "name": "DARC Easter Contest",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "next date not yet announced",
+    "bands": [
+      "80M",
+      "40M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: DL: RS(T) + DOK (or \"NM\" if not a DARC member) non-DL: RS(T) + QSO No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: DL: RS(T) + DOK (or \"NM\" if not a DARC member) non-DL: RS(T) + QSO No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.darc.de/der-club/referate/conteste/darc-ostercontest/en/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "nextdatenotyetannounced",
+        "label": "DARC Easter Contest",
+        "schedule": "next date not yet announced"
+      }
+    ]
+  },
+  {
+    "id": "PACC",
+    "name": "Dutch PACC Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1200Z, Feb 14 to 1200Z, Feb 15",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: PA: RS(T) + province non-PA: RS(T) + Serial No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: PA: RS(T) + province non-PA: RS(T) + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://pacc.veron.nl/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1200ZFeb14",
+        "label": "Dutch PACC Contest",
+        "schedule": "1200Z, Feb 14 to 1200Z, Feb 15"
+      }
+    ]
+  },
+  {
+    "id": "EUHFC",
+    "name": "European HF Championship",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1200Z-2359Z, Aug 1",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: RS(T) + 2-digit year first licensed",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: RS(T) + 2-digit year first licensed",
+    "dupe_scope": "call+band",
+    "rules_url": "https://euhf.s5cc.eu/euhfc_rules/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1200Z2359ZAug1",
+        "label": "European HF Championship",
+        "schedule": "1200Z-2359Z, Aug 1"
+      }
+    ]
+  },
+  {
+    "id": "EUDXC",
+    "name": "European Union DX Contest",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "1200Z, Feb 7 to 1200Z, Feb 8",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: EU Union: RS(T) + EU Union Region (4-characters) Non-EU Union: RS(T) + ITU Zone No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: EU Union: RS(T) + EU Union Region (4-characters) Non-EU Union: RS(T) + ITU Zone No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.eudx-contest.com/rules/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1200ZFeb7",
+        "label": "European Union DX Contest",
+        "schedule": "1200Z, Feb 7 to 1200Z, Feb 8"
+      }
+    ]
+  },
+  {
+    "id": "HELVETIA",
+    "name": "Helvetia Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1300Z, Apr 25 to 1259Z, Apr 26",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB, Digital contest \u2014 CW exchange: HB: RS(T) + 2-letter canton non-HB: RS(T) + Serial No.",
+    "received_exchange_hint": "CW, SSB, Digital contest \u2014 CW exchange: HB: RS(T) + 2-letter canton non-HB: RS(T) + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://uska.ch/wp-content/uploads/2026/03/2026-01-Rules-and-Regulations-for-Helvetia-Contest-issued-March-2026.pdf",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1300ZApr25",
+        "label": "Helvetia Contest",
+        "schedule": "1300Z, Apr 25 to 1259Z, Apr 26"
+      }
+    ]
+  },
+  {
+    "id": "HA-DX",
+    "name": "Hungarian DX Contest",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "1200Z, Jan 17 to 1200Z, Jan 18",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: HA: RS(T) + 2-letter county non-HA: RS(T) + Serial No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: HA: RS(T) + 2-letter county non-HA: RS(T) + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://ha-dx.com/en/contest-rules",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1200ZJan17",
+        "label": "Hungarian DX Contest",
+        "schedule": "1200Z, Jan 17 to 1200Z, Jan 18"
+      }
+    ]
+  },
+  {
+    "id": "LZ-DX",
+    "name": "LZ DX Contest",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "1200Z, Nov 21 to 1200Z, Nov 22",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: LZ: RS(T) + 2-letter district non-LZ: RS(T) + ITU Zone No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: LZ: RS(T) + 2-letter district non-LZ: RS(T) + ITU Zone No.",
+    "dupe_scope": "call+band",
+    "rules_url": "http://lzdx.bfra.org/rulesen.html",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1200ZNov21",
+        "label": "LZ DX Contest",
+        "schedule": "1200Z, Nov 21 to 1200Z, Nov 22"
+      }
+    ]
+  },
+  {
+    "id": "LZ-INTERNATIONAL-6-METER-CONTEST",
+    "name": "LZ International 6-Meter Contest",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "1400Z, Jun 20 to 1400Z, Jun 21",
+    "bands": [
+      "6M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: RS(T) + QSO No. + 6-character grid square",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: RS(T) + QSO No. + 6-character grid square",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.radioclub-troyan.bg/media/activities/6-meters/rules-en-2024.pdf",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400ZJun20",
+        "label": "LZ International 6-Meter Contest",
+        "schedule": "1400Z, Jun 20 to 1400Z, Jun 21"
+      }
+    ]
+  },
+  {
+    "id": "PORTUGAL-DAY",
+    "name": "Portugal Day Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1200Z, Jun 13 to 1159Z, Jun 14",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: CT: RS(T) + District non-CT: RS(T) + Serial No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: CT: RS(T) + District non-CT: RS(T) + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://portugaldaycontest.rep.pt/rules.php",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1200ZJun13",
+        "label": "Portugal Day Contest",
+        "schedule": "1200Z, Jun 13 to 1159Z, Jun 14"
+      }
+    ]
+  },
+  {
+    "id": "PORTUGUESE-NAVY-DAY-CONTEST-CT1D",
+    "name": "Portuguese Navy Day Contest - CT1DBS Memorial",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "next date not yet announced",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB, Digital contest \u2014 CW exchange: NRA Club Member: RS(T) + Club ID + Member No. non-member: RS(T) + QSO No.",
+    "received_exchange_hint": "CW, SSB, Digital contest \u2014 CW exchange: NRA Club Member: RS(T) + Club ID + Member No. non-member: RS(T) + QSO No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://nra.pt/index.php/dm-2022/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "nextdatenotyetannounced",
+        "label": "Portuguese Navy Day Contest - CT1DBS Memorial",
+        "schedule": "next date not yet announced"
+      }
+    ]
+  },
+  {
+    "id": "RAEM",
+    "name": "RAEM Contest",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "0000Z-1159Z, Dec 27",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "Serial No. + latitude (degs only) + hemisphere + longitude (degs only) + hemisphere (see rules) N=North, S=South, W=West, O=East (e.g. 57N 85O)",
+    "received_exchange_hint": "Serial No. + latitude (degs only) + hemisphere + longitude (degs only) + hemisphere (see rules) N=North, S=South, W=West, O=East (e.g. 57N 85O)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://raem.srr.ru/rules/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0000Z1159ZDec27",
+        "label": "RAEM Contest",
+        "schedule": "0000Z-1159Z, Dec 27"
+      }
+    ]
+  },
+  {
+    "id": "REF-160-METER-CONTEST",
+    "name": "REF 160-Meter Contest",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "1700Z-2400Z, Nov 21",
+    "bands": [
+      "160M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "RST + Serial No. + Department Code",
+    "received_exchange_hint": "RST + Serial No. + Department Code",
+    "dupe_scope": "call+band",
+    "rules_url": "https://concours.r-e-f.org/reglements/actuels/reg_ref160_en_20250312.pdf",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1700Z2400ZNov21",
+        "label": "REF 160-Meter Contest",
+        "schedule": "1700Z-2400Z, Nov 21"
+      }
+    ]
+  },
+  {
+    "id": "REF-DDFM-6M-CONTEST",
+    "name": "REF DDFM 6m Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1400Z, Jun 13 to 1400Z, Jun 14",
+    "bands": [
+      "6M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB, FM contest \u2014 CW exchange: RS(T) + Serial No. + 4-character grid square",
+    "received_exchange_hint": "CW, SSB, FM contest \u2014 CW exchange: RS(T) + Serial No. + 4-character grid square",
+    "dupe_scope": "call+band",
+    "rules_url": "https://concours.r-e-f.org/reglements/actuels/reg_ddfm50_fr_20250312.pdf",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1400ZJun13",
+        "label": "REF DDFM 6m Contest",
+        "schedule": "1400Z, Jun 13 to 1400Z, Jun 14"
+      }
+    ]
+  },
+  {
+    "id": "RSGB-160",
+    "name": "RSGB 1.8 MHz Contest",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "next date not yet announced",
+    "bands": [
+      "160M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "UK: RST + Serial No. + District Code non-UK: RST + Serial No.",
+    "received_exchange_hint": "UK: RST + Serial No. + District Code non-UK: RST + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.rsgbcc.org/hf/rules/2026/r160m.shtml",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "nextdatenotyetannounced",
+        "label": "RSGB 1.8 MHz Contest",
+        "schedule": "next date not yet announced"
+      }
+    ]
+  },
+  {
+    "id": "RSGB-80M-CC",
+    "name": "RSGB 80m Club Championship, CW",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "next date not yet announced",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "RST + Serial No.",
+    "received_exchange_hint": "RST + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.rsgbcc.org/hf/rules/2026/r80mcc.shtml",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "nextdatenotyetannounced",
+        "label": "RSGB 80m Club Championship, CW",
+        "schedule": "next date not yet announced"
+      }
+    ]
+  },
+  {
+    "id": "RSGB-AFS-CW",
+    "name": "RSGB AFS Contest, CW",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "next date not yet announced",
+    "bands": [
+      "80M",
+      "40M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "RST + Serial No.",
+    "received_exchange_hint": "RST + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.rsgbcc.org/hf/rules/2026/rafs.shtml",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "nextdatenotyetannounced",
+        "label": "RSGB AFS Contest, CW",
+        "schedule": "next date not yet announced"
+      }
+    ]
+  },
+  {
+    "id": "RSGB-LOW-POWER",
+    "name": "RSGB International Low Power Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "next date not yet announced",
+    "bands": [
+      "80M",
+      "40M",
+      "20M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "RST + Serial No. + Power",
+    "received_exchange_hint": "RST + Serial No. + Power",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.rsgbcc.org/hf/rules/2026/rqrp.shtml",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "nextdatenotyetannounced",
+        "label": "RSGB International Low Power Contest",
+        "schedule": "next date not yet announced"
+      }
+    ]
+  },
+  {
+    "id": "RSGB-NFD",
+    "name": "RSGB National Field Day",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "next date not yet announced",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "RST + Serial No.",
+    "received_exchange_hint": "RST + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.rsgbcc.org/hf/rules/2026/rnfd.shtml",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "nextdatenotyetannounced",
+        "label": "RSGB National Field Day",
+        "schedule": "next date not yet announced"
+      }
+    ]
+  },
+  {
+    "id": "RADIO-160",
+    "name": "Russian 160-Meter DX Contest",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "next date not yet announced",
+    "bands": [
+      "160M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: RS(T) + 4-character grid square",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: RS(T) + 4-character grid square",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.topband.ru/en",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "nextdatenotyetannounced",
+        "label": "Russian 160-Meter DX Contest",
+        "schedule": "next date not yet announced"
+      }
+    ]
+  },
+  {
+    "id": "RDAC",
+    "name": "Russian District Award Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "next date not yet announced",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: RU: RS(T) + District code non-RU: RS(T) + QSO No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: RU: RS(T) + District code non-RU: RS(T) + QSO No.",
+    "dupe_scope": "call+band",
+    "rules_url": "http://rdaward.org/rdac1.htm",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "nextdatenotyetannounced",
+        "label": "Russian District Award Contest",
+        "schedule": "next date not yet announced"
+      }
+    ]
+  },
+  {
+    "id": "RDXC",
+    "name": "Russian DX Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1200Z, Mar 21 to 1200Z, Mar 22",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: Ru: RS(T) + 2-character oblast non-Ru: RS(T) + Serial No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: Ru: RS(T) + 2-character oblast non-Ru: RS(T) + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.rdxc.org/rules_eng",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1200ZMar21",
+        "label": "Russian DX Contest",
+        "schedule": "1200Z, Mar 21 to 1200Z, Mar 22"
+      }
+    ]
+  },
+  {
+    "id": "RUSSIAN-RADIO-TEAM-CHAMPIONSHIP",
+    "name": "Russian Radio Team Championship",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "next date not yet announced",
+    "bands": [
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: RRTC: RS(T) + 3-character code Non-RRTC: RS(T) + ITU Zone No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: RRTC: RS(T) + 3-character code Non-RRTC: RS(T) + ITU Zone No.",
+    "dupe_scope": "call+band",
+    "rules_url": "http://srr.ru/chempionat-rossii-po-radiosvyazi-na-kv-rrtc/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "nextdatenotyetannounced",
+        "label": "Russian Radio Team Championship",
+        "schedule": "next date not yet announced"
+      }
+    ]
+  },
+  {
+    "id": "RADIO-YL-OM",
+    "name": "Russian YL/OM Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "next date not yet announced",
+    "bands": [
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: YL: RS(T) + \"88\" OM: RS(T) + \"73\"",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: YL: RS(T) + \"88\" OM: RS(T) + \"73\"",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.contest.ru/russian-yl-om-contest-en/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "nextdatenotyetannounced",
+        "label": "Russian YL/OM Contest",
+        "schedule": "next date not yet announced"
+      }
+    ]
+  },
+  {
+    "id": "SPDX",
+    "name": "SP DX Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1500Z, Apr 4 to 1500Z, Apr 5",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: SP: RS(T) + 1-character province non-SP: RS(T) + Serial No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: SP: RS(T) + 1-character province non-SP: RS(T) + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://spdxcontest.pzk.org.pl/2026/rules.php",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1500ZApr4",
+        "label": "SP DX Contest",
+        "schedule": "1500Z, Apr 4 to 1500Z, Apr 5"
+      }
+    ]
+  },
+  {
+    "id": "TR-HF",
+    "name": "Turkiye HF Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "next date not yet announced",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: TA: RS + 2-digit province code non-TA: RS + serial no.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: TA: RS + 2-digit province code non-TA: RS + serial no.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://tahfcontest.com/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "nextdatenotyetannounced",
+        "label": "Turkiye HF Contest",
+        "schedule": "next date not yet announced"
+      }
+    ]
+  },
+  {
+    "id": "UBA-ON-6M",
+    "name": "UBA ON Contest, 6m",
+    "organizer": "",
+    "kind": "annual contest (Active, but no recent results)",
+    "schedule": "0700Z-1000Z, Sep 27",
+    "bands": [
+      "6M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: ON: RS(T) + Serial No. + ON Section non-ON: RS(T) + Serial No.",
+    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: ON: RS(T) + Serial No. + ON Section non-ON: RS(T) + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.uba.be/en/hf/contest-rules/on-contest",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "0700Z1000ZSep27",
+        "label": "UBA ON Contest, 6m",
+        "schedule": "0700Z-1000Z, Sep 27"
+      }
+    ]
+  },
+  {
+    "id": "UBA-SPRING-CONTEST",
+    "name": "UBA Spring Contest, 6m",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "next date not yet announced",
+    "bands": [
+      "6M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: ON: RS(T) + Serial No. + UBA Section non-ON: RS(T) + Serial No.",
+    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: ON: RS(T) + Serial No. + UBA Section non-ON: RS(T) + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.uba.be/en/hf/contest-rules/spring-contest-dst",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "nextdatenotyetannounced",
+        "label": "UBA Spring Contest, 6m",
+        "schedule": "next date not yet announced"
+      }
+    ]
+  },
+  {
+    "id": "UBA-SPRING-CONTEST-2",
+    "name": "UBA Spring Contest, CW",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "next date not yet announced",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "ON: RST + Serial No. + UBA Section non-ON: RST + Serial No.",
+    "received_exchange_hint": "ON: RST + Serial No. + UBA Section non-ON: RST + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.uba.be/en/hf/contest-rules/spring-contest-dst",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "nextdatenotyetannounced",
+        "label": "UBA Spring Contest, CW",
+        "schedule": "next date not yet announced"
+      }
+    ]
+  },
+  {
+    "id": "UKRAINIAN-DX",
+    "name": "Ukrainian DX Contest",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "next date not yet announced",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: Ukraine: RS(T) + 2-letter oblast non-Ukraine: RS(T) + Serial No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: Ukraine: RS(T) + 2-letter oblast non-Ukraine: RS(T) + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "http://urdxc.org/rules.php?english",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "nextdatenotyetannounced",
+        "label": "Ukrainian DX Contest",
+        "schedule": "next date not yet announced"
+      }
+    ]
+  },
+  {
+    "id": "WAG",
+    "name": "Worked All Germany Contest",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "1500Z, Oct 17 to 1459Z, Oct 18",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: DL, DARC-Member: RS(T) + DOK (chapter code) DL, non-DARC: RS(T) + \"NM\" non-DL: RS(T) + Serial No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: DL, DARC-Member: RS(T) + DOK (chapter code) DL, non-DARC: RS(T) + \"NM\" non-DL: RS(T) + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "http://www.darc.de/der-club/referate/conteste/worked-all-germany-contest/en/rules/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1500ZOct17",
+        "label": "Worked All Germany Contest",
+        "schedule": "1500Z, Oct 17 to 1459Z, Oct 18"
+      }
+    ]
+  },
+  {
+    "id": "YO-DX-HF",
+    "name": "YO DX HF Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1200Z, Aug 22 to 1200Z, Aug 23",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: YO: RS(T) + county non-YO: RS(T) + Serial No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: YO: RS(T) + county non-YO: RS(T) + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "http://www.yodx.ro",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1200ZAug22",
+        "label": "YO DX HF Contest",
+        "schedule": "1200Z, Aug 22 to 1200Z, Aug 23"
+      }
+    ]
+  },
+  {
+    "id": "YUDX",
+    "name": "YU DX Contest",
+    "organizer": "",
+    "kind": "annual contest (Active historically, but unconfirmed)",
+    "schedule": "1200Z, Sep 26 to 1159Z, Sep 27",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: YU/YT: RS(T) + County non-YU/YT: RS(T) + Serial No.",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: YU/YT: RS(T) + County non-YU/YT: RS(T) + Serial No.",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.yudx.yu1srs.org.rs/",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "1200ZSep26",
+        "label": "YU DX Contest",
+        "schedule": "1200Z, Sep 26 to 1159Z, Sep 27"
+      }
+    ]
   }
 ]
