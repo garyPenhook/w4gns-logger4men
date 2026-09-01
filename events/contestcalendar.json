@@ -2199,7 +2199,7 @@
     "id": "7QP",
     "name": "7th Call Area QSO Party",
     "organizer": "",
-    "kind": "annual contest",
+    "kind": "multi-state QSO party (AZ, ID, MT, NV, OR, UT, WA, WY)",
     "schedule": "1300Z, May 1 to 0700Z, May 2",
     "bands": [
       "160M",
@@ -2812,7 +2812,7 @@
     "id": "NEQP",
     "name": "New England QSO Party",
     "organizer": "",
-    "kind": "annual contest",
+    "kind": "multi-state QSO party (CT, ME, MA, NH, RI, VT)",
     "schedule": "2000Z, May 1 to 2400Z, May 2",
     "bands": [
       "80M",
@@ -3310,6 +3310,62 @@
         "id": "0000ZOct4",
         "label": "Collegiate QSO Party",
         "schedule": "0000Z, Oct 4 to 2359Z, Oct 5"
+      }
+    ]
+  },
+  {
+    "id": "NE-QSO-PARTY",
+    "name": "Nebraska QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1300Z, Apr 25 to 0100Z, Apr 27",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone, Digital (non-FT8), FT4/8 contest \u2014 CW exchange: NE stations: county; non-NE: (state/province/country)",
+    "received_exchange_hint": "CW, Phone, Digital (non-FT8), FT4/8 contest \u2014 CW exchange: NE stations: county; non-NE: (state/province/country)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://nebraskaqsoparty.com/qso-party-rules",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "Apr25toApr27",
+        "label": "Nebraska QSO Party",
+        "schedule": "1300Z, Apr 25 to 0100Z, Apr 27"
+      }
+    ]
+  },
+  {
+    "id": "ND-QSO-PARTY",
+    "name": "North Dakota QSO Party",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "mid-April, typically the 2nd weekend (2026 ran Apr 11-12; next date not yet announced)",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "CW, Phone, Digital (RTTY/PSK) contest \u2014 CW exchange: ND: RS(T) + County; non-ND: RS(T) + (state/province/country)",
+    "received_exchange_hint": "CW, Phone, Digital (RTTY/PSK) contest \u2014 CW exchange: ND: RS(T) + County; non-ND: RS(T) + (state/province/country)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://ndarrlsection.com/2026/2026_nd_qsp_party_rules.pdf",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "midApril",
+        "label": "North Dakota QSO Party",
+        "schedule": "mid-April, typically the 2nd weekend"
       }
     ]
   }
