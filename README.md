@@ -340,6 +340,16 @@ Export every QSO from the active station profile as ADIF 3 records:
 
 The export preserves the QSO's CW fields, frequency, details, POTA metadata, contest fields, and UTC start/end times. The export path must not be the SQLite database file.
 
+## QRZ Logbook upload
+
+Every QSO logged from QSO Entry is uploaded to your [QRZ Logbook](https://www.qrz.com/docs/logbook/QRZLogbookAPI.html) in the background as soon as it saves locally.
+
+- Put your QRZ Logbook API key in a file named `qrz.comAPIkey` in the directory you run the app from (one line, no quotes), or set the `W4GNS_QRZ_KEY` environment variable. The key file is git-ignored so it is never committed.
+- If neither is set, QRZ upload is silently skipped — local logging is unaffected.
+- The upload runs asynchronously and never blocks or delays logging the next QSO.
+- The status bar reports `QRZ upload OK for <call> (LOGID ...)` on success or `QRZ upload failed for <call>: ...` on failure (invalid key, no active subscription, duplicate QSO, network error, etc.). A failed upload never removes the QSO from your local log.
+- Requires an active QRZ XML/Logbook Data subscription; the QRZ API rejects `ACTION=INSERT` without one.
+
 ## Backups
 
 Press `F8` at any time to back up immediately, and every shutdown backs up automatically before the app exits — whether that's `Esc`/`Ctrl+C` from the keyboard, closing the terminal window (`SIGHUP`), or `kill`/`kill -INT` from another process. A backup always finishes (or fails and reports why) before the database closes and the process exits.

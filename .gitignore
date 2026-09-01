@@ -9,3 +9,6 @@
 
 # Editor and operating-system files
 .DS_Store
+
+# QRZ Logbook API key (secret, never commit)
+qrz.comAPIkey

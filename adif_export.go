@@ -18,15 +18,7 @@ func exportADIF(ctx context.Context, writer io.Writer, profileID int64, st *stor
 		return 0, fmt.Errorf("write ADIF header: %w", err)
 	}
 	for _, q := range qsos {
-		fields := []struct{ name, value string }{
-			{"CALL", q.call}, {"QSO_DATE", q.time.UTC().Format("20060102")}, {"TIME_ON", q.time.UTC().Format("150405")},
-			{"QSO_DATE_OFF", q.timeOff.UTC().Format("20060102")}, {"TIME_OFF", q.timeOff.UTC().Format("150405")},
-			{"BAND", q.band}, {"FREQ", q.frequency}, {"MODE", q.mode}, {"RST_SENT", q.rstSent}, {"RST_RCVD", q.rstRcvd},
-			{"NAME", q.name}, {"QTH", q.qth}, {"GRIDSQUARE", q.grid}, {"STATE", q.state},
-			{"SIG", potaSignal(q.potaRef)}, {"SIG_INFO", q.potaRef}, {"COMMENT", q.comment},
-			{"CONTEST_ID", q.contestID}, {"STX", q.stx}, {"STX_STRING", q.stxString}, {"SRX", q.srx}, {"SRX_STRING", q.srxString},
-		}
-		for _, field := range fields {
+		for _, field := range adifQSOFields(q) {
 			if strings.TrimSpace(field.value) == "" {
 				continue
 			}
@@ -39,6 +31,20 @@ func exportADIF(ctx context.Context, writer io.Writer, profileID int64, st *stor
 		}
 	}
 	return len(qsos), nil
+}
+
+// adifQSOFields lists the ADIF fields for one QSO in export order. Shared by
+// the bulk ADIF export and the single-record QRZ Logbook upload so both stay
+// in sync.
+func adifQSOFields(q qso) []struct{ name, value string } {
+	return []struct{ name, value string }{
+		{"CALL", q.call}, {"QSO_DATE", q.time.UTC().Format("20060102")}, {"TIME_ON", q.time.UTC().Format("150405")},
+		{"QSO_DATE_OFF", q.timeOff.UTC().Format("20060102")}, {"TIME_OFF", q.timeOff.UTC().Format("150405")},
+		{"BAND", q.band}, {"FREQ", q.frequency}, {"MODE", q.mode}, {"RST_SENT", q.rstSent}, {"RST_RCVD", q.rstRcvd},
+		{"NAME", q.name}, {"QTH", q.qth}, {"GRIDSQUARE", q.grid}, {"STATE", q.state},
+		{"SIG", potaSignal(q.potaRef)}, {"SIG_INFO", q.potaRef}, {"COMMENT", q.comment},
+		{"CONTEST_ID", q.contestID}, {"STX", q.stx}, {"STX_STRING", q.stxString}, {"SRX", q.srx}, {"SRX_STRING", q.srxString},
+	}
 }
 
 func writeADIFField(writer io.Writer, name, value string) error {

@@ -143,6 +143,8 @@ type model struct {
 	qsoCount int
 	table    table.Model
 
+	qrzAPIKey string
+
 	dupeWarning  bool
 	statusMsg    string
 	qsoStartedAt time.Time
@@ -641,19 +643,19 @@ func (m *model) resetQSOClockIfReturningToCall(nextFocus int) {
 	m.statusMsg = "QSO timer reset; enter callsign and continue"
 }
 
-func (m model) logCurrentQSO() model {
+func (m model) logCurrentQSO() (model, tea.Cmd) {
 	call := strings.ToUpper(strings.TrimSpace(m.fields[fieldCall].Value()))
 	if call == "" {
 		m.statusMsg = "callsign required"
-		return m
+		return m, nil
 	}
 	if err := validateBandFrequency(m.qsoBand(), m.qsoFrequency()); err != nil {
 		m.statusMsg = err.Error()
-		return m
+		return m, nil
 	}
 	if m.dupeWarning {
 		m.statusMsg = fmt.Sprintf("DUPE: %s already worked on %s — not logged", call, m.qsoBand())
-		return m
+		return m, nil
 	}
 
 	endedAt := time.Now().UTC()
@@ -663,7 +665,7 @@ func (m model) logCurrentQSO() model {
 		// operator uses a different terminal navigation sequence.
 		startedAt = endedAt
 	}
-	_, err := m.store.insertQSO(qso{
+	logged := qso{
 		call:      call,
 		band:      m.qsoBand(),
 		mode:      m.qsoMode(),
@@ -685,10 +687,11 @@ func (m model) logCurrentQSO() model {
 		srxString: strings.TrimSpace(m.contestFields[contestExchangeRcvd].Value()),
 		time:      startedAt,
 		timeOff:   endedAt,
-	})
+	}
+	_, err := m.store.insertQSO(logged)
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
-		return m
+		return m, nil
 	}
 	m.refreshTableRows()
 	m.statusMsg = fmt.Sprintf("logged %s (%s)", call, endedAt.Sub(startedAt).Round(time.Second))
@@ -705,7 +708,7 @@ func (m model) logCurrentQSO() model {
 	m.workedCall = ""
 	m.focusField(fieldCall)
 	m.refreshTableRows()
-	return m
+	return m, qrzUploadCmd(m.qrzAPIKey, m.activeStation.Callsign, logged)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -721,6 +724,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if message.reference != "" && strings.TrimSpace(m.detailFields[detailPOTARef].Value()) == "" {
 			m.detailFields[detailPOTARef].SetValue(message.reference)
 			m.statusMsg = "POTA " + message.reference + " from recent POTA spot"
+		}
+		return m, nil
+	}
+	if message, ok := msg.(qrzUploadMsg); ok {
+		if message.err != nil {
+			m.statusMsg = fmt.Sprintf("QRZ upload failed for %s: %v", message.call, message.err)
+		} else {
+			m.statusMsg = fmt.Sprintf("QRZ upload OK for %s (LOGID %s)", message.call, message.logID)
 		}
 		return m, nil
 	}
@@ -779,8 +790,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "enter":
 			if m.focusIdx == len(m.fields)-1 {
-				m = m.logCurrentQSO()
-				return m, nil
+				var cmd tea.Cmd
+				m, cmd = m.logCurrentQSO()
+				return m, cmd
 			}
 			leavingCall := m.focusIdx == fieldCall
 			m.startQSOClockIfLeavingCall()
@@ -1443,9 +1455,12 @@ func main() {
 	}
 	defer st.Close()
 
+	m := initialModel(st)
+	m.qrzAPIKey = loadQRZAPIKey()
+
 	// Alt-screen mode gives the logger a clean, dedicated terminal surface and
 	// restores the invoking terminal unchanged when the application exits.
-	p := tea.NewProgram(initialModel(st), tea.WithAltScreen())
+	p := tea.NewProgram(m, tea.WithAltScreen())
 
 	// bubbletea only listens for SIGINT/SIGTERM. SIGHUP (sent when the
 	// controlling terminal window is closed) would otherwise kill the process
