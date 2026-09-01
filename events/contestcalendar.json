@@ -3719,5 +3719,32 @@
         "schedule": "0000Z, Jul 17 to 2359Z, Jul 18"
       }
     ]
+  },
+  {
+    "id": "RSGB-IOTA",
+    "name": "RSGB IOTA Contest",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1200Z, Jul 25 to 1200Z, Jul 26",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: RS(T) + Serial No. + IOTA No. (if operating from a qualifying island)",
+    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: RS(T) + Serial No. + IOTA No. (if operating from a qualifying island)",
+    "dupe_scope": "call+band",
+    "rules_url": "https://www.rsgbcc.org/hf/rules/2026/riota.shtml",
+    "score_submission_url": "",
+    "sessions": [
+      {
+        "id": "Jul25toJul26",
+        "label": "RSGB IOTA Contest",
+        "schedule": "1200Z, Jul 25 to 1200Z, Jul 26"
+      }
+    ]
   }
 ]
