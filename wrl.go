@@ -36,13 +36,42 @@ func loadWRLAPIKey() string {
 	if key := strings.TrimSpace(os.Getenv("W4GNS_WRL_KEY")); key != "" {
 		return key
 	}
+	return strings.TrimSpace(firstLine(readWRLKeyFile()))
+}
+
+// loadWRLLogbookID returns the destination logbook for forwarded QSOs.
+// W4GNS_WRL_LOGBOOK_ID overrides the second line of the on-disk key file.
+// WRL is documented to fall back to the account's only logbook when this is
+// omitted, but that fallback has been observed to fail server-side with a
+// 500 rather than resolving it, so an operator with a single logbook still
+// needs to supply its ID explicitly (see World Radio League's GET
+// /v1/logbooks) for uploads to succeed. An empty return omits logbookId from
+// the request, relying on WRL's own default-resolution.
+func loadWRLLogbookID() string {
+	if id := strings.TrimSpace(os.Getenv("W4GNS_WRL_LOGBOOK_ID")); id != "" {
+		return id
+	}
+	contents := readWRLKeyFile()
+	lines := strings.SplitN(strings.TrimRight(contents, "\n"), "\n", 2)
+	if len(lines) < 2 {
+		return ""
+	}
+	return strings.TrimSpace(lines[1])
+}
+
+func readWRLKeyFile() string {
 	keyFile := defaultWRLKeyPath()
 	tightenKeyFilePermissions(keyFile)
 	contents, err := os.ReadFile(keyFile)
 	if err != nil {
 		return ""
 	}
-	return strings.TrimSpace(string(contents))
+	return string(contents)
+}
+
+func firstLine(s string) string {
+	line, _, _ := strings.Cut(s, "\n")
+	return line
 }
 
 type wrlUploadMsg struct {
@@ -54,7 +83,7 @@ type wrlUploadMsg struct {
 // runs asynchronously, matching qrzUploadCmd, so the terminal UI never
 // blocks on network I/O. A blank apiKey means WRL forwarding is not
 // configured, so no command is returned.
-func wrlUploadCmd(apiKey string, q qso) tea.Cmd {
+func wrlUploadCmd(apiKey, logbookID string, q qso) tea.Cmd {
 	if strings.TrimSpace(apiKey) == "" {
 		return nil
 	}
@@ -62,7 +91,7 @@ func wrlUploadCmd(apiKey string, q qso) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), wrlUploadTimeout)
 		defer cancel()
-		err := uploadQSOToWRL(ctx, apiKey, q)
+		err := uploadQSOToWRL(ctx, apiKey, logbookID, q)
 		return wrlUploadMsg{call: call, err: err}
 	}
 }
@@ -72,6 +101,7 @@ func wrlUploadCmd(apiKey string, q qso) tea.Cmd {
 // follow the API's camelCase convention, not ADIF's.
 type wrlContact struct {
 	ProgramID       string  `json:"programId"`
+	LogbookID       string  `json:"logbookId,omitempty"`
 	Call            string  `json:"call"`
 	Timestamp       string  `json:"timestamp"`
 	Freq            float64 `json:"freq"`
@@ -99,7 +129,7 @@ type wrlErrorEnvelope struct {
 
 // uploadQSOToWRL posts a single QSO to World Radio League's contact log. See
 // https://worldradioleague.com/developer/
-func uploadQSOToWRL(ctx context.Context, apiKey string, q qso) error {
+func uploadQSOToWRL(ctx context.Context, apiKey, logbookID string, q qso) error {
 	frequency := strings.TrimSpace(q.frequency)
 	if frequency == "" {
 		// Frequency is optional for local logging (qso_validation.go only
@@ -116,6 +146,7 @@ func uploadQSOToWRL(ctx context.Context, apiKey string, q qso) error {
 	}
 	contact := wrlContact{
 		ProgramID:       wrlProgramID,
+		LogbookID:       strings.TrimSpace(logbookID),
 		Call:            q.call,
 		Timestamp:       q.time.UTC().Format(time.RFC3339),
 		Freq:            freq,

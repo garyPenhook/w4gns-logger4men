@@ -198,7 +198,8 @@ type model struct {
 	editingOriginal qso
 
 	qrzAPIKey string
-	wrlAPIKey string
+	wrlAPIKey    string
+	wrlLogbookID string
 
 	qrzXMLCreds      qrzXMLCreds
 	qrzXMLSessionKey string
@@ -1103,7 +1104,7 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 	m.workedCall = ""
 	m.clearQSOForm()
 	m.refreshTableRows()
-	return m, tea.Batch(qrzUploadCmd(m.qrzAPIKey, logged), wrlUploadCmd(m.wrlAPIKey, logged))
+	return m, tea.Batch(qrzUploadCmd(m.qrzAPIKey, logged), wrlUploadCmd(m.wrlAPIKey, m.wrlLogbookID, logged))
 }
 
 // clearQSOForm resets the fields that should go blank between QSOs. Band,
@@ -2017,6 +2018,7 @@ func main() {
 	m := initialModel(st)
 	m.qrzAPIKey = loadQRZAPIKey()
 	m.wrlAPIKey = loadWRLAPIKey()
+	m.wrlLogbookID = loadWRLLogbookID()
 	m.qrzXMLCreds = loadQRZXMLCredentials()
 
 	// Alt-screen mode gives the logger a clean, dedicated terminal surface and

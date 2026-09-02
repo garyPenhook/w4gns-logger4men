@@ -46,6 +46,65 @@ func TestLoadWRLAPIKeyPrefersEnvOverride(t *testing.T) {
 	}
 }
 
+// TestLoadWRLLogbookIDReadsSecondLine covers the fallback needed because
+// WRL's own "use my only logbook" default-resolution has been observed to
+// fail server-side (INTERNAL_ERROR) rather than actually applying it, so an
+// operator must be able to pin a logbookId explicitly.
+func TestLoadWRLLogbookIDReadsSecondLine(t *testing.T) {
+	dir := t.TempDir()
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(oldWD)
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("worldradioleague.comAPIkey", []byte("wrl_live_abc123\nlogbook-uuid\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := loadWRLAPIKey(); got != "wrl_live_abc123" {
+		t.Fatalf("loadWRLAPIKey() = %q, want wrl_live_abc123", got)
+	}
+	if got := loadWRLLogbookID(); got != "logbook-uuid" {
+		t.Fatalf("loadWRLLogbookID() = %q, want logbook-uuid", got)
+	}
+}
+
+func TestLoadWRLLogbookIDPrefersEnvOverride(t *testing.T) {
+	t.Setenv("W4GNS_WRL_LOGBOOK_ID", "ENV-LOGBOOK")
+	if got := loadWRLLogbookID(); got != "ENV-LOGBOOK" {
+		t.Fatalf("loadWRLLogbookID() = %q, want ENV-LOGBOOK", got)
+	}
+}
+
+func TestUploadQSOToWRLSendsLogbookID(t *testing.T) {
+	var gotLogbookID string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var contact wrlContact
+		if err := json.NewDecoder(r.Body).Decode(&contact); err != nil {
+			t.Fatal(err)
+		}
+		gotLogbookID = contact.LogbookID
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+
+	old := wrlContactsAPI
+	wrlContactsAPI = srv.URL
+	defer func() { wrlContactsAPI = old }()
+
+	q := validTestQSO()
+	q.frequency = "14.025"
+	if err := uploadQSOToWRL(context.Background(), "testkey", "logbook-uuid", q); err != nil {
+		t.Fatalf("uploadQSOToWRL: %v", err)
+	}
+	if gotLogbookID != "logbook-uuid" {
+		t.Fatalf("LogbookID = %q, want logbook-uuid", gotLogbookID)
+	}
+}
+
 func TestUploadQSOToWRLPostsExpectedContact(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("X-API-Key"); got != "testkey" {
@@ -73,7 +132,7 @@ func TestUploadQSOToWRLPostsExpectedContact(t *testing.T) {
 	q := validTestQSO()
 	q.call = "W1AW"
 	q.frequency = "14.025"
-	if err := uploadQSOToWRL(context.Background(), "testkey", q); err != nil {
+	if err := uploadQSOToWRL(context.Background(), "testkey", "", q); err != nil {
 		t.Fatalf("uploadQSOToWRL: %v", err)
 	}
 }
@@ -92,7 +151,7 @@ func TestUploadQSOToWRLReportsErrorEnvelope(t *testing.T) {
 	q := validTestQSO()
 	q.call = "W1AW"
 	q.frequency = "14.025"
-	err := uploadQSOToWRL(context.Background(), "testkey", q)
+	err := uploadQSOToWRL(context.Background(), "testkey", "", q)
 	if err == nil || !strings.Contains(err.Error(), "bad band") {
 		t.Fatalf("expected a bad band error, got %v", err)
 	}
@@ -115,7 +174,7 @@ func TestUploadQSOToWRLFallsBackToBandDefaultFrequency(t *testing.T) {
 	defer func() { wrlContactsAPI = old }()
 
 	q := validTestQSO() // band 20M, blank frequency
-	if err := uploadQSOToWRL(context.Background(), "testkey", q); err != nil {
+	if err := uploadQSOToWRL(context.Background(), "testkey", "", q); err != nil {
 		t.Fatalf("uploadQSOToWRL: %v", err)
 	}
 	if gotFreq != 14.025 {
@@ -127,7 +186,7 @@ func TestUploadQSOToWRLRejectsUnparsableFrequency(t *testing.T) {
 	q := validTestQSO()
 	q.band = "not-a-band"
 	q.frequency = ""
-	if err := uploadQSOToWRL(context.Background(), "testkey", q); err == nil {
+	if err := uploadQSOToWRL(context.Background(), "testkey", "", q); err == nil {
 		t.Fatal("uploadQSOToWRL returned no error for a blank frequency and unrecognized band")
 	}
 }
@@ -135,10 +194,10 @@ func TestUploadQSOToWRLRejectsUnparsableFrequency(t *testing.T) {
 func TestWRLUploadCmdSkipsWhenAPIKeyBlank(t *testing.T) {
 	q := validTestQSO()
 	q.frequency = "14.025"
-	if cmd := wrlUploadCmd("", q); cmd != nil {
+	if cmd := wrlUploadCmd("", "", q); cmd != nil {
 		t.Fatal("wrlUploadCmd(\"\", ...) returned a non-nil command")
 	}
-	if cmd := wrlUploadCmd("   ", q); cmd != nil {
+	if cmd := wrlUploadCmd("   ", "", q); cmd != nil {
 		t.Fatal("wrlUploadCmd(\"   \", ...) returned a non-nil command")
 	}
 }
@@ -157,7 +216,7 @@ func TestWRLUploadCmdReturnsResultMessage(t *testing.T) {
 	q := validTestQSO()
 	q.call = "W1AW"
 	q.frequency = "14.025"
-	cmd := wrlUploadCmd("testkey", q)
+	cmd := wrlUploadCmd("testkey", "", q)
 	if cmd == nil {
 		t.Fatal("wrlUploadCmd returned a nil command for a non-blank API key")
 	}
