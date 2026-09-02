@@ -34,7 +34,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.12.3"
+const appVersion = "1.12.4"
 
 type screen int
 
@@ -286,6 +286,12 @@ var (
 
 	helpStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("240"))
+
+	// hotkeyStyle is used only for screenHotkeys' version/keybinding rows —
+	// helpStyle's dim gray (240) was hard to read there, unlike the other,
+	// less load-bearing help lines it still styles elsewhere.
+	hotkeyStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("11"))
 
 	solarStyle = lipgloss.NewStyle().
 			Bold(true).
@@ -2078,7 +2084,7 @@ func screenHotkeys(current screen) string {
 	}
 	line1 := "W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF"
 	line2 := "F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+X: Export Cabrillo  •  " + escape
-	return helpStyle.Render(line1) + "\n" + helpStyle.Render(line2)
+	return hotkeyStyle.Render(line1) + "\n" + hotkeyStyle.Render(line2)
 }
 
 func main() {

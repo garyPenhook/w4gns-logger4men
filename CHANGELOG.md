@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.12.4
+
+- The version/keybinding rows at the top of every screen are now yellow instead of dim gray, which was hard to read.
+
 ### v1.12.3
 
 - Rebound Cabrillo export from `F11` to `Ctrl+X`: F11 is a near-universal fullscreen/maximize toggle in terminal emulators and window managers, so it never reached the app either, the same problem F10 had.
