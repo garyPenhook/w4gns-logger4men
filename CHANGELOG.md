@@ -1,5 +1,10 @@
 # Changelog
 
+### v1.11.0
+
+- Logged QSOs are now also forwarded to [World Radio League](https://worldradioleague.com) alongside the existing QRZ Logbook upload. Configure it by saving an API key to `worldradioleague.comAPIkey` (same `.gitignore`/owner-only-permission handling as the QRZ key) or via `W4GNS_WRL_KEY`; a blank/missing key just disables it.
+- The app version is now shown on every screen's hotkey line, and `w4gns-logger --version` prints it from the shell — makes a stale, not-yet-rebuilt binary obvious instead of silently missing recent features.
+
 ### v1.10.0
 
 - QRZ callsign lookup now also auto-fills County and Email on the QSO Details (`F6`) screen, alongside the existing Name/QTH/Grid/State fields, and exports/imports them via ADIF's `CNTY`/`EMAIL` fields.

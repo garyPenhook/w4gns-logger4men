@@ -13,3 +13,6 @@
 # QRZ Logbook API key and XML lookup credentials (secret, never commit)
 qrz.comAPIkey
 qrz.comXMLlogin
+
+# World Radio League API key (secret, never commit)
+worldradioleague.comAPIkey

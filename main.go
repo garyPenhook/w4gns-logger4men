@@ -31,6 +31,11 @@ const (
 // QSO-entry UI; validateQSO still enforces it on every insert.
 const cwMode = "CW"
 
+// appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
+// obvious at a glance instead of silently missing recent features. Keep in
+// sync with the latest entry in CHANGELOG.md.
+const appVersion = "1.11.0"
+
 type screen int
 
 const (
@@ -193,6 +198,7 @@ type model struct {
 	editingOriginal qso
 
 	qrzAPIKey string
+	wrlAPIKey string
 
 	qrzXMLCreds      qrzXMLCreds
 	qrzXMLSessionKey string
@@ -1097,7 +1103,7 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 	m.workedCall = ""
 	m.clearQSOForm()
 	m.refreshTableRows()
-	return m, qrzUploadCmd(m.qrzAPIKey, logged)
+	return m, tea.Batch(qrzUploadCmd(m.qrzAPIKey, logged), wrlUploadCmd(m.wrlAPIKey, logged))
 }
 
 // clearQSOForm resets the fields that should go blank between QSOs. Band,
@@ -1195,6 +1201,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMsg = fmt.Sprintf("QRZ upload failed for %s: %v", message.call, message.err)
 		} else {
 			m.statusMsg = fmt.Sprintf("QRZ upload OK for %s (LOGID %s)", message.call, message.logID)
+		}
+		return m, nil
+	}
+	if message, ok := msg.(wrlUploadMsg); ok {
+		if message.err != nil {
+			m.statusMsg = fmt.Sprintf("WRL upload failed for %s: %v", message.call, message.err)
+		} else {
+			m.statusMsg = fmt.Sprintf("WRL upload OK for %s", message.call)
 		}
 		return m, nil
 	}
@@ -1960,12 +1974,12 @@ func screenHotkeys(current screen) string {
 	} else if current == qsoDetailsScreen || current == qsoContestScreen || current == eventCatalogScreen {
 		escape = "Esc: QSO Entry"
 	}
-	return helpStyle.Render("F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF  •  F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  " + escape)
+	return helpStyle.Render("W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF  •  F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  " + escape)
 }
 
 func main() {
 	if err := validateArgs(os.Args[1:]); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\nusage: %s [--export-adif PATH | --import-adif PATH]\n", err, filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "%v\nusage: %s [--export-adif PATH | --import-adif PATH | --version]\n", err, filepath.Base(os.Args[0]))
 		os.Exit(2)
 	}
 	if exportPath, ok := adifExportPath(os.Args[1:]); ok {
@@ -1974,6 +1988,10 @@ func main() {
 	}
 	if importPath, ok := adifImportPath(os.Args[1:]); ok {
 		runADIFImport(importPath)
+		return
+	}
+	if hasArg(os.Args[1:], "--version") {
+		fmt.Println(appVersion)
 		return
 	}
 	if !hasArg(os.Args[1:], terminalChildArg) && !hasArg(os.Args[1:], inCurrentTerminalArg) {
@@ -1998,6 +2016,7 @@ func main() {
 
 	m := initialModel(st)
 	m.qrzAPIKey = loadQRZAPIKey()
+	m.wrlAPIKey = loadWRLAPIKey()
 	m.qrzXMLCreds = loadQRZXMLCredentials()
 
 	// Alt-screen mode gives the logger a clean, dedicated terminal surface and
@@ -2057,6 +2076,7 @@ func main() {
 var recognizedArgs = map[string]bool{
 	"--export-adif":      true,
 	"--import-adif":      true,
+	"--version":          true,
 	terminalChildArg:     true,
 	inCurrentTerminalArg: true,
 }

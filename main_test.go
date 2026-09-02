@@ -524,6 +524,7 @@ func TestValidateArgsRejectsUnrecognizedAndIncompleteFlags(t *testing.T) {
 		{"--import-adif", "log.adi"},
 		{"--in-current-terminal"},
 		{"--terminal-child"},
+		{"--version"},
 	} {
 		if err := validateArgs(args); err != nil {
 			t.Errorf("validateArgs(%v) returned error: %v", args, err)

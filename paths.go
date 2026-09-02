@@ -39,6 +39,13 @@ func defaultQRZXMLCredPath() string {
 	return legacyOrStablePath("qrz.comXMLlogin", xdgConfigDir())
 }
 
+// defaultWRLKeyPath resolves the World Radio League API key file path used
+// when W4GNS_WRL_KEY is unset, with the same legacy-cwd-file preference as
+// defaultQRZKeyPath.
+func defaultWRLKeyPath() string {
+	return legacyOrStablePath("worldradioleague.comAPIkey", xdgConfigDir())
+}
+
 func legacyOrStablePath(legacyName, stableDir string) string {
 	if _, err := os.Stat(legacyName); err == nil {
 		return legacyName
