@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.12.1
+
+- Rebound Cabrillo export from `F10` to `F11`: GNOME Terminal and other GTK-based terminals reserve `F10` to toggle their own menu bar, so the keypress never reached the app there.
+
 ### v1.12.0
 
 - Added a Cabrillo export (`F10`, whenever a contest is loaded on the Contest Entry field): writes a Cabrillo v3 submission for the active contest's QSOs to your Downloads folder, named `<CALLSIGN>_<CONTEST>.cbr`. New Station Setup (`F2`) fields — Cat-Operator, Cat-Assisted, Cat-Power, Address — feed the Cabrillo header; each falls back to a sane default (SINGLE-OP/NON-ASSISTED/LOW) if left blank.
