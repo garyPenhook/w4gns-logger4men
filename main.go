@@ -39,7 +39,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.15.1"
+const appVersion = "1.15.2"
 
 type screen int
 
@@ -1408,6 +1408,44 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	// Handled globally, not only within updateCluster: the connection is now
+	// started at app startup (see connectClusterIfNeeded), while the
+	// operator is on QSO Entry, not the DX Cluster screen — these results
+	// arriving while m.screen != clusterScreen must not be silently dropped,
+	// or the connection (and the DX Spots panel depending on it) gets stuck
+	// showing "connecting…" forever despite succeeding in the background.
+	if message, ok := msg.(clusterConnectedMsg); ok {
+		if message.generation != m.clusterGeneration {
+			message.client.close()
+			return m, nil
+		}
+		m.clusterConnecting = false
+		if message.err != nil {
+			m.clusterStatus = message.err.Error()
+			return m, nil
+		}
+		m.clusterClient = message.client
+		m.clusterStatus = k3lrClusterName + " — connected"
+		return m, m.clusterClient.readNext()
+	}
+	if message, ok := msg.(clusterLineMsg); ok {
+		if message.generation != m.clusterGeneration {
+			return m, nil
+		}
+		if message.err != nil {
+			m.clusterClient = nil
+			m.clusterConnecting = false
+			m.clusterStatus = fmt.Sprintf("cluster connection ended: %v", message.err)
+			return m, nil
+		}
+		if spot, ok := parseClusterSpot(message.line, time.Now()); ok && m.clusterFilters.allowsSpot(spot) {
+			m.addClusterSpot(spot)
+		}
+		if m.clusterClient != nil {
+			return m, m.clusterClient.readNext()
+		}
+		return m, nil
+	}
 	// Handled globally, not only within updateADIFImport: the import runs
 	// as an async tea.Cmd, so pressing Esc to leave the Import ADIF screen
 	// before it finishes must not cause this result to be silently dropped
@@ -1722,37 +1760,6 @@ func (m model) updateCluster(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "f4":
 			m.openClusterFilters()
 			return m, nil
-		}
-	case clusterConnectedMsg:
-		if message.generation != m.clusterGeneration {
-			message.client.close()
-			return m, nil
-		}
-		m.clusterConnecting = false
-		if message.err != nil {
-			m.clusterStatus = message.err.Error()
-			return m, nil
-		}
-		m.clusterClient = message.client
-		m.clusterStatus = k3lrClusterName + " — connected"
-		return m, m.clusterClient.readNext()
-	case clusterLineMsg:
-		if message.generation != m.clusterGeneration {
-			return m, nil
-		}
-		if message.err != nil {
-			if m.clusterClient != nil {
-				m.clusterClient = nil
-			}
-			m.clusterConnecting = false
-			m.clusterStatus = fmt.Sprintf("cluster connection ended: %v", message.err)
-			return m, nil
-		}
-		if spot, ok := parseClusterSpot(message.line, time.Now()); ok && m.clusterFilters.allowsSpot(spot) {
-			m.addClusterSpot(spot)
-		}
-		if m.clusterClient != nil {
-			return m, m.clusterClient.readNext()
 		}
 	}
 	return m, nil

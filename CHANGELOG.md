@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.15.2
+
+- Fixed the DX cluster getting stuck showing "connecting to dx.k3lr.com:23…" forever: the connection result was only handled while on the DX Cluster (`F3`) screen, but the connection now starts at app launch while the operator is on QSO Entry. The TCP connection was actually succeeding in the background the whole time — the success message just had nowhere to land, so `clusterConnecting` never cleared and no spots ever populated the DX Spots panel.
+
 ### v1.15.1
 
 - Fixed Station Setup, QSO Details, Contest Entry, and Cluster Filters rendering one field per row instead of two: writing two multi-line bordered field boxes to the screen back to back had always just stacked them vertically, not placed them side by side. With Station Setup's field count grown by Cabrillo's category/address fields, this pushed the page to 64 lines — tall enough that Callsign scrolled out of view with no way to scroll back in alt-screen mode. Fixed by joining each pair of fields properly; Station Setup is now 39 lines with Callsign in the first row.

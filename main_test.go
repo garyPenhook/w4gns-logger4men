@@ -764,6 +764,39 @@ func TestConnectClusterIfNeededSkipsWhenAlreadyConnecting(t *testing.T) {
 	}
 }
 
+// TestClusterConnectedMsgHandledOnNonClusterScreen is a direct regression
+// guard for a real bug: clusterConnectedMsg/clusterLineMsg were only
+// handled inside updateCluster, which Update only calls when
+// m.screen == clusterScreen. Once the DX cluster started connecting at app
+// startup (while the operator is on QSO Entry, not the DX Cluster screen —
+// see connectClusterIfNeeded), that message arrived while off the cluster
+// screen and was silently dropped: clusterConnecting stayed true and
+// clusterClient stayed nil forever, so the DX Spots panel got stuck showing
+// "connecting…" even though the TCP connection had actually succeeded.
+func TestClusterConnectedMsgHandledOnNonClusterScreen(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.activeStation.Callsign = "W4GNS"
+	m.connectClusterIfNeeded()
+	if m.screen != qsoEntryScreen {
+		t.Fatalf("screen = %v, want qsoEntryScreen (the bug only reproduces off the DX Cluster screen)", m.screen)
+	}
+
+	updated, _ := m.Update(clusterConnectedMsg{generation: m.clusterGeneration, client: &clusterClient{}})
+	got := updated.(model)
+	if got.clusterConnecting {
+		t.Fatal("clusterConnecting is still true after clusterConnectedMsg — the message was dropped")
+	}
+	if got.clusterClient == nil {
+		t.Fatal("clusterClient is still nil after a successful clusterConnectedMsg — the message was dropped")
+	}
+}
+
 func TestClusterConnectionStateRejectsDuplicateAndStaleResults(t *testing.T) {
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {
