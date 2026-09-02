@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.10.0
+
+- QRZ callsign lookup now also auto-fills County and Email on the QSO Details (`F6`) screen, alongside the existing Name/QTH/Grid/State fields, and exports/imports them via ADIF's `CNTY`/`EMAIL` fields.
+
 ### v1.9.0
 
 - Added QRZ XML callsign lookup: entering a call on QSO Entry and leaving the field (`Tab`/`Enter`) now looks it up against QRZ and auto-fills Name, QTH, Grid, and State on the QSO Details (`F6`) screen, the same way POTA Ref already auto-fills from recent spots. Existing values are never overwritten. Configure it by entering your QRZ.com username/password in Station Setup (`F2`), saved to a `qrz.comXMLlogin` file with the same `.gitignore`/owner-only-permission handling as the existing QRZ Logbook key, or via `W4GNS_QRZ_XML_USER`/`W4GNS_QRZ_XML_PASS`. This is a separate QRZ service and subscription from the existing Logbook upload.

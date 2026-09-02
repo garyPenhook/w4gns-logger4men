@@ -103,9 +103,13 @@ func qrzXMLLoginResponse(key string) string {
 }
 
 func qrzXMLCallsignResponse(fname, name, city, state, grid string) string {
+	return qrzXMLCallsignResponseWithCountyEmail(fname, name, city, state, grid, "", "")
+}
+
+func qrzXMLCallsignResponseWithCountyEmail(fname, name, city, state, grid, county, email string) string {
 	return fmt.Sprintf(`<?xml version="1.0"?><QRZDatabase><Session><Key>somekey</Key></Session>`+
-		`<Callsign><fname>%s</fname><name>%s</name><addr2>%s</addr2><state>%s</state><grid>%s</grid></Callsign></QRZDatabase>`,
-		fname, name, city, state, grid)
+		`<Callsign><fname>%s</fname><name>%s</name><addr2>%s</addr2><state>%s</state><grid>%s</grid><county>%s</county><email>%s</email></Callsign></QRZDatabase>`,
+		fname, name, city, state, grid, county, email)
 }
 
 // TestLookupQRZCallsignCmdReturnsResultMessage covers the happy path end to
@@ -115,7 +119,7 @@ func qrzXMLCallsignResponse(fname, name, city, state, grid string) string {
 func TestLookupQRZCallsignCmdReturnsResultMessage(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("callsign") != "" {
-			w.Write([]byte(qrzXMLCallsignResponse("Fred", "Lloyd", "Phoenix", "AZ", "DM43")))
+			w.Write([]byte(qrzXMLCallsignResponseWithCountyEmail("Fred", "Lloyd", "Phoenix", "AZ", "DM43", "Maricopa", "fred@example.com")))
 			return
 		}
 		w.Write([]byte(qrzXMLLoginResponse("session123")))
@@ -137,8 +141,9 @@ func TestLookupQRZCallsignCmdReturnsResultMessage(t *testing.T) {
 	if msg.err != nil {
 		t.Fatalf("qrzCallsignLookupMsg.err = %v, want nil", msg.err)
 	}
-	if msg.record.name != "Fred Lloyd" || msg.record.qth != "Phoenix" || msg.record.state != "AZ" || msg.record.grid != "DM43" {
-		t.Fatalf("record = %+v, want Fred Lloyd/Phoenix/AZ/DM43", msg.record)
+	if msg.record.name != "Fred Lloyd" || msg.record.qth != "Phoenix" || msg.record.state != "AZ" || msg.record.grid != "DM43" ||
+		msg.record.county != "Maricopa" || msg.record.email != "fred@example.com" {
+		t.Fatalf("record = %+v, want Fred Lloyd/Phoenix/AZ/DM43/Maricopa/fred@example.com", msg.record)
 	}
 	if msg.sessionKey != "session123" {
 		t.Fatalf("sessionKey = %q, want session123", msg.sessionKey)

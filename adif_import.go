@@ -103,6 +103,8 @@ func qsoFromADI(record map[string]string, profileID int64) (qso, bool) {
 		qth:        strings.TrimSpace(firstNonEmpty(record["QTH_INTL"], record["QTH"])),
 		grid:       strings.TrimSpace(record["GRIDSQUARE"]),
 		state:      strings.TrimSpace(record["STATE"]),
+		county:     strings.TrimSpace(record["CNTY"]),
+		email:      strings.TrimSpace(record["EMAIL"]),
 		country:    strings.TrimSpace(record["COUNTRY"]),
 		dxccNumber: strings.TrimSpace(record["DXCC"]),
 		cqZone:     strings.TrimSpace(record["CQZ"]),

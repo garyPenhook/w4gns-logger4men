@@ -84,10 +84,12 @@ func saveQRZXMLCredentials(creds qrzXMLCreds) error {
 // qrzCallsignRecord holds the fields this app auto-fills from a QRZ XML
 // callsign lookup.
 type qrzCallsignRecord struct {
-	name  string
-	qth   string
-	grid  string
-	state string
+	name   string
+	qth    string
+	grid   string
+	state  string
+	county string
+	email  string
 }
 
 type qrzCallsignLookupMsg struct {
@@ -161,6 +163,8 @@ type qrzXMLResponse struct {
 		City      string `xml:"addr2"`
 		State     string `xml:"state"`
 		Grid      string `xml:"grid"`
+		County    string `xml:"county"`
+		Email     string `xml:"email"`
 	} `xml:"Callsign"`
 }
 
@@ -190,10 +194,12 @@ func qrzXMLLookupCallsign(ctx context.Context, sessionKey, call string) (qrzCall
 	}
 	name := strings.TrimSpace(strings.TrimSpace(response.Callsign.FirstName) + " " + strings.TrimSpace(response.Callsign.LastName))
 	return qrzCallsignRecord{
-		name:  name,
-		qth:   strings.TrimSpace(response.Callsign.City),
-		grid:  strings.TrimSpace(response.Callsign.Grid),
-		state: strings.TrimSpace(response.Callsign.State),
+		name:   name,
+		qth:    strings.TrimSpace(response.Callsign.City),
+		grid:   strings.TrimSpace(response.Callsign.Grid),
+		state:  strings.TrimSpace(response.Callsign.State),
+		county: strings.TrimSpace(response.Callsign.County),
+		email:  strings.TrimSpace(response.Callsign.Email),
 	}, nil
 }
 

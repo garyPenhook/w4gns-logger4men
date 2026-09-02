@@ -49,12 +49,14 @@ const (
 	detailQTH
 	detailGrid
 	detailState
+	detailCounty
+	detailEmail
 	detailPOTARef
 	detailNotes
 	detailFieldCount
 )
 
-var detailLabels = [detailFieldCount]string{"Name", "QTH", "Grid", "State", "POTA Ref", "Notes"}
+var detailLabels = [detailFieldCount]string{"Name", "QTH", "Grid", "State", "County", "Email", "POTA Ref", "Notes"}
 
 const (
 	contestName = iota
@@ -131,10 +133,12 @@ type qso struct {
 	qth        string
 	grid       string
 	state      string
+	county     string
 	country    string
 	cqZone     string
 	ituZone    string
 	dxccNumber string
+	email      string
 	comment    string
 	potaRef    string
 	contestID  string
@@ -322,7 +326,9 @@ func initialModel(st *store) model {
 	fields[fieldFrequency].SetValue("14.025")
 	details := []textinput.Model{
 		newTextInput("Operator name", 20), newTextInput("City / QTH", 20),
-		newTextInput("Grid square", 10), newTextInput("State / province", 12), newTextInput("US-0000", 12), newTextInput("QSO notes", 36),
+		newTextInput("Grid square", 10), newTextInput("State / province", 12),
+		newTextInput("County", 16), newTextInput("Email", 24),
+		newTextInput("US-0000", 12), newTextInput("QSO notes", 36),
 	}
 	contests := []textinput.Model{
 		newTextInput("Contest name", 20), newTextInput("001", 8), newTextInput("Sent exchange", 16),
@@ -688,6 +694,8 @@ func (m *model) beginEditQSO(q qso) {
 	m.detailFields[detailQTH].SetValue(full.qth)
 	m.detailFields[detailGrid].SetValue(full.grid)
 	m.detailFields[detailState].SetValue(full.state)
+	m.detailFields[detailCounty].SetValue(full.county)
+	m.detailFields[detailEmail].SetValue(full.email)
 	m.detailFields[detailPOTARef].SetValue(full.potaRef)
 	m.detailFields[detailNotes].SetValue(full.comment)
 	m.contestFields[contestName].SetValue(full.contestID)
@@ -1025,6 +1033,8 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		qth:       strings.TrimSpace(m.detailFields[detailQTH].Value()),
 		grid:      strings.TrimSpace(m.detailFields[detailGrid].Value()),
 		state:     strings.TrimSpace(m.detailFields[detailState].Value()),
+		county:    strings.TrimSpace(m.detailFields[detailCounty].Value()),
+		email:     strings.TrimSpace(m.detailFields[detailEmail].Value()),
 		potaRef:   strings.ToUpper(strings.TrimSpace(m.detailFields[detailPOTARef].Value())),
 		comment:   strings.TrimSpace(m.detailFields[detailNotes].Value()),
 		contestID: strings.TrimSpace(m.contestFields[contestName].Value()),
@@ -1149,6 +1159,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if message.record.state != "" && strings.TrimSpace(m.detailFields[detailState].Value()) == "" {
 			m.detailFields[detailState].SetValue(message.record.state)
+			filled = true
+		}
+		if message.record.county != "" && strings.TrimSpace(m.detailFields[detailCounty].Value()) == "" {
+			m.detailFields[detailCounty].SetValue(message.record.county)
+			filled = true
+		}
+		if message.record.email != "" && strings.TrimSpace(m.detailFields[detailEmail].Value()) == "" {
+			m.detailFields[detailEmail].SetValue(message.record.email)
 			filled = true
 		}
 		if filled {

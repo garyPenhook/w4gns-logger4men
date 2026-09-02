@@ -76,7 +76,8 @@ func adifQSOFields(q qso) []struct{ name, value string } {
 		{"QSO_DATE_OFF", q.timeOff.UTC().Format("20060102")}, {"TIME_OFF", q.timeOff.UTC().Format("150405")},
 		{"BAND", q.band}, {"FREQ", q.frequency}, {"MODE", q.mode}, {"RST_SENT", q.rstSent}, {"RST_RCVD", q.rstRcvd},
 		{"NAME", asciiField(q.name)}, {"QTH", asciiField(q.qth)},
-		{"GRIDSQUARE", q.grid}, {"STATE", q.state}, {"COUNTRY", q.country}, {"DXCC", q.dxccNumber}, {"CQZ", q.cqZone}, {"ITUZ", q.ituZone},
+		{"GRIDSQUARE", q.grid}, {"STATE", q.state}, {"CNTY", asciiField(q.county)}, {"EMAIL", q.email},
+		{"COUNTRY", q.country}, {"DXCC", q.dxccNumber}, {"CQZ", q.cqZone}, {"ITUZ", q.ituZone},
 		{"SIG", potaSignal(q.potaRef)}, {"SIG_INFO", asciiField(q.potaRef)}, {"POTA_REF", q.potaRef},
 		{"COMMENT", asciiField(q.comment)},
 		{"CONTEST_ID", adifContestID(q.contestID)}, integerOnlyField("STX", q.stx), {"STX_STRING", q.stxString},
@@ -160,7 +161,7 @@ func writeADIFField(writer io.Writer, name, value string) error {
 func (s *store) forEachQSOForProfile(ctx context.Context, profileID int64, fn func(qso) error) error {
 	rows, err := s.db.QueryContext(ctx, `SELECT call, qso_date, time_on, COALESCE(qso_date_off, ''), COALESCE(time_off, ''), band,
 		COALESCE(freq, ''), mode, COALESCE(rst_sent, ''), COALESCE(rst_rcvd, ''), COALESCE(name, ''), COALESCE(qth, ''),
-		COALESCE(gridsquare, ''), COALESCE(state, ''), COALESCE(country, ''), COALESCE(CAST(dxcc AS TEXT), ''), COALESCE(CAST(cqz AS TEXT), ''), COALESCE(CAST(ituz AS TEXT), ''),
+		COALESCE(gridsquare, ''), COALESCE(state, ''), COALESCE(county, ''), COALESCE(email, ''), COALESCE(country, ''), COALESCE(CAST(dxcc AS TEXT), ''), COALESCE(CAST(cqz AS TEXT), ''), COALESCE(CAST(ituz AS TEXT), ''),
 		COALESCE(sig_info, ''), COALESCE(comment, ''), COALESCE(contest_id, ''),
 		COALESCE(stx, ''), COALESCE(stx_string, ''), COALESCE(srx, ''), COALESCE(srx_string, ''),
 		COALESCE(my_gridsquare, ''), COALESCE(station_callsign, ''), COALESCE(operator_name, ''),
@@ -174,7 +175,7 @@ func (s *store) forEachQSOForProfile(ctx context.Context, profileID int64, fn fu
 		var q qso
 		var date, timeOn, dateOff, timeOff string
 		if err := rows.Scan(&q.call, &date, &timeOn, &dateOff, &timeOff, &q.band, &q.frequency, &q.mode, &q.rstSent, &q.rstRcvd,
-			&q.name, &q.qth, &q.grid, &q.state, &q.country, &q.dxccNumber, &q.cqZone, &q.ituZone, &q.potaRef, &q.comment, &q.contestID,
+			&q.name, &q.qth, &q.grid, &q.state, &q.county, &q.email, &q.country, &q.dxccNumber, &q.cqZone, &q.ituZone, &q.potaRef, &q.comment, &q.contestID,
 			&q.stx, &q.stxString, &q.srx, &q.srxString,
 			&q.myGridSquare, &q.stationCallsign, &q.operatorName, &q.myRig, &q.myAntenna, &q.txPower); err != nil {
 			return fmt.Errorf("scan QSO for ADIF export: %w", err)
