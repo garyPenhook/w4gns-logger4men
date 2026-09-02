@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.15.5
+
+- The DX Spots panel on QSO Entry can now be scrolled: `PgUp`/`PgDn` page through all buffered spots (up to 100), not just the most recent 10. The panel title shows a `(PgUp/PgDn)` hint whenever there are more spots than fit on screen.
+
 ### v1.15.4
 
 - QRZ Logbook and WRL uploads now wait 60 seconds after a QSO is logged before sending it, instead of firing immediately. This gives a window to catch a mistyped call or other field and correct it (`F9`, then `Enter` on the QSO) before it goes out — the upload picks up whatever the QSO looks like when the buffer expires, so an edit or delete made within that window is what actually gets sent (or not sent, if deleted).

@@ -75,6 +75,8 @@ The space to the right of Recent QSOs shows live CW spots across all bands — n
 
 Each line shows time, frequency, and callsign; wider terminals (45+ columns of panel space) also show the spot's comment. Before any spots have arrived, the panel shows the connection status instead (e.g. `connecting to dx.k3lr.com:23…`, or a prompt to set your callsign in Station Setup if none is configured).
 
+The panel only shows 10 spots at a time, but up to 100 are buffered. When there are more spots than fit, the title grows a `(PgUp/PgDn)` hint — press `PgUp`/`PgDn` to page back through older spots and forward again, without leaving the entry fields or the DX Cluster (`F3`) screen.
+
 ## Browse, edit, and delete QSOs
 
 Press `F9` to move keyboard focus into the Recent QSOs table (the row under your cursor is highlighted only while browsing — it doesn't imply anything the rest of the time).
