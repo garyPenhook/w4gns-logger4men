@@ -598,7 +598,10 @@ func (s *store) recentQSOs(limit int) ([]qso, error) {
 // qsoByID loads one QSO's editable fields plus its previously-resolved
 // country/CQZ/ITUZ/DXCC context, so updateQSO can carry that context forward
 // unchanged (via resolveDXCC's "prefer an already-set value" rule) when the
-// callsign isn't part of the edit.
+// callsign isn't part of the edit. It also loads the station-identity
+// snapshot (my grid, station callsign, operator, rig, antenna, power) so
+// callers that need a fully-formed QSO for external upload (see
+// uploadBufferCmd) don't get blank ADIF station fields.
 func (s *store) qsoByID(id int64) (qso, error) {
 	var q qso
 	var date, timeOn, dateOff, timeOff string
@@ -607,11 +610,14 @@ func (s *store) qsoByID(id int64) (qso, error) {
 		COALESCE(freq, ''), mode, COALESCE(rst_sent, ''), COALESCE(rst_rcvd, ''), COALESCE(name, ''), COALESCE(qth, ''),
 		COALESCE(gridsquare, ''), COALESCE(state, ''), COALESCE(county, ''), COALESCE(email, ''), COALESCE(country, ''), CAST(dxcc AS TEXT), CAST(cqz AS TEXT), CAST(ituz AS TEXT),
 		COALESCE(sig_info, ''), COALESCE(park_name, ''), COALESCE(comment, ''), COALESCE(contest_id, ''),
-		COALESCE(stx, ''), COALESCE(stx_string, ''), COALESCE(srx, ''), COALESCE(srx_string, ''), profile_id
+		COALESCE(stx, ''), COALESCE(stx_string, ''), COALESCE(srx, ''), COALESCE(srx_string, ''), profile_id,
+		COALESCE(my_gridsquare, ''), COALESCE(station_callsign, ''), COALESCE(operator_name, ''),
+		COALESCE(my_rig, ''), COALESCE(my_antenna, ''), COALESCE(tx_pwr, '')
 		FROM qso WHERE id = ?`, id).Scan(
 		&q.id, &q.call, &date, &timeOn, &dateOff, &timeOff, &q.band, &q.frequency, &q.mode, &q.rstSent, &q.rstRcvd,
 		&q.name, &q.qth, &q.grid, &q.state, &q.county, &q.email, &q.country, &dxccNumber, &cqZone, &ituZone, &q.potaRef, &q.parkName, &q.comment, &q.contestID,
 		&q.stx, &q.stxString, &q.srx, &q.srxString, &q.profileID,
+		&q.myGridSquare, &q.stationCallsign, &q.operatorName, &q.myRig, &q.myAntenna, &q.txPower,
 	)
 	if err != nil {
 		return qso{}, fmt.Errorf("load qso %d: %w", id, err)

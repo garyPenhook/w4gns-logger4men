@@ -391,8 +391,9 @@ When you're done operating a contest, press `Ctrl+X` from any screen to write a 
 
 ## QRZ Logbook upload
 
-Every QSO logged from QSO Entry is uploaded to your [QRZ Logbook](https://www.qrz.com/docs/logbook/QRZLogbookAPI.html) in the background as soon as it saves locally.
+Every QSO logged from QSO Entry is uploaded to your [QRZ Logbook](https://www.qrz.com/docs/logbook/QRZLogbookAPI.html) in the background, starting 60 seconds after it saves locally.
 
+- The 60-second buffer gives you time to catch a mistake: edit the QSO (`F9`, then `Enter` on it) within that window and the corrected fields go out instead of the original ones. Delete it within the window and it's never uploaded at all.
 - Put your QRZ Logbook API key in a file named `qrz.comAPIkey` (one line, no quotes), or set the `W4GNS_QRZ_KEY` environment variable. Like the database, an existing `qrz.comAPIkey` in the directory you launch from keeps being used; otherwise the app looks for it at a stable path under `$XDG_CONFIG_HOME/w4gns-logger/qrz.comAPIkey` (usually `~/.config/w4gns-logger/qrz.comAPIkey`), so QRZ upload doesn't silently stop working just because you launched from a different directory than usual. A key file kept alongside the repository is listed in `.gitignore`, which keeps it out of `git add -A`/`git status` by default — but `.gitignore` is only a convention respected by Git; it doesn't stop a `git add -f`, doesn't restrict which local accounts can read the file, and doesn't help if the key ends up in a screenshot or shared archive. On every startup the app also checks the key file's permissions and tightens them to owner-read/write only (`0600`) if it finds the default umask left it group- or world-readable.
 - If neither is set, QRZ upload is silently skipped — local logging is unaffected.
 - The upload runs asynchronously and never blocks or delays logging the next QSO.
@@ -401,7 +402,7 @@ Every QSO logged from QSO Entry is uploaded to your [QRZ Logbook](https://www.qr
 
 ## World Radio League forwarding
 
-Every QSO logged from QSO Entry is also forwarded to [World Radio League](https://worldradioleague.com/developer/) in the background as soon as it saves locally, alongside the QRZ Logbook upload above.
+Every QSO logged from QSO Entry is also forwarded to [World Radio League](https://worldradioleague.com/developer/) in the background, on the same 60-second buffered schedule as the QRZ Logbook upload above.
 
 - Put your WRL API key in a file named `worldradioleague.comAPIkey` (one line, no quotes), or set the `W4GNS_WRL_KEY` environment variable. It follows the same lookup order (a copy in the launch directory takes priority, otherwise `$XDG_CONFIG_HOME/w4gns-logger/worldradioleague.comAPIkey`), `.gitignore` handling, and owner-only (`0600`) permission self-heal as `qrz.comAPIkey`.
 - WRL requires a destination logbook per contact, and its own "use my only logbook" fallback is unreliable — put your logbook's UUID (from WRL's `GET /v1/logbooks`) on the key file's second line, or set `W4GNS_WRL_LOGBOOK_ID`, or uploads may fail with `Could not determine the destination logbook.`

@@ -39,7 +39,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.15.3"
+const appVersion = "1.15.4"
 
 type screen int
 
@@ -240,6 +240,7 @@ type model struct {
 
 	clusterClient       *clusterClient
 	clusterSpots        []clusterSpot
+	clusterSpotsScroll  int
 	clusterStatus       string
 	clusterConnecting   bool
 	clusterGeneration   uint64
@@ -737,6 +738,23 @@ func (m *model) addClusterSpot(spot clusterSpot) {
 	m.clusterSpots = append([]clusterSpot{spot}, m.clusterSpots...)
 	if len(m.clusterSpots) > 100 {
 		m.clusterSpots = m.clusterSpots[:100]
+	}
+}
+
+// scrollClusterSpots moves the DX Spots panel's scroll offset by delta rows,
+// clamped to the valid range so PgUp/PgDn can't scroll past the first or
+// last spot in m.clusterSpots.
+func (m *model) scrollClusterSpots(delta int) {
+	maxScroll := len(m.clusterSpots) - recentQSOsVisibleRows
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	m.clusterSpotsScroll += delta
+	if m.clusterSpotsScroll < 0 {
+		m.clusterSpotsScroll = 0
+	}
+	if m.clusterSpotsScroll > maxScroll {
+		m.clusterSpotsScroll = maxScroll
 	}
 }
 
@@ -1251,7 +1269,8 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 	logged.myRig = m.activeStation.Rig
 	logged.myAntenna = m.activeStation.Antenna
 	logged.txPower = m.activeStation.PowerWatts
-	if _, err := m.store.insertQSO(logged); err != nil {
+	id, err := m.store.insertQSO(logged)
+	if err != nil {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
 		return m, nil
 	}
@@ -1260,7 +1279,27 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 	m.workedCall = ""
 	m.clearQSOForm()
 	m.refreshTableRows()
-	return m, tea.Batch(qrzUploadCmd(m.qrzAPIKey, logged), wrlUploadCmd(m.wrlAPIKey, m.wrlLogbookID, logged))
+	return m, uploadBufferCmd(id)
+}
+
+// uploadBufferDelay is how long a freshly logged QSO sits before it's pushed
+// to QRZ/WRL. It gives the operator a window to fix a mistyped call or other
+// field (via Edit) before the QSO goes out to external services, which don't
+// offer a clean way to retract or correct an upload.
+const uploadBufferDelay = 60 * time.Second
+
+// pendingUploadMsg fires once uploadBufferDelay has elapsed after a QSO was
+// logged, naming the QSO to upload by ID rather than carrying a snapshot of
+// its fields — that way an edit made during the buffer window is picked up
+// automatically when the delay expires.
+type pendingUploadMsg struct {
+	id int64
+}
+
+func uploadBufferCmd(id int64) tea.Cmd {
+	return tea.Tick(uploadBufferDelay, func(time.Time) tea.Msg {
+		return pendingUploadMsg{id: id}
+	})
 }
 
 // clearQSOForm resets the fields that should go blank between QSOs. Band,
@@ -1364,6 +1403,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if message, ok := msg.(tea.WindowSizeMsg); ok {
 		m.termWidth, m.termHeight = message.Width, message.Height
 		return m, nil
+	}
+	if message, ok := msg.(pendingUploadMsg); ok {
+		current, err := m.store.qsoByID(message.id)
+		if err != nil {
+			// Deleted (or otherwise gone) during the buffer window: nothing to upload.
+			return m, nil
+		}
+		return m, tea.Batch(qrzUploadCmd(m.qrzAPIKey, current), wrlUploadCmd(m.wrlAPIKey, m.wrlLogbookID, current))
 	}
 	if message, ok := msg.(qrzUploadMsg); ok {
 		if message.err != nil {
@@ -1594,6 +1641,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selectBand(1)
 				return m, nil
 			}
+		case "pgup":
+			m.scrollClusterSpots(-recentQSOsVisibleRows)
+			return m, nil
+		case "pgdown":
+			m.scrollClusterSpots(recentQSOsVisibleRows)
+			return m, nil
 		}
 		if m.focusIdx == fieldBand {
 			// Band is intentionally a closed selector. This prevents an invalid or
@@ -2012,7 +2065,11 @@ func (m model) dxSpotsPanel(width int) string {
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString(helpStyle.Render(truncateToWidth("DX Spots (CW, all bands)", width)))
+	title := "DX Spots (CW, all bands)"
+	if len(m.clusterSpots) > recentQSOsVisibleRows {
+		title += "  (PgUp/PgDn)"
+	}
+	b.WriteString(helpStyle.Render(truncateToWidth(title, width)))
 	b.WriteString("\n")
 	if len(m.clusterSpots) == 0 {
 		status := m.clusterStatus
@@ -2023,10 +2080,19 @@ func (m model) dxSpotsPanel(width int) string {
 		return b.String()
 	}
 	showComment := width >= dxSpotsPanelCommentMinWidth
-	spots := m.clusterSpots
-	if len(spots) > recentQSOsVisibleRows {
-		spots = spots[:recentQSOsVisibleRows]
+	maxScroll := len(m.clusterSpots) - recentQSOsVisibleRows
+	if maxScroll < 0 {
+		maxScroll = 0
 	}
+	scroll := m.clusterSpotsScroll
+	if scroll > maxScroll {
+		scroll = maxScroll
+	}
+	end := scroll + recentQSOsVisibleRows
+	if end > len(m.clusterSpots) {
+		end = len(m.clusterSpots)
+	}
+	spots := m.clusterSpots[scroll:end]
 	lines := make([]string, len(spots))
 	for i, spot := range spots {
 		line := fmt.Sprintf("%s %-8s %-10s", spot.Received.Format("15:04"), spot.Frequency, spot.Callsign)

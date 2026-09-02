@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.15.4
+
+- QRZ Logbook and WRL uploads now wait 60 seconds after a QSO is logged before sending it, instead of firing immediately. This gives a window to catch a mistyped call or other field and correct it (`F9`, then `Enter` on the QSO) before it goes out — the upload picks up whatever the QSO looks like when the buffer expires, so an edit or delete made within that window is what actually gets sent (or not sent, if deleted).
+
 ### v1.15.3
 
 - Filtered RTTY (and other digital-mode) spots out of the "CW only" DX Cluster/DX Spots feed. RTTY shares the same data sub-band as CW on most bands, so the existing frequency-range filter alone couldn't tell them apart; spots whose comment names a non-CW mode (`RTTY`, `PSK31`, `FT8`, `FT4`, `JS8`, `JT65`, `JT9`, `SSB`, etc.) are now rejected too.
