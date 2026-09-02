@@ -32,6 +32,8 @@ It opens in its own terminal window. To run it in the terminal you launched it f
 
 When it opens its own window, the window size from your last session is remembered and reapplied automatically — no resizing by hand every time — for `xterm` and `gnome-terminal`, the two emulators confirmed to accept a character-cell size on their command line. Other supported emulators (`konsole`, `xfce4-terminal`, `kitty`, `alacritty`, `wezterm`, `foot`) open at their own default size, since none has a confirmed equivalent flag. The remembered dimensions are stored in `$XDG_CONFIG_HOME/w4gns-logger/window-size` (normally `~/.config/w4gns-logger/window-size`); delete that file to return to the terminal emulator's default size.
 
+The current version is shown on every screen's hotkey line, and `w4gns-logger --version` prints it from the shell — a quick way to confirm you're running a freshly rebuilt binary after pulling changes.
+
 Your log is stored locally. If a `w4gns.db` already exists in the directory you launch from, that file keeps being used (so an existing install that always launches from one directory is unaffected); otherwise the database defaults to a stable, working-directory-independent path under `$XDG_DATA_HOME/w4gns-logger/w4gns.db` (usually `~/.local/share/w4gns-logger/w4gns.db`) — since the installed command is on `PATH` and can be launched from anywhere, a plain relative `./w4gns.db` would otherwise silently start a second, empty log if you ran it from an unfamiliar directory. Set `W4GNS_DB` to use another path explicitly. The database file (and its `-wal`/`-shm` sidecars) are kept at owner-read/write-only (`0600`) permissions, self-healing on every startup if the umask left them more permissive.
 
 ## Screens and controls
@@ -47,6 +49,7 @@ Your log is stored locally. If a `w4gns.db` already exists in the directory you 
 | `F7` | Events & Contests |
 | `F8` | Back up now to Google Drive |
 | `F9` | Browse/edit/delete Recent QSOs (see [Browse, edit, and delete QSOs](#browse-edit-and-delete-qsos)) |
+| `F10` | Export a Cabrillo submission for the loaded contest (see [Cabrillo export](#cabrillo-export)) |
 | `Tab` / `Shift+Tab` | Move between entry fields |
 | `Enter` | Move to the next field; save a QSO from the final field |
 | `Esc` | Quit from QSO Entry (or cancel an in-progress QSO edit instead, if one is active); cancel Station Setup; return to QSO Entry from DX Cluster, QSO Details, Events & Contests, and ADIF Import; return to DX Cluster from Cluster Filters |
@@ -306,6 +309,7 @@ Press `F2` to maintain the active station profile:
 - Maidenhead grid square
 - Timezone
 - Club, rig, antenna, and power
+- Cat-Operator, Cat-Assisted, Cat-Power, and Address — free-text Cabrillo contest-submission header fields (see [Cabrillo export](#cabrillo-export)); leave blank to use the defaults shown as each field's placeholder
 
 Maidenhead locators support 2, 4, 6, 8, and 10-character values. New QSOs use the active station profile.
 
@@ -363,6 +367,18 @@ The export preserves the QSO's CW fields, frequency, details, POTA metadata (bot
 
 The numeric ADIF `DXCC` field (the entity code) is populated from `data/arrl_dxcc.dat`, a table generated from the [ARRL DXCC List](https://www.arrl.org/files/file/DXCC/Current_Deleted.txt) and cross-referenced against the bundled `data/cty.dat` by primary callsign prefix — an exact identifier both lists key on, not a free-text country-name match, which would be unreliable given how differently the two sources spell the same entity's name. `cty.dat` entities ARRL doesn't recognize as a separate DXCC entity (marked with a leading `*` on their primary prefix, e.g. Sicily, African Italy, Shetland Islands — see `data/arrl_dxcc.dat`'s header comment) are left with no `DXCC` value rather than a guessed one. `COUNTRY`, `CQZ`, and `ITUZ` continue to come from `cty.dat` directly.
 
+## Cabrillo export
+
+When you're done operating a contest, press `F10` from any screen to write a [Cabrillo](https://www.cabrillo.org/) v3 submission for whatever contest is currently loaded on the Contest Entry field (select one from Events & Contests (`F7`) first — `F10` reports "no contest loaded" otherwise).
+
+- The file is written to your Downloads folder (`~/Downloads`, created if missing) as `<CALLSIGN>_<CONTEST>.cbr`, e.g. `W4GNS_CQ-WPX-CW-0000ZMay29.cbr`. Running it again for the same contest overwrites that file.
+- Only QSOs tagged with the currently loaded contest ID are included — other contests and casual (non-contest) QSOs in the same log are left out.
+- The header's `CONTEST:` line is the catalog event's own ID; most match the sponsor's expected Cabrillo contest name, but check yours against the sponsor's rules before uploading, since Cabrillo's `CONTEST:` vocabulary is defined per sponsor.
+- `CATEGORY-OPERATOR`, `CATEGORY-ASSISTED`, and `CATEGORY-POWER` come from the Station Setup (`F2`) fields of the same name, defaulting to `SINGLE-OP`, `NON-ASSISTED`, and `LOW` respectively if left blank. `CATEGORY-BAND` is `ALL` unless the selected event covers only a single band. `CATEGORY-MODE` is always `CW`.
+- `CLAIMED-SCORE` is always written as `0` — contest robots recompute the real score from the QSO lines themselves.
+- `CLUB`, `NAME`, and `ADDRESS` come from the matching Station Setup fields.
+- The status bar reports `Cabrillo exported: <N> QSOs -> <path>` on success or `Cabrillo export failed: ...` on failure. Exporting runs asynchronously and never blocks QSO entry; pressing `F10` again while one is already running is ignored.
+
 ## QRZ Logbook upload
 
 Every QSO logged from QSO Entry is uploaded to your [QRZ Logbook](https://www.qrz.com/docs/logbook/QRZLogbookAPI.html) in the background as soon as it saves locally.
@@ -372,6 +388,16 @@ Every QSO logged from QSO Entry is uploaded to your [QRZ Logbook](https://www.qr
 - The upload runs asynchronously and never blocks or delays logging the next QSO.
 - The status bar reports `QRZ upload OK for <call> (LOGID ...)` on success or `QRZ upload failed for <call>: ...` on failure (invalid key, no active subscription, duplicate QSO, network error, etc.). A failed upload never removes the QSO from your local log.
 - Requires an active QRZ XML/Logbook Data subscription; the QRZ API rejects `ACTION=INSERT` without one.
+
+## World Radio League forwarding
+
+Every QSO logged from QSO Entry is also forwarded to [World Radio League](https://worldradioleague.com/developer/) in the background as soon as it saves locally, alongside the QRZ Logbook upload above.
+
+- Put your WRL API key in a file named `worldradioleague.comAPIkey` (one line, no quotes), or set the `W4GNS_WRL_KEY` environment variable. It follows the same lookup order (a copy in the launch directory takes priority, otherwise `$XDG_CONFIG_HOME/w4gns-logger/worldradioleague.comAPIkey`), `.gitignore` handling, and owner-only (`0600`) permission self-heal as `qrz.comAPIkey`.
+- WRL requires a destination logbook per contact, and its own "use my only logbook" fallback is unreliable — put your logbook's UUID (from WRL's `GET /v1/logbooks`) on the key file's second line, or set `W4GNS_WRL_LOGBOOK_ID`, or uploads may fail with `Could not determine the destination logbook.`
+- If neither the key nor the logbook ID is set, WRL forwarding is silently skipped — local logging is unaffected.
+- The upload runs asynchronously and never blocks or delays logging the next QSO.
+- The status bar reports `WRL upload OK for <call>` on success or `WRL upload failed for <call>: ...` on failure. A failed upload never removes the QSO from your local log.
 
 ## QRZ callsign lookup
 

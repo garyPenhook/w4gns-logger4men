@@ -52,7 +52,7 @@ func TestOpenStoreCreatesStationProfileAndCurrentColumns(t *testing.T) {
 		t.Fatalf("station profiles = %d, want 1", profiles)
 	}
 	for _, column := range []string{"my_gridsquare", "profile_id"} {
-		exists, err := st.qsoColumnExists(column)
+		exists, err := st.columnExists("qso", column)
 		if err != nil {
 			t.Fatalf("qsoColumnExists(%q) returned error: %v", column, err)
 		}
@@ -142,7 +142,7 @@ func TestOpenStoreMigratesDatabaseMissingIndexedColumn(t *testing.T) {
 	}
 	defer st.Close()
 
-	exists, err := st.qsoColumnExists("profile_id")
+	exists, err := st.columnExists("qso", "profile_id")
 	if err != nil {
 		t.Fatal(err)
 	}

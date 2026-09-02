@@ -21,15 +21,25 @@ type stationProfile struct {
 	Rig          string
 	Antenna      string
 	PowerWatts   string
+
+	// Contest-submission (Cabrillo) header fields. Free text: contest
+	// sponsors' accepted values (e.g. CATEGORY-OPERATOR: SINGLE-OP,
+	// CHECKLOG; CATEGORY-POWER: QRP, LOW, HIGH) vary enough between contests
+	// that validating against a fixed list would reject legitimate values.
+	CategoryOperator string
+	CategoryAssisted string
+	CategoryPower    string
+	Address          string
 }
 
 func (s *store) activeStationProfile() (stationProfile, error) {
 	var profile stationProfile
 	var latitude, longitude sqlNullFloat64
-	err := s.db.QueryRow(`SELECT id, name, COALESCE(callsign, ''), COALESCE(operator_name, ''), COALESCE(my_gridsquare, ''), latitude, longitude, timezone, COALESCE(club, ''), COALESCE(rig, ''), COALESCE(antenna, ''), COALESCE(CAST(power_watts AS TEXT), '')
+	err := s.db.QueryRow(`SELECT id, name, COALESCE(callsign, ''), COALESCE(operator_name, ''), COALESCE(my_gridsquare, ''), latitude, longitude, timezone, COALESCE(club, ''), COALESCE(rig, ''), COALESCE(antenna, ''), COALESCE(CAST(power_watts AS TEXT), ''), COALESCE(category_operator, ''), COALESCE(category_assisted, ''), COALESCE(category_power, ''), COALESCE(address, '')
 		FROM station_profile ORDER BY id LIMIT 1`).Scan(
 		&profile.ID, &profile.Name, &profile.Callsign, &profile.OperatorName, &profile.MyGridSquare,
 		&latitude, &longitude, &profile.Timezone, &profile.Club, &profile.Rig, &profile.Antenna, &profile.PowerWatts,
+		&profile.CategoryOperator, &profile.CategoryAssisted, &profile.CategoryPower, &profile.Address,
 	)
 	if err != nil {
 		return stationProfile{}, fmt.Errorf("load active station profile: %w", err)
@@ -59,6 +69,10 @@ func (s *store) saveStationProfile(profile stationProfile) (stationProfile, erro
 	profile.Rig = strings.TrimSpace(profile.Rig)
 	profile.Antenna = strings.TrimSpace(profile.Antenna)
 	profile.PowerWatts = strings.TrimSpace(profile.PowerWatts)
+	profile.CategoryOperator = strings.ToUpper(strings.TrimSpace(profile.CategoryOperator))
+	profile.CategoryAssisted = strings.ToUpper(strings.TrimSpace(profile.CategoryAssisted))
+	profile.CategoryPower = strings.ToUpper(strings.TrimSpace(profile.CategoryPower))
+	profile.Address = strings.TrimSpace(profile.Address)
 	if profile.Name == "" {
 		return stationProfile{}, fmt.Errorf("station profile name is required")
 	}
@@ -99,8 +113,9 @@ func (s *store) saveStationProfile(profile stationProfile) (stationProfile, erro
 		return stationProfile{}, fmt.Errorf("station profile is missing an identifier")
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
-	if _, err := s.db.Exec(`UPDATE station_profile SET name=?, callsign=?, operator_name=?, my_gridsquare=?, latitude=?, longitude=?, timezone=?, club=?, rig=?, antenna=?, power_watts=?, updated_at=? WHERE id=?`,
-		profile.Name, profile.Callsign, profile.OperatorName, profile.MyGridSquare, latitude, longitude, profile.Timezone, profile.Club, profile.Rig, profile.Antenna, powerWatts, now, profile.ID,
+	if _, err := s.db.Exec(`UPDATE station_profile SET name=?, callsign=?, operator_name=?, my_gridsquare=?, latitude=?, longitude=?, timezone=?, club=?, rig=?, antenna=?, power_watts=?, category_operator=?, category_assisted=?, category_power=?, address=?, updated_at=? WHERE id=?`,
+		profile.Name, profile.Callsign, profile.OperatorName, profile.MyGridSquare, latitude, longitude, profile.Timezone, profile.Club, profile.Rig, profile.Antenna, powerWatts,
+		profile.CategoryOperator, profile.CategoryAssisted, profile.CategoryPower, profile.Address, now, profile.ID,
 	); err != nil {
 		return stationProfile{}, fmt.Errorf("save station profile: %w", err)
 	}

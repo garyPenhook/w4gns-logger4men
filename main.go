@@ -34,7 +34,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.11.0"
+const appVersion = "1.12.0"
 
 type screen int
 
@@ -84,6 +84,10 @@ const (
 	stationRigField
 	stationAntennaField
 	stationPowerField
+	stationCategoryOperatorField
+	stationCategoryAssistedField
+	stationCategoryPowerField
+	stationAddressField
 	stationQRZXMLUserField
 	stationQRZXMLPassField
 	stationFieldCount
@@ -91,6 +95,7 @@ const (
 
 var stationFieldLabels = [stationFieldCount]string{
 	"Profile", "Callsign", "Operator", "Grid", "Timezone", "Club", "Rig", "Antenna", "Power (W)",
+	"Cat-Operator", "Cat-Assisted", "Cat-Power", "Address",
 	"QRZ XML User", "QRZ XML Pass",
 }
 
@@ -197,14 +202,15 @@ type model struct {
 	editingQSOID    int64
 	editingOriginal qso
 
-	qrzAPIKey string
+	qrzAPIKey    string
 	wrlAPIKey    string
 	wrlLogbookID string
 
 	qrzXMLCreds      qrzXMLCreds
 	qrzXMLSessionKey string
 
-	backupInProgress bool
+	backupInProgress         bool
+	cabrilloExportInProgress bool
 
 	dupeWarning  bool
 	statusMsg    string
@@ -390,6 +396,16 @@ func newStationTextInput(value string, width int) textinput.Model {
 	return ti
 }
 
+// newCabrilloCategoryInput shows placeholder as the value the Cabrillo
+// export falls back to when this field is left blank (see
+// cabrilloOrDefault in cabrillo_export.go), so the operator sees what
+// they're getting without it being force-filled into their saved profile.
+func newCabrilloCategoryInput(value, placeholder string) textinput.Model {
+	ti := newStationTextInput(value, 16)
+	ti.Placeholder = placeholder
+	return ti
+}
+
 func (m *model) openStationSetup() {
 	profile := m.activeStation
 	m.stationFields = []textinput.Model{
@@ -402,6 +418,10 @@ func (m *model) openStationSetup() {
 		newStationTextInput(profile.Rig, 24),
 		newStationTextInput(profile.Antenna, 24),
 		newStationTextInput(profile.PowerWatts, 10),
+		newCabrilloCategoryInput(profile.CategoryOperator, "SINGLE-OP"),
+		newCabrilloCategoryInput(profile.CategoryAssisted, "NON-ASSISTED"),
+		newCabrilloCategoryInput(profile.CategoryPower, "LOW"),
+		newStationTextInput(profile.Address, 40),
 		newStationTextInput(m.qrzXMLCreds.username, 24),
 		newQRZXMLPasswordInput(m.qrzXMLCreds.password),
 	}
@@ -443,6 +463,11 @@ func (m *model) saveStationSetup() {
 		Rig:          m.stationFields[stationRigField].Value(),
 		Antenna:      m.stationFields[stationAntennaField].Value(),
 		PowerWatts:   m.stationFields[stationPowerField].Value(),
+
+		CategoryOperator: m.stationFields[stationCategoryOperatorField].Value(),
+		CategoryAssisted: m.stationFields[stationCategoryAssistedField].Value(),
+		CategoryPower:    m.stationFields[stationCategoryPowerField].Value(),
+		Address:          m.stationFields[stationAddressField].Value(),
 	}
 	saved, err := m.store.saveStationProfile(profile)
 	if err != nil {
@@ -544,6 +569,59 @@ func (m model) runBackupCmd() tea.Cmd {
 		defer cancel()
 		result, err := runBackupSerialized(ctx, st, profileID)
 		return backupCompletedMsg{result: result, err: err}
+	}
+}
+
+type cabrilloExportedMsg struct {
+	path  string
+	count int
+	err   error
+}
+
+// cabrilloExportCmd writes a Cabrillo submission for the currently active
+// contest (whatever's entered in the Contest Entry (F7) screen's Contest
+// field) to the operator's Downloads folder. contestID is captured by value
+// from the model before the command runs, matching runBackupCmd/
+// importADIFFile's pattern of snapshotting what the async closure needs
+// rather than reading the model again after Update's value-receiver copy is
+// gone.
+func (m model) cabrilloExportCmd(contestID string) tea.Cmd {
+	st := m.store
+	profile := m.activeStation
+	event, ok := m.eventForContestID()
+	return func() tea.Msg {
+		if !ok {
+			return cabrilloExportedMsg{err: fmt.Errorf("no matching event/contest found for %q — select one on the Events (F7) screen first", contestID)}
+		}
+		downloads, err := defaultDownloadsDir()
+		if err != nil {
+			return cabrilloExportedMsg{err: err}
+		}
+		if err := os.MkdirAll(downloads, 0o700); err != nil {
+			return cabrilloExportedMsg{err: fmt.Errorf("create Downloads folder: %w", err)}
+		}
+		callsign := profile.Callsign
+		if callsign == "" {
+			callsign = "LOG"
+		}
+		filename := fmt.Sprintf("%s_%s.cbr", sanitizeFilenameComponent(callsign), sanitizeFilenameComponent(contestID))
+		path := filepath.Join(downloads, filename)
+		file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+		if err != nil {
+			return cabrilloExportedMsg{err: fmt.Errorf("create Cabrillo file: %w", err)}
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), backupTimeout)
+		defer cancel()
+		count, err := exportCabrillo(ctx, file, profile, event, contestID, st)
+		closeErr := file.Close()
+		if err != nil {
+			os.Remove(path)
+			return cabrilloExportedMsg{err: err}
+		}
+		if closeErr != nil {
+			return cabrilloExportedMsg{err: fmt.Errorf("write Cabrillo file: %w", closeErr)}
+		}
+		return cabrilloExportedMsg{path: path, count: count}
 	}
 }
 
@@ -1213,6 +1291,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	if message, ok := msg.(cabrilloExportedMsg); ok {
+		m.cabrilloExportInProgress = false
+		if message.err != nil {
+			m.statusMsg = fmt.Sprintf("Cabrillo export failed: %v", message.err)
+		} else {
+			m.statusMsg = fmt.Sprintf("Cabrillo exported: %d QSOs -> %s", message.count, message.path)
+		}
+		return m, nil
+	}
 	if message, ok := msg.(backupCompletedMsg); ok {
 		m.backupInProgress = false
 		if message.err != nil {
@@ -1247,6 +1334,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.backupInProgress = true
 		m.statusMsg = "backing up to Google Drive…"
 		return m, m.runBackupCmd()
+	}
+	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "f10" {
+		if m.cabrilloExportInProgress {
+			m.statusMsg = "Cabrillo export already in progress…"
+			return m, nil
+		}
+		contestID := strings.TrimSpace(m.contestFields[contestName].Value())
+		if contestID == "" {
+			m.statusMsg = "no contest loaded — set Contest on the Events (F7) screen first"
+			return m, nil
+		}
+		m.cabrilloExportInProgress = true
+		m.statusMsg = "exporting Cabrillo…"
+		return m, m.cabrilloExportCmd(contestID)
 	}
 	if m.screen == stationSetupScreen {
 		return m.updateStationSetup(msg)
@@ -1975,7 +2076,7 @@ func screenHotkeys(current screen) string {
 	} else if current == qsoDetailsScreen || current == qsoContestScreen || current == eventCatalogScreen {
 		escape = "Esc: QSO Entry"
 	}
-	return helpStyle.Render("W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF  •  F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  " + escape)
+	return helpStyle.Render("W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF  •  F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  F10: Export Cabrillo  •  " + escape)
 }
 
 func main() {

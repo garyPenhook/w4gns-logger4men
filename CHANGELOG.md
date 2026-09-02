@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.12.0
+
+- Added a Cabrillo export (`F10`, whenever a contest is loaded on the Contest Entry field): writes a Cabrillo v3 submission for the active contest's QSOs to your Downloads folder, named `<CALLSIGN>_<CONTEST>.cbr`. New Station Setup (`F2`) fields — Cat-Operator, Cat-Assisted, Cat-Power, Address — feed the Cabrillo header; each falls back to a sane default (SINGLE-OP/NON-ASSISTED/LOW) if left blank.
+
 ### v1.11.0
 
 - Logged QSOs are now also forwarded to [World Radio League](https://worldradioleague.com) alongside the existing QRZ Logbook upload. Configure it by saving an API key to `worldradioleague.comAPIkey` (same `.gitignore`/owner-only-permission handling as the QRZ key) or via `W4GNS_WRL_KEY`; a blank/missing key just disables it.

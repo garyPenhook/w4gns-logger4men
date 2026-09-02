@@ -76,6 +76,10 @@ CREATE TABLE IF NOT EXISTS station_profile (
     rig TEXT,
     antenna TEXT,
     power_watts REAL,
+    category_operator TEXT,
+    category_assisted TEXT,
+    category_power TEXT,
+    address TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -209,7 +213,7 @@ func (s *store) migrate() error {
 		{name: "county", definition: "TEXT"},
 		{name: "email", definition: "TEXT"},
 	} {
-		exists, err := s.qsoColumnExists(column.name)
+		exists, err := s.columnExists("qso", column.name)
 		if err != nil {
 			return fmt.Errorf("inspect qso schema: %w", err)
 		}
@@ -219,11 +223,32 @@ func (s *store) migrate() error {
 			}
 		}
 	}
+	for _, column := range []struct {
+		name       string
+		definition string
+	}{
+		{name: "category_operator", definition: "TEXT"},
+		{name: "category_assisted", definition: "TEXT"},
+		{name: "category_power", definition: "TEXT"},
+		{name: "address", definition: "TEXT"},
+	} {
+		exists, err := s.columnExists("station_profile", column.name)
+		if err != nil {
+			return fmt.Errorf("inspect station_profile schema: %w", err)
+		}
+		if !exists {
+			if _, err := s.db.Exec("ALTER TABLE station_profile ADD COLUMN " + column.name + " " + column.definition); err != nil {
+				return fmt.Errorf("add station_profile.%s: %w", column.name, err)
+			}
+		}
+	}
 	return nil
 }
 
-func (s *store) qsoColumnExists(name string) (bool, error) {
-	rows, err := s.db.Query(`PRAGMA table_info(qso)`)
+// columnExists reports whether table has a column named name. table is
+// always one of this file's own constant identifiers, never user input.
+func (s *store) columnExists(table, name string) (bool, error) {
+	rows, err := s.db.Query(`PRAGMA table_info(` + table + `)`)
 	if err != nil {
 		return false, err
 	}
