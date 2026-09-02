@@ -34,7 +34,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.12.2"
+const appVersion = "1.12.3"
 
 type screen int
 
@@ -1335,7 +1335,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.statusMsg = "backing up to Google Drive…"
 		return m, m.runBackupCmd()
 	}
-	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "f11" {
+	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "ctrl+x" {
 		if m.cabrilloExportInProgress {
 			m.statusMsg = "Cabrillo export already in progress…"
 			return m, nil
@@ -2077,7 +2077,7 @@ func screenHotkeys(current screen) string {
 		escape = "Esc: QSO Entry"
 	}
 	line1 := "W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF"
-	line2 := "F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  F11: Export Cabrillo  •  " + escape
+	line2 := "F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+X: Export Cabrillo  •  " + escape
 	return helpStyle.Render(line1) + "\n" + helpStyle.Render(line2)
 }
 

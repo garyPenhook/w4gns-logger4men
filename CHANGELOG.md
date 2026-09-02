@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.12.3
+
+- Rebound Cabrillo export from `F11` to `Ctrl+X`: F11 is a near-universal fullscreen/maximize toggle in terminal emulators and window managers, so it never reached the app either, the same problem F10 had.
+
 ### v1.12.2
 
 - The hotkey line at the top of every screen now wraps across two rows instead of one, which had grown too wide to fit most terminal widths after F11 (Cabrillo export) was added.

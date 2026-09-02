@@ -49,7 +49,7 @@ Your log is stored locally. If a `w4gns.db` already exists in the directory you 
 | `F7` | Events & Contests |
 | `F8` | Back up now to Google Drive |
 | `F9` | Browse/edit/delete Recent QSOs (see [Browse, edit, and delete QSOs](#browse-edit-and-delete-qsos)) |
-| `F11` | Export a Cabrillo submission for the loaded contest (see [Cabrillo export](#cabrillo-export)) |
+| `Ctrl+X` | Export a Cabrillo submission for the loaded contest (see [Cabrillo export](#cabrillo-export)) |
 | `Tab` / `Shift+Tab` | Move between entry fields |
 | `Enter` | Move to the next field; save a QSO from the final field |
 | `Esc` | Quit from QSO Entry (or cancel an in-progress QSO edit instead, if one is active); cancel Station Setup; return to QSO Entry from DX Cluster, QSO Details, Events & Contests, and ADIF Import; return to DX Cluster from Cluster Filters |
@@ -369,7 +369,7 @@ The numeric ADIF `DXCC` field (the entity code) is populated from `data/arrl_dxc
 
 ## Cabrillo export
 
-When you're done operating a contest, press `F11` from any screen to write a [Cabrillo](https://www.cabrillo.org/) v3 submission for whatever contest is currently loaded on the Contest Entry field (select one from Events & Contests (`F7`) first — `F11` reports "no contest loaded" otherwise).
+When you're done operating a contest, press `Ctrl+X` from any screen to write a [Cabrillo](https://www.cabrillo.org/) v3 submission for whatever contest is currently loaded on the Contest Entry field (select one from Events & Contests (`F7`) first — `Ctrl+X` reports "no contest loaded" otherwise).
 
 - The file is written to your Downloads folder (`~/Downloads`, created if missing) as `<CALLSIGN>_<CONTEST>.cbr`, e.g. `W4GNS_CQ-WPX-CW-0000ZMay29.cbr`. Running it again for the same contest overwrites that file.
 - Only QSOs tagged with the currently loaded contest ID are included — other contests and casual (non-contest) QSOs in the same log are left out.
@@ -377,7 +377,7 @@ When you're done operating a contest, press `F11` from any screen to write a [Ca
 - `CATEGORY-OPERATOR`, `CATEGORY-ASSISTED`, and `CATEGORY-POWER` come from the Station Setup (`F2`) fields of the same name, defaulting to `SINGLE-OP`, `NON-ASSISTED`, and `LOW` respectively if left blank. `CATEGORY-BAND` is `ALL` unless the selected event covers only a single band. `CATEGORY-MODE` is always `CW`.
 - `CLAIMED-SCORE` is always written as `0` — contest robots recompute the real score from the QSO lines themselves.
 - `CLUB`, `NAME`, and `ADDRESS` come from the matching Station Setup fields.
-- The status bar reports `Cabrillo exported: <N> QSOs -> <path>` on success or `Cabrillo export failed: ...` on failure. Exporting runs asynchronously and never blocks QSO entry; pressing `F11` again while one is already running is ignored.
+- The status bar reports `Cabrillo exported: <N> QSOs -> <path>` on success or `Cabrillo export failed: ...` on failure. Exporting runs asynchronously and never blocks QSO entry; pressing `Ctrl+X` again while one is already running is ignored.
 
 ## QRZ Logbook upload
 
