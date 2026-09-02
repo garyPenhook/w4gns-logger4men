@@ -1,5 +1,10 @@
 # Changelog
 
+### v1.15.1
+
+- Fixed Station Setup, QSO Details, Contest Entry, and Cluster Filters rendering one field per row instead of two: writing two multi-line bordered field boxes to the screen back to back had always just stacked them vertically, not placed them side by side. With Station Setup's field count grown by Cabrillo's category/address fields, this pushed the page to 64 lines — tall enough that Callsign scrolled out of view with no way to scroll back in alt-screen mode. Fixed by joining each pair of fields properly; Station Setup is now 39 lines with Callsign in the first row.
+- The DX cluster connection now also retries when Station Setup is saved with a callsign, not only at app startup — an operator who fills in Station Setup after launch (e.g. on first run) previously had no way to trigger the connection short of manually visiting the DX Cluster (`F3`) screen.
+
 ### v1.15.0
 
 - Added a DX Spots panel filling the empty space beside Recent QSOs on QSO Entry: live CW spots across all bands, from the same feed and Cluster Filters (`F4`) as the full DX Cluster (`F3`) screen. Hidden automatically on terminals too narrow to fit it.

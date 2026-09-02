@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -637,6 +638,64 @@ func TestPathsReferToSameFile(t *testing.T) {
 	}
 }
 
+// TestRenderFieldGridPlacesFieldsSideBySide guards the actual bug behind the
+// "can't scroll up to find Callsign" report: writing two multi-line
+// bordered field boxes to a strings.Builder back to back (the previous
+// approach in every caller of this grid) stacks them vertically instead of
+// side by side, since plain string concatenation has no notion of "these
+// two belong on the same row." Two boxes on the same row must both start
+// their top border on the grid's very first output line.
+func TestRenderFieldGridPlacesFieldsSideBySide(t *testing.T) {
+	labels := []string{"One", "Two"}
+	fields := []textinput.Model{newStationTextInput("a", 10), newStationTextInput("b", 10)}
+	out := renderFieldGrid(labels, fields, -1)
+	lines := strings.Split(out, "\n")
+	if len(lines) == 0 || strings.Count(lines[0], "╭") != 2 {
+		t.Fatalf("renderFieldGrid did not place two fields on the same row, first line = %q", firstOr(lines, ""))
+	}
+}
+
+func firstOr(lines []string, def string) string {
+	if len(lines) == 0 {
+		return def
+	}
+	return lines[0]
+}
+
+// TestStationSetupViewShowsCallsignNearTop is a direct regression guard for
+// the reported symptom: with the field-grid bug (see
+// TestRenderFieldGridPlacesFieldsSideBySide) Station Setup rendered one
+// field per row instead of two, and after Cabrillo's category/address
+// fields were added, that pushed the whole page to 64 lines — tall enough
+// that Callsign (the second field) scrolled out of view on an ordinary
+// terminal, with no way to scroll back in alt-screen mode.
+func TestStationSetupViewShowsCallsignNearTop(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.openStationSetup()
+	view := m.stationSetupView()
+	lines := strings.Split(view, "\n")
+	found := -1
+	for i, line := range lines {
+		if strings.Contains(line, "Callsign") {
+			found = i
+			break
+		}
+	}
+	if found == -1 {
+		t.Fatal("Callsign field not found anywhere in the Station Setup view")
+	}
+	const wantWithinLines = 10
+	if found >= wantWithinLines {
+		t.Fatalf("Callsign appears at line %d, want it within the first %d lines so it's visible without scrolling", found, wantWithinLines)
+	}
+}
+
 func TestScreenHotkeysSwitchBetweenQSOEntryAndStationSetup(t *testing.T) {
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {
@@ -921,5 +980,36 @@ func TestDxSpotsPanelLimitsToVisibleRows(t *testing.T) {
 	got := m.dxSpotsPanel(80)
 	if lines := strings.Count(got, "\n") + 1; lines != recentQSOsVisibleRows+1 { // +1 for the title line
 		t.Fatalf("dxSpotsPanel line count = %d, want %d (title + %d rows)", lines, recentQSOsVisibleRows+1, recentQSOsVisibleRows)
+	}
+}
+
+// TestSaveStationSetupRetriesClusterConnectionWhenCallsignAdded guards
+// against a real gap: connectClusterIfNeeded previously only ran once, at
+// app startup. An operator who launches the app before filling in Station
+// Setup (e.g. a first run) would have no callsign yet at that moment, so
+// the auto-connect would silently no-op — and, without this, saving
+// Station Setup afterward would never retry it, leaving no path to a
+// connection short of manually visiting the DX Cluster (F3) screen.
+func TestSaveStationSetupRetriesClusterConnectionWhenCallsignAdded(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	if m.activeStation.Callsign != "" {
+		t.Fatalf("test assumes no callsign configured yet, got %q", m.activeStation.Callsign)
+	}
+	m.openStationSetup()
+	m.stationFields[stationCallsignField].SetValue("W4GNS")
+	m.stationFields[stationTimezoneField].SetValue("UTC")
+
+	cmd := m.saveStationSetup()
+	if cmd == nil {
+		t.Fatal("saveStationSetup returned a nil command after a callsign was added; the DX cluster connect never gets retried")
+	}
+	if !m.clusterConnecting {
+		t.Fatal("saveStationSetup did not mark the cluster connection as in progress")
 	}
 }

@@ -39,7 +39,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.15.0"
+const appVersion = "1.15.1"
 
 type screen int
 
@@ -266,7 +266,7 @@ var (
 
 	labelStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("240")).
-			Width(10)
+			Width(13)
 
 	fieldBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -465,7 +465,13 @@ func (m *model) focusStationField(index int) {
 	m.stationFocusIdx = index
 }
 
-func (m *model) saveStationSetup() {
+// saveStationSetup returns a tea.Cmd (possibly nil) rather than nothing, so
+// a callsign entered for the first time (or after a previous save left it
+// blank) can retry the DX cluster connection immediately. Without this, an
+// operator who fills in Station Setup after the app has already started —
+// startup is the only other place a connection attempt fires — would need
+// to visit the DX Cluster (F3) screen by hand to ever connect at all.
+func (m *model) saveStationSetup() tea.Cmd {
 	profile := stationProfile{
 		ID:           m.activeStation.ID,
 		Name:         m.stationFields[stationNameField].Value(),
@@ -486,7 +492,7 @@ func (m *model) saveStationSetup() {
 	saved, err := m.store.saveStationProfile(profile)
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("station setup error: %v", err)
-		return
+		return nil
 	}
 	m.activeStation = saved
 
@@ -498,7 +504,7 @@ func (m *model) saveStationSetup() {
 		m.screen = qsoEntryScreen
 		m.focusField(fieldCall)
 		m.statusMsg = fmt.Sprintf("station profile %q saved, but QRZ XML credentials failed to save: %v", saved.Name, err)
-		return
+		return m.connectClusterIfNeeded()
 	}
 	// Credentials may have changed (or been cleared), so the cached session
 	// key — tied to whichever account last logged in — is no longer valid
@@ -509,6 +515,7 @@ func (m *model) saveStationSetup() {
 	m.screen = qsoEntryScreen
 	m.focusField(fieldCall)
 	m.statusMsg = fmt.Sprintf("station profile %q saved", saved.Name)
+	return m.connectClusterIfNeeded()
 }
 
 func (m *model) openCluster() tea.Cmd {
@@ -1847,8 +1854,7 @@ func (m model) updateStationSetup(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "enter":
 			if m.stationFocusIdx == len(m.stationFields)-1 {
-				m.saveStationSetup()
-				return m, nil
+				return m, m.saveStationSetup()
 			}
 			m.focusStationField(m.stationFocusIdx + 1)
 			return m, nil
@@ -1968,16 +1974,7 @@ func (m model) stationSetupView() string {
 	b.WriteString("\n")
 	b.WriteString(headerStyle.Render("W4GNS Logger 4 Men  |  Station Setup"))
 	b.WriteString("\n\n")
-	for i := range m.stationFields {
-		style := fieldBoxStyle
-		if i == m.stationFocusIdx {
-			style = focusedFieldBoxStyle
-		}
-		b.WriteString(style.Render(labelStyle.Render(stationFieldLabels[i]) + m.stationFields[i].View()))
-		if i%2 == 1 || i == len(m.stationFields)-1 {
-			b.WriteString("\n")
-		}
-	}
+	b.WriteString(renderFieldGrid(stationFieldLabels[:], m.stationFields, m.stationFocusIdx))
 	b.WriteString("\n")
 	b.WriteString(statusBarStyle.Render(m.statusMsg))
 	b.WriteString("\n")
@@ -2079,16 +2076,7 @@ func (m model) clusterFiltersView() string {
 	b.WriteString("\n")
 	b.WriteString(headerStyle.Render("W4GNS Logger 4 Men  |  Cluster Filters  |  CW only"))
 	b.WriteString("\n\n")
-	for i := range m.clusterFilterFields {
-		style := fieldBoxStyle
-		if i == m.clusterFilterFocus {
-			style = focusedFieldBoxStyle
-		}
-		b.WriteString(style.Render(labelStyle.Render(clusterFilterLabels[i]) + m.clusterFilterFields[i].View()))
-		if i%2 == 1 {
-			b.WriteString("\n")
-		}
-	}
+	b.WriteString(renderFieldGrid(clusterFilterLabels[:], m.clusterFilterFields, m.clusterFilterFocus))
 	b.WriteString("\nBands: ")
 	for i, band := range cwBands {
 		mark := " "
@@ -2215,22 +2203,44 @@ func eventDetailLine(event eventDefinition) string {
 	return strings.Join(parts, "  •  ")
 }
 
+// renderFieldGrid lays fields out two per row using lipgloss.JoinHorizontal,
+// the same way QSO Entry's own field row already does. Two multi-line
+// bordered boxes written to a strings.Builder back to back (the previous
+// approach in every caller here) just stack vertically instead of sitting
+// side by side — plain string concatenation has no notion of "these two
+// belong on the same row" — so this was quietly wasting roughly double the
+// intended vertical space on every field-grid screen (Station Setup, QSO
+// Details, Contest Entry, Cluster Filters) since long before Station Setup
+// grew enough fields to overflow a typical terminal height because of it.
+func renderFieldGrid(labels []string, fields []textinput.Model, focus int) string {
+	var b strings.Builder
+	boxStyleFor := func(index int) lipgloss.Style {
+		if index == focus {
+			return focusedFieldBoxStyle
+		}
+		return fieldBoxStyle
+	}
+	renderOne := func(index int) string {
+		return boxStyleFor(index).Render(labelStyle.Render(labels[index]) + fields[index].View())
+	}
+	for index := 0; index < len(fields); index += 2 {
+		if index+1 >= len(fields) {
+			b.WriteString(renderOne(index))
+		} else {
+			b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, renderOne(index), renderOne(index+1)))
+		}
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
 func (m model) qsoPageView(title string, labels []string, fields []textinput.Model, focus int, help string) string {
 	var b strings.Builder
 	b.WriteString(screenHotkeys(m.screen))
 	b.WriteString("\n")
 	b.WriteString(headerStyle.Render("W4GNS Logger 4 Men  |  " + title))
 	b.WriteString("\n\n")
-	for index := range fields {
-		style := fieldBoxStyle
-		if index == focus {
-			style = focusedFieldBoxStyle
-		}
-		b.WriteString(style.Render(labelStyle.Render(labels[index]) + fields[index].View()))
-		if index%2 == 1 || index == len(fields)-1 {
-			b.WriteString("\n")
-		}
-	}
+	b.WriteString(renderFieldGrid(labels, fields, focus))
 	b.WriteString("\n")
 	b.WriteString(statusBarStyle.Render(m.statusMsg))
 	b.WriteString("\n")
