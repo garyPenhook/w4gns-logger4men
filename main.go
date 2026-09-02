@@ -34,7 +34,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.12.1"
+const appVersion = "1.12.2"
 
 type screen int
 
@@ -2076,7 +2076,9 @@ func screenHotkeys(current screen) string {
 	} else if current == qsoDetailsScreen || current == qsoContestScreen || current == eventCatalogScreen {
 		escape = "Esc: QSO Entry"
 	}
-	return helpStyle.Render("W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF  •  F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  F11: Export Cabrillo  •  " + escape)
+	line1 := "W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF"
+	line2 := "F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  F11: Export Cabrillo  •  " + escape
+	return helpStyle.Render(line1) + "\n" + helpStyle.Render(line2)
 }
 
 func main() {

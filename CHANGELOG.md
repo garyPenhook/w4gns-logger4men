@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.12.2
+
+- The hotkey line at the top of every screen now wraps across two rows instead of one, which had grown too wide to fit most terminal widths after F11 (Cabrillo export) was added.
+
 ### v1.12.1
 
 - Rebound Cabrillo export from `F10` to `F11`: GNOME Terminal and other GTK-based terminals reserve `F10` to toggle their own menu bar, so the keypress never reached the app there.
