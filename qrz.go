@@ -39,7 +39,7 @@ func loadQRZAPIKey() string {
 		return key
 	}
 	keyFile := defaultQRZKeyPath()
-	tightenQRZKeyFilePermissions(keyFile)
+	tightenKeyFilePermissions(keyFile)
 	contents, err := os.ReadFile(keyFile)
 	if err != nil {
 		return ""
@@ -47,12 +47,13 @@ func loadQRZAPIKey() string {
 	return strings.TrimSpace(string(contents))
 }
 
-// tightenQRZKeyFilePermissions best-effort chmods the key file to owner-only
-// read/write. .gitignore keeps the key out of version control, but it does
-// nothing about other local accounts reading the file directly, so this
-// self-heals a too-permissive mode (e.g. the default umask leaving it
-// group/world readable) on every startup.
-func tightenQRZKeyFilePermissions(keyFile string) {
+// tightenKeyFilePermissions best-effort chmods a credentials file (QRZ
+// Logbook key or QRZ XML login) to owner-only read/write. .gitignore keeps
+// such files out of version control, but it does nothing about other local
+// accounts reading the file directly, so this self-heals a too-permissive
+// mode (e.g. the default umask leaving it group/world readable) on every
+// startup.
+func tightenKeyFilePermissions(keyFile string) {
 	info, err := os.Stat(keyFile)
 	if err != nil {
 		return

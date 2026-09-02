@@ -373,6 +373,15 @@ Every QSO logged from QSO Entry is uploaded to your [QRZ Logbook](https://www.qr
 - The status bar reports `QRZ upload OK for <call> (LOGID ...)` on success or `QRZ upload failed for <call>: ...` on failure (invalid key, no active subscription, duplicate QSO, network error, etc.). A failed upload never removes the QSO from your local log.
 - Requires an active QRZ XML/Logbook Data subscription; the QRZ API rejects `ACTION=INSERT` without one.
 
+## QRZ callsign lookup
+
+Typing a call and leaving the field (`Tab` or `Enter`) on QSO Entry looks it up against the [QRZ XML API](https://www.qrz.com/XML/current_spec.html) and fills in Name, QTH, Grid, and State on the QSO Details (`F6`) screen — the same auto-fill treatment the POTA Ref field already gets from recent spots. This is a separate QRZ service and credential from the Logbook upload above: the XML API authenticates with your QRZ.com website username/password, not a Logbook API key, and requires its own active QRZ XML/Logbook Data subscription.
+
+- Enter your QRZ.com username and password in Station Setup (`F2`) — the last two fields, "QRZ XML User" and "QRZ XML Pass" (the password is masked with `*` on screen). Saving Station Setup writes them to a file named `qrz.comXMLlogin` (username on the first line, password on the second), so you only enter them once. Alternatively, edit that file directly, or set the `W4GNS_QRZ_XML_USER`/`W4GNS_QRZ_XML_PASS` environment variables (which take priority over the file and over what's shown in Station Setup). The file follows the same lookup order, `.gitignore` handling, and owner-only (`0600`) permission self-heal as `qrz.comAPIkey` above, and lives at the same stable path (`$XDG_CONFIG_HOME/w4gns-logger/qrz.comXMLlogin`, usually `~/.config/w4gns-logger/qrz.comXMLlogin`).
+- If neither is set, the lookup is silently skipped — local logging is unaffected.
+- Existing (non-blank) values in Name/QTH/Grid/State are never overwritten, whether typed by the operator or loaded from editing a previously logged QSO.
+- The status bar reports `QRZ: filled details for <call>` on success or `QRZ lookup unavailable: ...` on failure (bad credentials, no active subscription, callsign not found, network error, etc.).
+
 ## Backups
 
 Press `F8` at any time to back up immediately, and every shutdown backs up automatically before the app exits — whether that's `Esc`/`Ctrl+C` from the keyboard, closing the terminal window (`SIGHUP`), or `kill`/`kill -INT` from another process. A backup always finishes (or fails and reports why) before the database closes and the process exits.

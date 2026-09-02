@@ -150,7 +150,7 @@ func openStore(path string) (*store, error) {
 const dbFilePermBits = 0o600
 
 // tightenDBFilePermissions best-effort chmods the database file and its WAL/
-// SHM sidecars, mirroring tightenQRZKeyFilePermissions in qrz.go. Sidecar
+// SHM sidecars, mirroring tightenKeyFilePermissions in qrz.go. Sidecar
 // files that don't exist (e.g. WAL checkpointed away) are silently skipped.
 func tightenDBFilePermissions(path string) {
 	for _, p := range []string{path, path + "-wal", path + "-shm"} {

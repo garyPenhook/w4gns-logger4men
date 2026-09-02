@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.9.0
+
+- Added QRZ XML callsign lookup: entering a call on QSO Entry and leaving the field (`Tab`/`Enter`) now looks it up against QRZ and auto-fills Name, QTH, Grid, and State on the QSO Details (`F6`) screen, the same way POTA Ref already auto-fills from recent spots. Existing values are never overwritten. Configure it by entering your QRZ.com username/password in Station Setup (`F2`), saved to a `qrz.comXMLlogin` file with the same `.gitignore`/owner-only-permission handling as the existing QRZ Logbook key, or via `W4GNS_QRZ_XML_USER`/`W4GNS_QRZ_XML_PASS`. This is a separate QRZ service and subscription from the existing Logbook upload.
+
 ### v1.8.0
 
 - DX Cluster spots are now deduplicated: a station already shown on a given band is suppressed for 3 minutes instead of flooding the list every time another cluster node relays the same spot.

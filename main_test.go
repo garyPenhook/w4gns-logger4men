@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -602,5 +603,109 @@ func TestClusterConnectionStateRejectsDuplicateAndStaleResults(t *testing.T) {
 	m = updated.(model)
 	if m.clusterStatus != "new connection stays active" || m.clusterGeneration != 2 {
 		t.Fatalf("stale connection result changed state: %#v", m)
+	}
+}
+
+// TestQRZCallsignLookupMsgIgnoresStaleResult guards against a slow QRZ XML
+// lookup for one callsign landing after the operator has already moved on to
+// a different call: the result must be discarded, not written into the
+// current QSO's details.
+func TestQRZCallsignLookupMsgIgnoresStaleResult(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.fields[fieldCall].SetValue("K1ABC")
+
+	updated, _ := m.Update(qrzCallsignLookupMsg{
+		call:   "AA7BQ",
+		record: qrzCallsignRecord{name: "Fred Lloyd", qth: "Phoenix", state: "AZ", grid: "DM43"},
+	})
+	m = updated.(model)
+	if m.detailFields[detailName].Value() != "" {
+		t.Fatalf("detailFields[detailName] = %q, want blank for a stale lookup result", m.detailFields[detailName].Value())
+	}
+}
+
+// TestQRZCallsignLookupMsgFillsOnlyBlankFields guards against clobbering
+// details the operator already typed (or that were loaded from an existing
+// logged QSO for editing) with a QRZ lookup result for the same call.
+func TestQRZCallsignLookupMsgFillsOnlyBlankFields(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.fields[fieldCall].SetValue("AA7BQ")
+	m.detailFields[detailQTH].SetValue("operator-entered QTH")
+
+	updated, _ := m.Update(qrzCallsignLookupMsg{
+		call:       "AA7BQ",
+		sessionKey: "session123",
+		record:     qrzCallsignRecord{name: "Fred Lloyd", qth: "Phoenix", state: "AZ", grid: "DM43"},
+	})
+	m = updated.(model)
+	if m.detailFields[detailName].Value() != "Fred Lloyd" {
+		t.Fatalf("detailFields[detailName] = %q, want Fred Lloyd", m.detailFields[detailName].Value())
+	}
+	if m.detailFields[detailQTH].Value() != "operator-entered QTH" {
+		t.Fatalf("detailFields[detailQTH] = %q, want the operator-entered value left untouched", m.detailFields[detailQTH].Value())
+	}
+	if m.detailFields[detailState].Value() != "AZ" || m.detailFields[detailGrid].Value() != "DM43" {
+		t.Fatalf("state/grid = %q/%q, want AZ/DM43", m.detailFields[detailState].Value(), m.detailFields[detailGrid].Value())
+	}
+	if m.qrzXMLSessionKey != "session123" {
+		t.Fatalf("qrzXMLSessionKey = %q, want session123 to be cached for the next lookup", m.qrzXMLSessionKey)
+	}
+}
+
+// TestSaveStationSetupPersistsQRZXMLCredentials covers entering QRZ XML
+// login in Station Setup: saving must write it to the credentials file (so
+// it survives a restart), update the in-memory creds used by the next
+// lookup, and drop any cached session key since it belonged to whichever
+// account was previously configured.
+func TestSaveStationSetupPersistsQRZXMLCredentials(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(oldWD)
+	// legacyOrStablePath prefers a "qrz.comXMLlogin" already present in the
+	// cwd; chdir into an empty tempdir first so this test's outcome doesn't
+	// depend on whatever the invoking process's working directory contains.
+	if err := os.Chdir(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	m := initialModel(st)
+	m.qrzXMLSessionKey = "stale-session"
+	m.openStationSetup()
+	m.stationFields[stationQRZXMLUserField].SetValue("newuser")
+	m.stationFields[stationQRZXMLPassField].SetValue("newpass")
+
+	m.saveStationSetup()
+
+	if m.qrzXMLCreds.username != "newuser" || m.qrzXMLCreds.password != "newpass" {
+		t.Fatalf("qrzXMLCreds = %+v, want newuser/newpass", m.qrzXMLCreds)
+	}
+	if m.qrzXMLSessionKey != "" {
+		t.Fatalf("qrzXMLSessionKey = %q, want cleared after credentials changed", m.qrzXMLSessionKey)
+	}
+	if m.screen != qsoEntryScreen {
+		t.Fatalf("screen after save = %v, want qsoEntryScreen", m.screen)
+	}
+	if got := loadQRZXMLCredentials(); got.username != "newuser" || got.password != "newpass" {
+		t.Fatalf("loadQRZXMLCredentials() after save = %+v, want newuser/newpass", got)
 	}
 }

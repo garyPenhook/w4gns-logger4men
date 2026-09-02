@@ -77,11 +77,14 @@ const (
 	stationRigField
 	stationAntennaField
 	stationPowerField
+	stationQRZXMLUserField
+	stationQRZXMLPassField
 	stationFieldCount
 )
 
 var stationFieldLabels = [stationFieldCount]string{
 	"Profile", "Callsign", "Operator", "Grid", "Timezone", "Club", "Rig", "Antenna", "Power (W)",
+	"QRZ XML User", "QRZ XML Pass",
 }
 
 const (
@@ -186,6 +189,9 @@ type model struct {
 	editingOriginal qso
 
 	qrzAPIKey string
+
+	qrzXMLCreds      qrzXMLCreds
+	qrzXMLSessionKey string
 
 	backupInProgress bool
 
@@ -383,10 +389,22 @@ func (m *model) openStationSetup() {
 		newStationTextInput(profile.Rig, 24),
 		newStationTextInput(profile.Antenna, 24),
 		newStationTextInput(profile.PowerWatts, 10),
+		newStationTextInput(m.qrzXMLCreds.username, 24),
+		newQRZXMLPasswordInput(m.qrzXMLCreds.password),
 	}
 	m.screen = stationSetupScreen
 	m.focusStationField(stationNameField)
 	m.statusMsg = "Station Setup — Enter saves, Esc cancels"
+}
+
+// newQRZXMLPasswordInput masks the QRZ XML password on screen the same way
+// the field's own EchoMode always has, so it doesn't rely on the terminal or
+// screenshots/screen-sharing not exposing it.
+func newQRZXMLPasswordInput(value string) textinput.Model {
+	ti := newStationTextInput(value, 24)
+	ti.EchoMode = textinput.EchoPassword
+	ti.EchoCharacter = '*'
+	return ti
 }
 
 func (m *model) focusStationField(index int) {
@@ -419,6 +437,23 @@ func (m *model) saveStationSetup() {
 		return
 	}
 	m.activeStation = saved
+
+	creds := qrzXMLCreds{
+		username: m.stationFields[stationQRZXMLUserField].Value(),
+		password: m.stationFields[stationQRZXMLPassField].Value(),
+	}
+	if err := saveQRZXMLCredentials(creds); err != nil {
+		m.screen = qsoEntryScreen
+		m.focusField(fieldCall)
+		m.statusMsg = fmt.Sprintf("station profile %q saved, but QRZ XML credentials failed to save: %v", saved.Name, err)
+		return
+	}
+	// Credentials may have changed (or been cleared), so the cached session
+	// key — tied to whichever account last logged in — is no longer valid
+	// for the next lookup.
+	m.qrzXMLCreds = creds
+	m.qrzXMLSessionKey = ""
+
 	m.screen = qsoEntryScreen
 	m.focusField(fieldCall)
 	m.statusMsg = fmt.Sprintf("station profile %q saved", saved.Name)
@@ -884,6 +919,14 @@ func (m *model) autoFillPOTAReference() tea.Cmd {
 	return lookupPOTASpot(call, time.Now())
 }
 
+func (m *model) autoFillFromQRZ() tea.Cmd {
+	call := normalizeCall(m.fields[fieldCall].Value())
+	if call == "" {
+		return nil
+	}
+	return lookupQRZCallsignCmd(m.qrzXMLCreds, m.qrzXMLSessionKey, call)
+}
+
 func (m *model) resetQSOClockIfReturningToCall(nextFocus int) {
 	if nextFocus != fieldCall || m.qsoStartedAt.IsZero() {
 		return
@@ -1079,6 +1122,40 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	if message, ok := msg.(qrzCallsignLookupMsg); ok {
+		if message.sessionKey != "" {
+			m.qrzXMLSessionKey = message.sessionKey
+		}
+		call := normalizeCall(m.fields[fieldCall].Value())
+		if message.call != call {
+			return m, nil
+		}
+		if message.err != nil {
+			m.statusMsg = "QRZ lookup unavailable: " + message.err.Error()
+			return m, nil
+		}
+		filled := false
+		if message.record.name != "" && strings.TrimSpace(m.detailFields[detailName].Value()) == "" {
+			m.detailFields[detailName].SetValue(message.record.name)
+			filled = true
+		}
+		if message.record.qth != "" && strings.TrimSpace(m.detailFields[detailQTH].Value()) == "" {
+			m.detailFields[detailQTH].SetValue(message.record.qth)
+			filled = true
+		}
+		if message.record.grid != "" && strings.TrimSpace(m.detailFields[detailGrid].Value()) == "" {
+			m.detailFields[detailGrid].SetValue(message.record.grid)
+			filled = true
+		}
+		if message.record.state != "" && strings.TrimSpace(m.detailFields[detailState].Value()) == "" {
+			m.detailFields[detailState].SetValue(message.record.state)
+			filled = true
+		}
+		if filled {
+			m.statusMsg = "QRZ: filled details for " + message.call
+		}
+		return m, nil
+	}
 	if _, ok := msg.(solarTickMsg); ok {
 		return m, tea.Batch(fetchSolarIndicesCmd(), solarTickCmd())
 	}
@@ -1189,7 +1266,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.resetQSOClockIfReturningToCall(nextFocus)
 			m.focusField(nextFocus)
 			if leavingCall {
-				return m, m.autoFillPOTAReference()
+				return m, tea.Batch(m.autoFillPOTAReference(), m.autoFillFromQRZ())
 			}
 			return m, nil
 		case "shift+tab":
@@ -1207,7 +1284,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.startQSOClockIfLeavingCall()
 			m.focusField(m.focusIdx + 1)
 			if leavingCall {
-				return m, m.autoFillPOTAReference()
+				return m, tea.Batch(m.autoFillPOTAReference(), m.autoFillFromQRZ())
 			}
 			return m, nil
 		case "f2":
@@ -1903,6 +1980,7 @@ func main() {
 
 	m := initialModel(st)
 	m.qrzAPIKey = loadQRZAPIKey()
+	m.qrzXMLCreds = loadQRZXMLCredentials()
 
 	// Alt-screen mode gives the logger a clean, dedicated terminal surface and
 	// restores the invoking terminal unchanged when the application exits.

@@ -30,6 +30,15 @@ func defaultQRZKeyPath() string {
 	return legacyOrStablePath("qrz.comAPIkey", xdgConfigDir())
 }
 
+// defaultQRZXMLCredPath resolves the QRZ XML (callsign lookup) credentials
+// file path used when W4GNS_QRZ_XML_USER/W4GNS_QRZ_XML_PASS are unset, with
+// the same legacy-cwd-file preference as defaultQRZKeyPath. This is a
+// separate credential from the Logbook API key: the XML lookup API
+// authenticates with a QRZ.com username/password, not an API key.
+func defaultQRZXMLCredPath() string {
+	return legacyOrStablePath("qrz.comXMLlogin", xdgConfigDir())
+}
+
 func legacyOrStablePath(legacyName, stableDir string) string {
 	if _, err := os.Stat(legacyName); err == nil {
 		return legacyName

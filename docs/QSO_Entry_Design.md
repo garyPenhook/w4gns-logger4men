@@ -31,7 +31,7 @@ Pressing `F9` from QSO Entry moves keyboard focus into the Recent QSOs table ins
 
 ## F6 — QSO Details
 
-Optional fields are name, QTH, grid square, state/province, POTA reference, and notes. These map to the corresponding ADIF-shaped QSO columns: `NAME`, `QTH`, `GRIDSQUARE`, `STATE`, `SIG`/`SIG_INFO`, and `COMMENT` (Frequency itself is an F1 entry-row field, not part of F6). A POTA reference is populated only when a matching callsign appears in the previous 15 minutes in the local DX-cluster spot history or POTA active-spot feed. The network lookup has a bounded timeout and never blocks logging.
+Optional fields are name, QTH, grid square, state/province, POTA reference, and notes. These map to the corresponding ADIF-shaped QSO columns: `NAME`, `QTH`, `GRIDSQUARE`, `STATE`, `SIG`/`SIG_INFO`, and `COMMENT` (Frequency itself is an F1 entry-row field, not part of F6). A POTA reference is populated only when a matching callsign appears in the previous 15 minutes in the local DX-cluster spot history or POTA active-spot feed. Name, QTH, grid square, and state/province are populated the same way from a QRZ XML callsign lookup, when QRZ XML credentials are configured (see README's "QRZ callsign lookup"). Both lookups only fill fields that are still blank, so they never overwrite what the operator already typed or what was loaded from editing a previously logged QSO, and both run as bounded-timeout network calls that never block logging.
 
 ## F7 — Events & Contests
 
