@@ -328,7 +328,8 @@ The app connects to K3LR automatically at launch once the active station has a c
 - Save your callsign in Station Setup before connecting.
 - Press `F5` to retry a connection and `F6` to disconnect.
 - Standard `DX de` spots are shown with UTC time, spotter, frequency, callsign, and comment.
-- Only spots inside the conventional CW/data segment of an enabled band are shown; phone and digital-mode activity elsewhere in the band is filtered out. The CW/data segment edges follow the same US Amateur Extra-class defaults as QSO-entry frequency validation — see [QSO entry](#qso-entry) — so operators under a different license class or country should treat this as a starting point, not a guarantee.
+- Only spots inside the conventional CW/data segment of an enabled band are shown; phone activity elsewhere in the band is filtered out. The CW/data segment edges follow the same US Amateur Extra-class defaults as QSO-entry frequency validation — see [QSO entry](#qso-entry) — so operators under a different license class or country should treat this as a starting point, not a guarantee.
+- RTTY and other digital modes share that same data sub-band with CW on most bands, so frequency range alone can't tell them apart. Spots whose comment names a non-CW mode (`RTTY`, `PSK31`, `FT8`, `FT4`, `JS8`, `JT65`, `JT9`, `SSB`, etc.) are filtered out too; a spot whose comment doesn't mention a mode at all is let through, since there's no signal left to filter on.
 - A station already shown on a given band is suppressed for 3 minutes, so the same spot relayed by multiple cluster nodes doesn't flood the list. The same station on a different band, or the same band after the 3-minute window, is shown again.
 
 ## Cluster Filters

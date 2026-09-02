@@ -1,9 +1,29 @@
 package main
 
 import (
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+// nonCWModePattern matches mode names commonly written into a DX cluster
+// spot's comment by the spotting station or an automated skimmer (e.g.
+// "RTTY 21 WPM", "PSK31"). It deliberately excludes short, ambiguous tokens
+// like "FM" and "AM" — "FM" in particular is common ham-cluster shorthand
+// for "from" (e.g. "TNX FM VE3XYZ"), not a mode name, and would reject a
+// real CW spot's comment if matched.
+// The leading \b prevents a mid-word false match (e.g. a hypothetical
+// "AFT8"); there's deliberately no trailing \b, since mode names are often
+// immediately followed by other characters in real spot comments (e.g.
+// "JS8Call", the software/protocol name for JS8).
+var nonCWModePattern = regexp.MustCompile(`(?i)\b(RTTY|PSK31|PSK63|PSK|FT8|FT4|JS8|JT65|JT9|JT4|MFSK|OLIVIA|SSTV|SSB|USB|LSB|DOMINO|THOR|CONTESTIA|HELL)`)
+
+// commentIndicatesNonCWMode reports whether a spot's comment names a mode
+// other than CW. See allowsSpot: frequency range alone can't separate CW
+// from other digital modes sharing the same data sub-band on most bands.
+func commentIndicatesNonCWMode(comment string) bool {
+	return nonCWModePattern.MatchString(comment)
+}
 
 var cwBands = []string{"160M", "80M", "60M", "40M", "30M", "20M", "17M", "15M", "12M", "10M", "6M"}
 
@@ -45,6 +65,14 @@ func (f clusterFilters) allowsSpot(spot clusterSpot) bool {
 	// This is a CW-only logger, so spots inside the conventional phone/digital
 	// portion of the band are not relevant even if the band itself is enabled.
 	if !isLikelyCWFrequency(band, freqMHz) {
+		return false
+	}
+	// isLikelyCWFrequency alone can't separate CW from other digital modes
+	// (RTTY, PSK, FT8, etc.) on the bands where they share the same
+	// data/CW sub-band edges (see amateurBands' CWUpperMHz doc comment) —
+	// frequency range doesn't distinguish them, so a spotter's comment
+	// naming a non-CW mode is the only signal available.
+	if commentIndicatesNonCWMode(spot.Comment) {
 		return false
 	}
 	if !f.matchesEntityFilters(spot.Callsign, f.DXCC, f.DXITUZone, f.DXCQZone, f.DXContinent) {

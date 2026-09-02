@@ -40,6 +40,32 @@ func TestClusterFiltersRejectPhoneSegmentSpots(t *testing.T) {
 	}
 }
 
+// TestClusterFiltersRejectRTTYSpotInCWDataSubBand guards a real report: an
+// RTTY spot appeared in a "CW only" filtered feed. RTTY (and other digital
+// modes) share the same data sub-band as CW on most bands, so frequency
+// range alone can't tell them apart — a spotter comment naming the mode is
+// the only signal available.
+func TestClusterFiltersRejectRTTYSpotInCWDataSubBand(t *testing.T) {
+	filters := defaultClusterFilters()
+	if filters.allowsSpot(clusterSpot{Frequency: "14080.0", Callsign: "W4GNS", Comment: "RTTY 21 WPM via RBN"}) {
+		t.Fatal("RTTY-commented spot was allowed through a CW-only filter")
+	}
+	if !filters.allowsSpot(clusterSpot{Frequency: "14080.0", Callsign: "W4GNS", Comment: "CQ CQ"}) {
+		t.Fatal("plain CW-segment spot was rejected")
+	}
+}
+
+// TestClusterFiltersDoNotMisreadFromAbbreviationAsFMMode guards against a
+// false positive this filter must not introduce: "FM" is common DX-cluster
+// shorthand for "from" (e.g. "TNX FM VE3XYZ"), not the FM mode, and must
+// not cause a real CW spot to be rejected.
+func TestClusterFiltersDoNotMisreadFromAbbreviationAsFMMode(t *testing.T) {
+	filters := defaultClusterFilters()
+	if !filters.allowsSpot(clusterSpot{Frequency: "14025.0", Callsign: "W4GNS", Comment: "TNX FM VE3XYZ"}) {
+		t.Fatal("a CW spot with ham-slang \"FM\" (from) in its comment was incorrectly rejected as FM-mode")
+	}
+}
+
 func TestClusterFiltersRejectSpotsOutsideDXCountryFilter(t *testing.T) {
 	filters := defaultClusterFilters()
 	filters.DXCC = "Japan"
@@ -99,5 +125,20 @@ func TestClusterFiltersMatchZoneFilters(t *testing.T) {
 	filters.DXCQZone = "14"
 	if filters.allowsSpot(clusterSpot{Frequency: "14025.0", Callsign: "W4GNS"}) {
 		t.Fatal("W4GNS should not pass a mismatched CQ zone filter")
+	}
+}
+
+func TestCommentIndicatesNonCWMode(t *testing.T) {
+	nonCW := []string{"RTTY 21 WPM", "psk31 qrp", "FT8 CQ", "ft4", "JS8Call", "SSB net"}
+	for _, comment := range nonCW {
+		if !commentIndicatesNonCWMode(comment) {
+			t.Errorf("commentIndicatesNonCWMode(%q) = false, want true", comment)
+		}
+	}
+	cw := []string{"CQ CQ", "TNX FM VE3XYZ", "599 UP 2", "", "5NN TU"}
+	for _, comment := range cw {
+		if commentIndicatesNonCWMode(comment) {
+			t.Errorf("commentIndicatesNonCWMode(%q) = true, want false", comment)
+		}
 	}
 }

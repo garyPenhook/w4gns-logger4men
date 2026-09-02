@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.15.3
+
+- Filtered RTTY (and other digital-mode) spots out of the "CW only" DX Cluster/DX Spots feed. RTTY shares the same data sub-band as CW on most bands, so the existing frequency-range filter alone couldn't tell them apart; spots whose comment names a non-CW mode (`RTTY`, `PSK31`, `FT8`, `FT4`, `JS8`, `JT65`, `JT9`, `SSB`, etc.) are now rejected too.
+
 ### v1.15.2
 
 - Fixed the DX cluster getting stuck showing "connecting to dx.k3lr.com:23…" forever: the connection result was only handled while on the DX Cluster (`F3`) screen, but the connection now starts at app launch while the operator is on QSO Entry. The TCP connection was actually succeeding in the background the whole time — the success message just had nowhere to land, so `clusterConnecting` never cleared and no spots ever populated the DX Spots panel.
