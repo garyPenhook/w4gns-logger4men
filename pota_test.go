@@ -36,15 +36,30 @@ func TestLookupPOTASpotBoundsResponseSize(t *testing.T) {
 	}
 }
 
-func TestRecentPOTAReferenceUsesOnlyLastFifteenMinutes(t *testing.T) {
+func TestRecentPOTASpotUsesOnlyLastFifteenMinutes(t *testing.T) {
 	now := time.Date(2026, time.August, 31, 22, 30, 0, 0, time.UTC)
 	spots := []potaSpot{
-		{Activator: "W4GNS", Reference: "US-100", SpotTime: "2026-08-31T22:14:59"},
-		{Activator: "W4GNS", Reference: "US-200", SpotTime: "2026-08-31T22:20:00"},
-		{Activator: "K1ABC", Reference: "US-300", SpotTime: "2026-08-31T22:29:00"},
+		{Activator: "W4GNS", Reference: "US-100", Name: "Old Park", SpotTime: "2026-08-31T22:14:59"},
+		{Activator: "W4GNS", Reference: "US-200", Name: "New Park", SpotTime: "2026-08-31T22:20:00"},
+		{Activator: "K1ABC", Reference: "US-300", Name: "Other Park", SpotTime: "2026-08-31T22:29:00"},
 	}
-	if reference, ok := recentPOTAReference(spots, "w4gns", now); !ok || reference != "US-200" {
-		t.Fatalf("recentPOTAReference() = %q, %t; want US-200, true", reference, ok)
+	reference, parkName, ok := recentPOTASpot(spots, "w4gns", now)
+	if !ok || reference != "US-200" || parkName != "New Park" {
+		t.Fatalf("recentPOTASpot() = %q, %q, %t; want US-200, New Park, true", reference, parkName, ok)
+	}
+}
+
+// TestRecentPOTASpotFillsParkNameWithoutAReference guards the "prefer the
+// name if there's no park number" behavior: a spot record missing Reference
+// but carrying Name must still resolve instead of being skipped entirely.
+func TestRecentPOTASpotFillsParkNameWithoutAReference(t *testing.T) {
+	now := time.Date(2026, time.August, 31, 22, 30, 0, 0, time.UTC)
+	spots := []potaSpot{
+		{Activator: "W4GNS", Reference: "", Name: "Nameless Number Park", SpotTime: "2026-08-31T22:29:00"},
+	}
+	reference, parkName, ok := recentPOTASpot(spots, "w4gns", now)
+	if !ok || reference != "" || parkName != "Nameless Number Park" {
+		t.Fatalf("recentPOTASpot() = %q, %q, %t; want \"\", Nameless Number Park, true", reference, parkName, ok)
 	}
 }
 

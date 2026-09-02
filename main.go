@@ -34,7 +34,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.13.0"
+const appVersion = "1.14.0"
 
 type screen int
 
@@ -57,11 +57,12 @@ const (
 	detailCounty
 	detailEmail
 	detailPOTARef
+	detailParkName
 	detailNotes
 	detailFieldCount
 )
 
-var detailLabels = [detailFieldCount]string{"Name", "QTH", "Grid", "State", "County", "Email", "POTA Ref", "Notes"}
+var detailLabels = [detailFieldCount]string{"Name", "QTH", "Grid", "State", "County", "Email", "POTA Ref", "Park Name", "Notes"}
 
 const (
 	contestName = iota
@@ -151,6 +152,7 @@ type qso struct {
 	email      string
 	comment    string
 	potaRef    string
+	parkName   string
 	contestID  string
 	stx        string
 	stxString  string
@@ -348,7 +350,7 @@ func initialModel(st *store) model {
 		newTextInput("Operator name", 20), newTextInput("City / QTH", 20),
 		newTextInput("Grid square", 10), newTextInput("State / province", 12),
 		newTextInput("County", 16), newTextInput("Email", 24),
-		newTextInput("US-0000", 12), newTextInput("QSO notes", 36),
+		newTextInput("US-0000", 12), newTextInput("Park name", 30), newTextInput("QSO notes", 36),
 	}
 	contests := []textinput.Model{
 		newTextInput("Contest name", 20), newTextInput("001", 8), newTextInput("Sent exchange", 16),
@@ -827,6 +829,7 @@ func (m *model) beginEditQSO(q qso) {
 	m.detailFields[detailCounty].SetValue(full.county)
 	m.detailFields[detailEmail].SetValue(full.email)
 	m.detailFields[detailPOTARef].SetValue(full.potaRef)
+	m.detailFields[detailParkName].SetValue(full.parkName)
 	m.detailFields[detailNotes].SetValue(full.comment)
 	m.contestFields[contestName].SetValue(full.contestID)
 	m.contestFields[contestSerialSent].SetValue(full.stx)
@@ -1166,6 +1169,7 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		county:    strings.TrimSpace(m.detailFields[detailCounty].Value()),
 		email:     strings.TrimSpace(m.detailFields[detailEmail].Value()),
 		potaRef:   strings.ToUpper(strings.TrimSpace(m.detailFields[detailPOTARef].Value())),
+		parkName:  strings.TrimSpace(m.detailFields[detailParkName].Value()),
 		comment:   strings.TrimSpace(m.detailFields[detailNotes].Value()),
 		contestID: strings.TrimSpace(m.contestFields[contestName].Value()),
 		stx:       strings.TrimSpace(m.contestFields[contestSerialSent].Value()),
@@ -1181,7 +1185,7 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		// fields actually shown for editing are overwritten.
 		logged := m.editingOriginal
 		logged.call, logged.band, logged.rstSent, logged.rstRcvd, logged.frequency = edited.call, edited.band, edited.rstSent, edited.rstRcvd, edited.frequency
-		logged.name, logged.qth, logged.grid, logged.state, logged.potaRef, logged.comment = edited.name, edited.qth, edited.grid, edited.state, edited.potaRef, edited.comment
+		logged.name, logged.qth, logged.grid, logged.state, logged.county, logged.email, logged.potaRef, logged.parkName, logged.comment = edited.name, edited.qth, edited.grid, edited.state, edited.county, edited.email, edited.potaRef, edited.parkName, edited.comment
 		logged.contestID, logged.stx, logged.stxString, logged.srx, logged.srxString = edited.contestID, edited.stx, edited.stxString, edited.srx, edited.srxString
 		if logged.call != m.editingOriginal.call {
 			// A changed callsign can resolve to a different DXCC entity;
@@ -1256,9 +1260,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMsg = "POTA lookup unavailable: " + message.err.Error()
 			return m, nil
 		}
+		filled := false
 		if message.reference != "" && strings.TrimSpace(m.detailFields[detailPOTARef].Value()) == "" {
 			m.detailFields[detailPOTARef].SetValue(message.reference)
-			m.statusMsg = "POTA " + message.reference + " from recent POTA spot"
+			filled = true
+		}
+		if message.parkName != "" && strings.TrimSpace(m.detailFields[detailParkName].Value()) == "" {
+			m.detailFields[detailParkName].SetValue(message.parkName)
+			filled = true
+		}
+		if filled {
+			label := message.reference
+			if label == "" {
+				label = message.parkName
+			}
+			m.statusMsg = "POTA " + label + " from recent POTA spot"
 		}
 		return m, nil
 	}

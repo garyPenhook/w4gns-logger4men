@@ -1,5 +1,10 @@
 # Changelog
 
+### v1.14.0
+
+- Added a Park Name field to QSO Details (`F6`), auto-filled from recent POTA spots alongside the existing POTA Ref field — including when a spot has a name but no reference code, so the park is still recorded even without its number. Local-only: there's no standard ADIF field for it, so it isn't exported/imported or sent to QRZ/WRL.
+- Fixed editing an existing QSO (`F9` → `Enter`) silently discarding any change to County or Email — they were missing from the fields the save actually carried forward, a gap left over from when those two fields were added.
+
 ### v1.13.0
 
 - Added an in-app ADIF export (`Ctrl+O`): writes the active station profile's full log to your Downloads folder as a timestamped `.adi` file, without needing to quit and use the `--export-adif` CLI flag. Each run gets its own file, so repeated exports never overwrite an earlier one.

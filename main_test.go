@@ -364,6 +364,58 @@ func TestEditQSOFlowSavesChangesWithoutInsertingANewRow(t *testing.T) {
 	}
 }
 
+// TestEditQSOFlowSavesCountyEmailAndParkName guards against a real
+// regression: the edit-merge in logCurrentQSO once carried forward name/qth/
+// grid/state/potaRef/comment but silently dropped any County or Email edit
+// (added in a later change) because they were never added to that same
+// merge list. Park Name is new alongside them, so this covers all three
+// together rather than risking the same omission again.
+func TestEditQSOFlowSavesCountyEmailAndParkName(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.fields[fieldCall].SetValue("W1AW")
+	m, _ = m.logCurrentQSO()
+	original, err := st.qsoByID(m.recentQSOs[0].id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyF9})
+	m = updated.(model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
+	if m.editingQSOID != original.id {
+		t.Fatalf("editingQSOID = %d, want %d", m.editingQSOID, original.id)
+	}
+
+	m.detailFields[detailCounty].SetValue("Davidson")
+	m.detailFields[detailEmail].SetValue("w1aw@arrl.org")
+	m.detailFields[detailParkName].SetValue("Fake State Park")
+	m, _ = m.logCurrentQSO()
+	if m.editingQSOID != 0 {
+		t.Fatalf("editingQSOID = %d after save, want 0", m.editingQSOID)
+	}
+
+	got, err := st.qsoByID(original.id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.county != "Davidson" {
+		t.Errorf("county = %q, want Davidson", got.county)
+	}
+	if got.email != "w1aw@arrl.org" {
+		t.Errorf("email = %q, want w1aw@arrl.org", got.email)
+	}
+	if got.parkName != "Fake State Park" {
+		t.Errorf("parkName = %q, want Fake State Park", got.parkName)
+	}
+}
+
 // TestEscCancelsEditWithoutQuitting covers the contextual Esc behavior: it
 // must cancel an in-progress edit (discarding changes) rather than quitting
 // the whole app, which is Esc's normal meaning on this screen.

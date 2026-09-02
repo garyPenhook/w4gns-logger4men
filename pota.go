@@ -27,11 +27,13 @@ type potaSpot struct {
 	SpotTime  string `json:"spotTime"`
 	Activator string `json:"activator"`
 	Reference string `json:"reference"`
+	Name      string `json:"name"`
 }
 
 type potaLookupMsg struct {
 	call      string
 	reference string
+	parkName  string
 	err       error
 }
 
@@ -55,21 +57,27 @@ func lookupPOTASpot(call string, now time.Time) tea.Cmd {
 		if err := json.NewDecoder(io.LimitReader(response.Body, maxPOTAResponseBytes)).Decode(&spots); err != nil {
 			return potaLookupMsg{call: call, err: fmt.Errorf("decode POTA spots: %w", err)}
 		}
-		reference, ok := recentPOTAReference(spots, call, now)
+		reference, parkName, ok := recentPOTASpot(spots, call, now)
 		if !ok {
 			return potaLookupMsg{call: call}
 		}
-		return potaLookupMsg{call: call, reference: reference}
+		return potaLookupMsg{call: call, reference: reference, parkName: parkName}
 	}
 }
 
-func recentPOTAReference(spots []potaSpot, call string, now time.Time) (string, bool) {
+// recentPOTASpot returns the reference and park name of call's most recent
+// spot within the dupe window. A spot with a name but no reference (seen, in
+// principle, from a malformed upstream record) still counts, so the park
+// name can be filled in on its own rather than losing the match entirely.
+func recentPOTASpot(spots []potaSpot, call string, now time.Time) (reference, parkName string, ok bool) {
 	call = normalizeCall(call)
 	cutoff := now.UTC().Add(-dupeWindow)
 	var latest time.Time
-	var reference string
 	for _, spot := range spots {
-		if !strings.EqualFold(strings.TrimSpace(spot.Activator), call) || strings.TrimSpace(spot.Reference) == "" {
+		if !strings.EqualFold(strings.TrimSpace(spot.Activator), call) {
+			continue
+		}
+		if strings.TrimSpace(spot.Reference) == "" && strings.TrimSpace(spot.Name) == "" {
 			continue
 		}
 		spotTime, err := time.ParseInLocation("2006-01-02T15:04:05", spot.SpotTime, time.UTC)
@@ -79,9 +87,10 @@ func recentPOTAReference(spots []potaSpot, call string, now time.Time) (string, 
 		if spotTime.After(latest) {
 			latest = spotTime
 			reference = strings.ToUpper(strings.TrimSpace(spot.Reference))
+			parkName = strings.TrimSpace(spot.Name)
 		}
 	}
-	return reference, reference != ""
+	return reference, parkName, reference != "" || parkName != ""
 }
 
 // recentClusterPOTAReference scans spots (newest-first, per
