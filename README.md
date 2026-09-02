@@ -69,6 +69,12 @@ Your log is stored locally. If a `w4gns.db` already exists in the directory you 
 - UTC and local time are displayed in the logger header.
 - Current solar-weather propagation indices (SFI, A-index, K-index) are shown below the header, sourced from [N0NBH's solar-data feed](https://www.hamqsl.com/solar.html) and refreshed automatically every 30 minutes. If the feed is unreachable, the line reports why and logging is unaffected.
 
+## DX Spots panel
+
+The space to the right of Recent QSOs shows live CW spots across all bands — not just the band currently selected for the next QSO — on terminals wide enough to fit it (roughly 24+ columns beyond what Recent QSOs itself needs; narrower terminals just show Recent QSOs alone, as before this panel existed). It's the same feed as the full DX Cluster (`F3`) screen and respects whatever Cluster Filters (`F4`) you've set, so the two never disagree about what counts as a CW spot.
+
+Each line shows time, frequency, and callsign; wider terminals (45+ columns of panel space) also show the spot's comment. Before any spots have arrived, the panel shows the connection status instead (e.g. `connecting to dx.k3lr.com:23…`, or a prompt to set your callsign in Station Setup if none is configured).
+
 ## Browse, edit, and delete QSOs
 
 Press `F9` to move keyboard focus into the Recent QSOs table (the row under your cursor is highlighted only while browsing — it doesn't imply anything the rest of the time).
@@ -316,7 +322,7 @@ Maidenhead locators support 2, 4, 6, 8, and 10-character values. New QSOs use th
 
 ## DX Cluster
 
-Press `F3` to open the DX Cluster screen and connect to K3LR automatically when the active station has a callsign.
+The app connects to K3LR automatically at launch once the active station has a callsign, not only when you visit the DX Cluster screen — see [DX Spots panel](#dx-spots-panel). Press `F3` to open the full DX Cluster screen.
 
 - The current source is **K3LR DX Cluster**.
 - Save your callsign in Station Setup before connecting.

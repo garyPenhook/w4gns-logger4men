@@ -2,10 +2,12 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -673,6 +675,36 @@ func TestF3OpensK3LRClusterScreen(t *testing.T) {
 	}
 }
 
+// TestConnectClusterIfNeededSkipsWhenAlreadyConnecting guards the startup
+// auto-connect added for the DX Spots panel: main() pre-flags
+// clusterConnecting before the program starts so Init() can fire the actual
+// connectK3LR command. If the operator then presses F3 while that connect
+// is still in flight, openCluster (via connectClusterIfNeeded) must not
+// start a second, redundant connection.
+func TestConnectClusterIfNeededSkipsWhenAlreadyConnecting(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.activeStation.Callsign = "W4GNS"
+	if cmd := m.connectClusterIfNeeded(); cmd == nil {
+		t.Fatal("connectClusterIfNeeded returned nil on the first call")
+	}
+	if !m.clusterConnecting {
+		t.Fatal("connectClusterIfNeeded did not set clusterConnecting")
+	}
+	generationAfterFirst := m.clusterGeneration
+	if cmd := m.connectClusterIfNeeded(); cmd != nil {
+		t.Fatal("connectClusterIfNeeded started a second connection while one was already in flight")
+	}
+	if m.clusterGeneration != generationAfterFirst {
+		t.Fatal("connectClusterIfNeeded bumped clusterGeneration on the skipped second call")
+	}
+}
+
 func TestClusterConnectionStateRejectsDuplicateAndStaleResults(t *testing.T) {
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {
@@ -804,5 +836,90 @@ func TestSaveStationSetupPersistsQRZXMLCredentials(t *testing.T) {
 	}
 	if got := loadQRZXMLCredentials(); got.username != "newuser" || got.password != "newpass" {
 		t.Fatalf("loadQRZXMLCredentials() after save = %+v, want newuser/newpass", got)
+	}
+}
+
+func TestTruncateToWidth(t *testing.T) {
+	if got := truncateToWidth("hello", 10); got != "hello" {
+		t.Fatalf("truncateToWidth(short) = %q, want unchanged", got)
+	}
+	if got := truncateToWidth("hello world", 5); got != "hello" {
+		t.Fatalf("truncateToWidth(long) = %q, want hello", got)
+	}
+	if got := truncateToWidth("anything", 0); got != "" {
+		t.Fatalf("truncateToWidth(width=0) = %q, want empty", got)
+	}
+}
+
+// TestDxSpotsPanelHidesBelowMinWidth covers the narrow-terminal fallback:
+// the caller (View) relies on "" meaning "render Recent QSOs alone", so a
+// width too small for even "HH:MM freq call" must return exactly that.
+func TestDxSpotsPanelHidesBelowMinWidth(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	if got := m.dxSpotsPanel(dxSpotsPanelMinWidth - 1); got != "" {
+		t.Fatalf("dxSpotsPanel(too narrow) = %q, want empty", got)
+	}
+}
+
+// TestDxSpotsPanelOmitsCommentWhenNarrow guards the mid-width case: wide
+// enough to show spots at all, but not wide enough for a comment to be
+// appended without risking a wrap.
+func TestDxSpotsPanelOmitsCommentWhenNarrow(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.addClusterSpot(clusterSpot{Spotter: "K1ABC", Frequency: "14025.0", Callsign: "W1AW", Comment: "this comment should not appear", Received: time.Now()})
+	got := m.dxSpotsPanel(dxSpotsPanelCommentMinWidth - 1)
+	if strings.Contains(got, "this comment") {
+		t.Fatalf("dxSpotsPanel(narrow) included the comment, want it omitted: %q", got)
+	}
+	if !strings.Contains(got, "W1AW") {
+		t.Fatalf("dxSpotsPanel(narrow) = %q, want it to still show the callsign", got)
+	}
+}
+
+// TestDxSpotsPanelShowsCommentWhenWide is the companion case: wide enough,
+// the comment must actually appear.
+func TestDxSpotsPanelShowsCommentWhenWide(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.addClusterSpot(clusterSpot{Spotter: "K1ABC", Frequency: "14025.0", Callsign: "W1AW", Comment: "cq test", Received: time.Now()})
+	got := m.dxSpotsPanel(80)
+	if !strings.Contains(got, "cq test") {
+		t.Fatalf("dxSpotsPanel(wide) = %q, want the comment included", got)
+	}
+}
+
+// TestDxSpotsPanelLimitsToVisibleRows guards against the panel growing
+// unbounded and pushing the layout below Recent QSOs' own row count.
+func TestDxSpotsPanelLimitsToVisibleRows(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	for i := 0; i < recentQSOsVisibleRows+5; i++ {
+		m.addClusterSpot(clusterSpot{Spotter: "K1ABC", Frequency: "14025.0", Callsign: fmt.Sprintf("W%dAW", i), Received: time.Now()})
+	}
+	got := m.dxSpotsPanel(80)
+	if lines := strings.Count(got, "\n") + 1; lines != recentQSOsVisibleRows+1 { // +1 for the title line
+		t.Fatalf("dxSpotsPanel line count = %d, want %d (title + %d rows)", lines, recentQSOsVisibleRows+1, recentQSOsVisibleRows)
 	}
 }

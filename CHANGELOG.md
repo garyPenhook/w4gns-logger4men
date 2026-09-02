@@ -1,5 +1,10 @@
 # Changelog
 
+### v1.15.0
+
+- Added a DX Spots panel filling the empty space beside Recent QSOs on QSO Entry: live CW spots across all bands, from the same feed and Cluster Filters (`F4`) as the full DX Cluster (`F3`) screen. Hidden automatically on terminals too narrow to fit it.
+- The app now connects to K3LR automatically at launch (once a station callsign is configured), not only when visiting the DX Cluster screen, so the new panel has spots to show right away.
+
 ### v1.14.0
 
 - Added a Park Name field to QSO Details (`F6`), auto-filled from recent POTA spots alongside the existing POTA Ref field — including when a spot has a name but no reference code, so the park is still recorded even without its number. Local-only: there's no standard ADIF field for it, so it isn't exported/imported or sent to QRZ/WRL.

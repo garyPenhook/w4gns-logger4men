@@ -26,6 +26,11 @@ const (
 	fieldCount
 )
 
+// recentQSOsVisibleRows is the Recent QSOs table's height, shared with the
+// DX Spots panel that renders alongside it on QSO Entry so the two stay the
+// same height.
+const recentQSOsVisibleRows = 10
+
 // cwMode is the only mode this logger supports — see "CW only logger, life
 // is too short for QRM." in README.md. There is no Mode field in the
 // QSO-entry UI; validateQSO still enforces it on every insert.
@@ -34,7 +39,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.14.0"
+const appVersion = "1.15.0"
 
 type screen int
 
@@ -373,7 +378,7 @@ func initialModel(st *store) model {
 	t := table.New(
 		table.WithColumns(cols),
 		table.WithFocused(false),
-		table.WithHeight(10),
+		table.WithHeight(recentQSOsVisibleRows),
 		table.WithStyles(tableStylesUnfocused),
 	)
 
@@ -508,6 +513,15 @@ func (m *model) saveStationSetup() {
 
 func (m *model) openCluster() tea.Cmd {
 	m.screen = clusterScreen
+	return m.connectClusterIfNeeded()
+}
+
+// connectClusterIfNeeded starts a K3LR connection unless one is already up
+// or in flight, or no station callsign is configured yet. Split out of
+// openCluster so main() can also call it at startup, populating the DX
+// Spots panel on QSO Entry without requiring a visit to the DX Cluster (F3)
+// screen first.
+func (m *model) connectClusterIfNeeded() tea.Cmd {
 	if m.clusterClient != nil || m.clusterConnecting {
 		return nil
 	}
@@ -744,7 +758,15 @@ func (m *model) isDuplicateClusterSpot(spot clusterSpot) bool {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(textinput.Blink, fetchSolarIndicesCmd(), solarTickCmd())
+	cmds := []tea.Cmd{textinput.Blink, fetchSolarIndicesCmd(), solarTickCmd()}
+	// main() pre-sets clusterConnecting (and the generation/status that go
+	// with it) before constructing the program, since Init has a value
+	// receiver and can't mutate the model itself — only kick off the
+	// connect this model was already flagged for.
+	if m.clusterConnecting && m.clusterClient == nil {
+		cmds = append(cmds, connectK3LR(m.activeStation.Callsign, m.clusterGeneration))
+	}
+	return tea.Batch(cmds...)
 }
 
 // setTableFocused toggles whether the Recent QSOs table is the active
@@ -1917,9 +1939,17 @@ func (m model) View() string {
 	if m.workedCall != "" {
 		workedLabel = "Stations Worked: " + m.workedCall + " (prior contacts)"
 	}
-	b.WriteString(helpStyle.Render(workedLabel))
-	b.WriteString("\n")
-	b.WriteString(m.table.View())
+	recentBlock := helpStyle.Render(workedLabel) + "\n" + m.table.View()
+	// Fills the empty space to the right of Recent QSOs on wide enough
+	// terminals; on narrow ones dxSpotsPanel returns "" and this just
+	// renders recentBlock alone, unchanged from before this panel existed.
+	const spotsPanelGap = 4
+	spotsPanel := m.dxSpotsPanel(m.termWidth - lipgloss.Width(recentBlock) - spotsPanelGap)
+	if spotsPanel == "" {
+		b.WriteString(recentBlock)
+	} else {
+		b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, recentBlock, strings.Repeat(" ", spotsPanelGap), spotsPanel))
+	}
 	b.WriteString("\n\n")
 
 	status := fmt.Sprintf("Qs: %d   %s", m.qsoCount, m.statusMsg)
@@ -1953,6 +1983,72 @@ func (m model) stationSetupView() string {
 	b.WriteString("\n")
 	b.WriteString(helpStyle.Render("tab/shift+tab: move fields  •  final enter: save station profile"))
 	return b.String()
+}
+
+// dxSpotsPanelMinWidth is the floor below which there's no point rendering
+// the panel at all — not even enough room for "HH:MM freq call".
+const dxSpotsPanelMinWidth = 24
+
+// dxSpotsPanelCommentMinWidth is the width at which a spot's comment starts
+// getting appended after time/freq/call, rather than being dropped to keep
+// the line from wrapping.
+const dxSpotsPanelCommentMinWidth = 45
+
+// dxSpotsPanel renders the DX Spots panel shown beside Recent QSOs on QSO
+// Entry: every CW spot currently in m.clusterSpots, across all bands,
+// independent of whatever band the operator has selected for the next QSO.
+// It reuses the same feed (and thus the same Cluster Filters (F4)
+// configuration) as the full DX Cluster (F3) screen rather than
+// maintaining a second one, so the two never disagree about what counts as
+// a CW spot. width is the space left over after Recent QSOs; a width below
+// dxSpotsPanelMinWidth returns "" so the caller falls back to rendering
+// Recent QSOs alone, matching the layout from before this panel existed.
+func (m model) dxSpotsPanel(width int) string {
+	if width < dxSpotsPanelMinWidth {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString(helpStyle.Render(truncateToWidth("DX Spots (CW, all bands)", width)))
+	b.WriteString("\n")
+	if len(m.clusterSpots) == 0 {
+		status := m.clusterStatus
+		if status == "" {
+			status = "no spots yet"
+		}
+		b.WriteString(helpStyle.Render(truncateToWidth(status, width)))
+		return b.String()
+	}
+	showComment := width >= dxSpotsPanelCommentMinWidth
+	spots := m.clusterSpots
+	if len(spots) > recentQSOsVisibleRows {
+		spots = spots[:recentQSOsVisibleRows]
+	}
+	lines := make([]string, len(spots))
+	for i, spot := range spots {
+		line := fmt.Sprintf("%s %-8s %-10s", spot.Received.Format("15:04"), spot.Frequency, spot.Callsign)
+		if showComment {
+			if room := width - lipgloss.Width(line) - 1; room > 0 {
+				line += " " + truncateToWidth(spot.Comment, room)
+			}
+		}
+		lines[i] = truncateToWidth(line, width)
+	}
+	b.WriteString(strings.Join(lines, "\n"))
+	return b.String()
+}
+
+// truncateToWidth shortens s to at most width runes, so a long comment or
+// callsign can't push the DX Spots panel wider than the space actually left
+// over next to Recent QSOs.
+func truncateToWidth(s string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	runes := []rune(s)
+	if len(runes) <= width {
+		return s
+	}
+	return string(runes[:width])
 }
 
 func (m model) clusterView() string {
@@ -2202,6 +2298,11 @@ func main() {
 	m.wrlAPIKey = loadWRLAPIKey()
 	m.wrlLogbookID = loadWRLLogbookID()
 	m.qrzXMLCreds = loadQRZXMLCredentials()
+	// Connect to the DX cluster at startup, not only when the operator
+	// visits the DX Cluster (F3) screen, so the DX Spots panel on QSO Entry
+	// has something to show right away. connectClusterIfNeeded no-ops (and
+	// leaves clusterConnecting false) if no station callsign is configured.
+	m.connectClusterIfNeeded()
 
 	// Alt-screen mode gives the logger a clean, dedicated terminal surface and
 	// restores the invoking terminal unchanged when the application exits.
