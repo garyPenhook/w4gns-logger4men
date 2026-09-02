@@ -39,7 +39,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.15.5"
+const appVersion = "1.15.6"
 
 type screen int
 
@@ -756,6 +756,15 @@ func (m *model) scrollClusterSpots(delta int) {
 	if m.clusterSpotsScroll > maxScroll {
 		m.clusterSpotsScroll = maxScroll
 	}
+	if len(m.clusterSpots) == 0 {
+		return
+	}
+	first := m.clusterSpotsScroll + 1
+	last := m.clusterSpotsScroll + recentQSOsVisibleRows
+	if last > len(m.clusterSpots) {
+		last = len(m.clusterSpots)
+	}
+	m.statusMsg = fmt.Sprintf("DX Spots %d-%d of %d", first, last, len(m.clusterSpots))
 }
 
 // isDuplicateClusterSpot reports whether spot's callsign was already shown
@@ -1654,6 +1663,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// non-key messages (such as textinput cursor-blink ticks) through.
 			return m, nil
 		}
+	case tea.MouseMsg:
+		// Mouse wheel scrolls the DX Spots panel regardless of where the
+		// cursor is over the screen — it's the only scrollable content on
+		// QSO Entry, and PageUp/PageDown are unreliable across terminal
+		// emulators/multiplexers that bind them to their own scrollback.
+		switch msg.Button {
+		case tea.MouseButtonWheelUp:
+			m.scrollClusterSpots(-3)
+			return m, nil
+		case tea.MouseButtonWheelDown:
+			m.scrollClusterSpots(3)
+			return m, nil
+		}
+		return m, nil
 	}
 
 	var cmd tea.Cmd
@@ -2389,7 +2412,7 @@ func main() {
 
 	// Alt-screen mode gives the logger a clean, dedicated terminal surface and
 	// restores the invoking terminal unchanged when the application exits.
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
 
 	// bubbletea only listens for SIGINT/SIGTERM. SIGHUP (sent when the
 	// controlling terminal window is closed) would otherwise kill the process

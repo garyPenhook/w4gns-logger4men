@@ -1,5 +1,10 @@
 # Changelog
 
+### v1.15.6
+
+- The DX Spots panel can now also be scrolled with the mouse wheel, in addition to `PgUp`/`PgDn`. Mouse support (`tea.WithMouseCellMotion`) is now enabled app-wide. This is the more reliable option on setups where PgUp/PgDn gets captured by the terminal emulator, a multiplexer (tmux/screen), or the window manager before it reaches the app.
+- The status bar now shows the visible range while scrolling the DX Spots panel (e.g. `DX Spots 11-20 of 37`), making it obvious whether a scroll input registered.
+
 ### v1.15.5
 
 - The DX Spots panel on QSO Entry can now be scrolled: `PgUp`/`PgDn` page through all buffered spots (up to 100), not just the most recent 10. The panel title shows a `(PgUp/PgDn)` hint whenever there are more spots than fit on screen.
