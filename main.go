@@ -34,7 +34,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.12.4"
+const appVersion = "1.13.0"
 
 type screen int
 
@@ -211,6 +211,7 @@ type model struct {
 
 	backupInProgress         bool
 	cabrilloExportInProgress bool
+	adifExportInProgress     bool
 
 	dupeWarning  bool
 	statusMsg    string
@@ -628,6 +629,44 @@ func (m model) cabrilloExportCmd(contestID string) tea.Cmd {
 			return cabrilloExportedMsg{err: fmt.Errorf("write Cabrillo file: %w", closeErr)}
 		}
 		return cabrilloExportedMsg{path: path, count: count}
+	}
+}
+
+type adifExportedMsg struct {
+	path  string
+	count int
+	err   error
+}
+
+// adifExportCmd writes the active station profile's full log to the
+// operator's Downloads folder, timestamped so repeated exports don't
+// silently overwrite an earlier one (unlike the per-contest Cabrillo export,
+// which is meant to be re-run for the same contest).
+func (m model) adifExportCmd() tea.Cmd {
+	st := m.store
+	profile := m.activeStation
+	return func() tea.Msg {
+		downloads, err := defaultDownloadsDir()
+		if err != nil {
+			return adifExportedMsg{err: err}
+		}
+		if err := os.MkdirAll(downloads, 0o700); err != nil {
+			return adifExportedMsg{err: fmt.Errorf("create Downloads folder: %w", err)}
+		}
+		callsign := profile.Callsign
+		if callsign == "" {
+			callsign = "LOG"
+		}
+		filename := fmt.Sprintf("%s_%s.adi", sanitizeFilenameComponent(callsign), time.Now().UTC().Format("20060102-150405"))
+		path := filepath.Join(downloads, filename)
+
+		ctx, cancel := context.WithTimeout(context.Background(), backupTimeout)
+		defer cancel()
+		count, err := writeADIFAtomic(ctx, downloads, path, profile.ID, st)
+		if err != nil {
+			return adifExportedMsg{err: err}
+		}
+		return adifExportedMsg{path: path, count: count}
 	}
 }
 
@@ -1306,6 +1345,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	if message, ok := msg.(adifExportedMsg); ok {
+		m.adifExportInProgress = false
+		if message.err != nil {
+			m.statusMsg = fmt.Sprintf("ADIF export failed: %v", message.err)
+		} else {
+			m.statusMsg = fmt.Sprintf("ADIF exported: %d QSOs -> %s", message.count, message.path)
+		}
+		return m, nil
+	}
 	if message, ok := msg.(backupCompletedMsg); ok {
 		m.backupInProgress = false
 		if message.err != nil {
@@ -1354,6 +1402,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.cabrilloExportInProgress = true
 		m.statusMsg = "exporting Cabrillo…"
 		return m, m.cabrilloExportCmd(contestID)
+	}
+	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "ctrl+o" {
+		if m.adifExportInProgress {
+			m.statusMsg = "ADIF export already in progress…"
+			return m, nil
+		}
+		m.adifExportInProgress = true
+		m.statusMsg = "exporting ADIF…"
+		return m, m.adifExportCmd()
 	}
 	if m.screen == stationSetupScreen {
 		return m.updateStationSetup(msg)
@@ -2083,7 +2140,7 @@ func screenHotkeys(current screen) string {
 		escape = "Esc: QSO Entry"
 	}
 	line1 := "W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF"
-	line2 := "F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+X: Export Cabrillo  •  " + escape
+	line2 := "F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo  •  " + escape
 	return hotkeyStyle.Render(line1) + "\n" + hotkeyStyle.Render(line2)
 }
 
@@ -2249,41 +2306,9 @@ func runADIFExport(path string) {
 		fmt.Fprintf(os.Stderr, "error loading station profile: %v\n", err)
 		os.Exit(1)
 	}
-	// Write to a temporary file in the target's own directory and rename it
-	// into place only after a full, successful export. os.Create(path)
-	// alone would truncate any existing file at path immediately, so a
-	// failure partway through the export (a DB read error, the process
-	// being killed) would destroy it and leave nothing usable behind.
-	dir := filepath.Dir(path)
-	tempFile, err := os.CreateTemp(dir, ".w4gns-export-*.adi.tmp")
+	count, err := writeADIFAtomic(context.Background(), filepath.Dir(path), path, profile.ID, st)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error creating temporary export file: %v\n", err)
-		os.Exit(1)
-	}
-	tempPath := tempFile.Name()
-	cleanup := func() { os.Remove(tempPath) }
-
-	count, err := exportADIF(context.Background(), tempFile, profile.ID, st)
-	if err != nil {
-		tempFile.Close()
-		cleanup()
 		fmt.Fprintf(os.Stderr, "ADIF export failed: %v\n", err)
-		os.Exit(1)
-	}
-	if err := tempFile.Sync(); err != nil {
-		tempFile.Close()
-		cleanup()
-		fmt.Fprintf(os.Stderr, "error syncing ADIF file: %v\n", err)
-		os.Exit(1)
-	}
-	if err := tempFile.Close(); err != nil {
-		cleanup()
-		fmt.Fprintf(os.Stderr, "error closing ADIF file: %v\n", err)
-		os.Exit(1)
-	}
-	if err := os.Rename(tempPath, path); err != nil {
-		cleanup()
-		fmt.Fprintf(os.Stderr, "error finalizing ADIF export: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Printf("ADIF export complete: %d QSOs written to %s\n", count, path)

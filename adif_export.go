@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -63,6 +64,43 @@ func exportADIF(ctx context.Context, writer io.Writer, profileID int64, st *stor
 	})
 	if err != nil {
 		return 0, err
+	}
+	return count, nil
+}
+
+// writeADIFAtomic writes profileID's full ADIF export to path, used by both
+// the CLI `--export-adif` flag and the in-app Ctrl+O export. It writes to a
+// temporary file in dir first and renames it into place only after a full,
+// successful export — os.Create(path) alone would truncate any existing
+// file at path immediately, so a failure partway through (a DB read error,
+// the process being killed) would otherwise destroy it and leave nothing
+// usable behind.
+func writeADIFAtomic(ctx context.Context, dir, path string, profileID int64, st *store) (int, error) {
+	tempFile, err := os.CreateTemp(dir, ".w4gns-export-*.adi.tmp")
+	if err != nil {
+		return 0, fmt.Errorf("create temporary export file: %w", err)
+	}
+	tempPath := tempFile.Name()
+	cleanup := func() { os.Remove(tempPath) }
+
+	count, err := exportADIF(ctx, tempFile, profileID, st)
+	if err != nil {
+		tempFile.Close()
+		cleanup()
+		return 0, err
+	}
+	if err := tempFile.Sync(); err != nil {
+		tempFile.Close()
+		cleanup()
+		return 0, fmt.Errorf("sync ADIF file: %w", err)
+	}
+	if err := tempFile.Close(); err != nil {
+		cleanup()
+		return 0, fmt.Errorf("close ADIF file: %w", err)
+	}
+	if err := os.Rename(tempPath, path); err != nil {
+		cleanup()
+		return 0, fmt.Errorf("finalize ADIF export: %w", err)
 	}
 	return count, nil
 }

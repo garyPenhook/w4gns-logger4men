@@ -494,6 +494,50 @@ func TestBandSelectorSetsValidDefaultFrequency(t *testing.T) {
 	}
 }
 
+// TestAdifExportCmdWritesTimestampedFileToDownloads covers the in-app ADIF
+// export end to end: the tea.Cmd it returns must write a real file under
+// the operator's Downloads folder and report its path and QSO count via
+// adifExportedMsg, not just format a filename.
+func TestAdifExportCmdWritesTimestampedFileToDownloads(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.activeStation.Callsign = "W4GNS"
+	logged := validTestQSO()
+	logged.profileID = m.activeStation.ID
+	if _, err := st.insertQSO(logged); err != nil {
+		t.Fatalf("insertQSO returned error: %v", err)
+	}
+
+	msg, ok := m.adifExportCmd()().(adifExportedMsg)
+	if !ok {
+		t.Fatalf("adifExportCmd()() = %T, want adifExportedMsg", msg)
+	}
+	if msg.err != nil {
+		t.Fatalf("adifExportedMsg.err = %v, want nil", msg.err)
+	}
+	if msg.count != 1 {
+		t.Fatalf("adifExportedMsg.count = %d, want 1", msg.count)
+	}
+	wantDir := filepath.Join(home, "Downloads")
+	if filepath.Dir(msg.path) != wantDir {
+		t.Fatalf("export path = %q, want it under %q", msg.path, wantDir)
+	}
+	if !strings.HasPrefix(filepath.Base(msg.path), "W4GNS_") || !strings.HasSuffix(msg.path, ".adi") {
+		t.Fatalf("export filename = %q, want a W4GNS_<timestamp>.adi shape", filepath.Base(msg.path))
+	}
+	if _, err := os.Stat(msg.path); err != nil {
+		t.Fatalf("exported file does not exist: %v", err)
+	}
+}
+
 func TestADIFExportPath(t *testing.T) {
 	path, ok := adifExportPath([]string{"--in-current-terminal", "--export-adif", "log.adi"})
 	if !ok || path != "log.adi" {

@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.13.0
+
+- Added an in-app ADIF export (`Ctrl+O`): writes the active station profile's full log to your Downloads folder as a timestamped `.adi` file, without needing to quit and use the `--export-adif` CLI flag. Each run gets its own file, so repeated exports never overwrite an earlier one.
+
 ### v1.12.4
 
 - The version/keybinding rows at the top of every screen are now yellow instead of dim gray, which was hard to read.
