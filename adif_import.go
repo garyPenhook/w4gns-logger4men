@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -44,6 +45,15 @@ func importADIF(ctx context.Context, reader io.Reader, profileID int64, st *stor
 	parseErr := parseADIRecords(reader, func(record map[string]string) error {
 		q, ok := qsoFromADI(record, profileID)
 		if !ok {
+			result.Skipped++
+			return nil
+		}
+		// Skip an individual record that parses but fails the database-boundary
+		// check (e.g. a stray character in one CALL, an out-of-band frequency,
+		// or a malformed grid) instead of aborting the whole import. Without
+		// this, insertQSOChunk's hard validation would fail the batch and stop
+		// the run at the first bad row among thousands of good ones.
+		if err := validateQSO(q); err != nil {
 			result.Skipped++
 			return nil
 		}
@@ -303,9 +313,14 @@ func readUntil(br *bufio.Reader, delim byte, max int) ([]byte, error) {
 	}
 }
 
+// parseADIFLength parses an ADIF field's byte-length prefix. ADIF lengths are
+// plain base-10 decimals, so strconv.Atoi is used rather than fmt.Sscan, whose
+// Go-literal rules would misread a zero-padded length like "010" as octal 8 or
+// "0x10" as hex 16 and then read the wrong number of bytes, corrupting the
+// field and desyncing the rest of the record.
 func parseADIFLength(value string) (int, error) {
-	var length int
-	if _, err := fmt.Sscan(value, &length); err != nil || length < 0 {
+	length, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || length < 0 {
 		return 0, fmt.Errorf("invalid length")
 	}
 	return length, nil

@@ -1,5 +1,16 @@
 # Changelog
 
+### v1.16.1
+
+- Logged QSOs and their pending uploads are now durable across an OS crash or power loss, not just a clean process exit (the database is fsynced on every commit). This closes a gap where the last few QSOs logged before a power drop — and their queued QRZ/WRL uploads — could be lost silently.
+- The DX cluster feed now reconnects automatically with exponential backoff when the connection drops (cluster nodes restart routinely), instead of silently freezing the DX Spots panel until you manually reconnect. A dead-but-not-closed connection is now also detected via an idle read timeout rather than hanging indefinitely while still showing "connected".
+- ADIF import is more robust: field length prefixes are parsed strictly as decimal (a zero-padded length like `010` was previously misread as octal, corrupting the field), and a single unimportable record is now skipped rather than aborting the entire import.
+- QSO validation now rejects malformed grid squares before they can be stored, re-exported, or uploaded to WRL.
+- Deleting a QSO now also removes its pending upload-queue entries, so the uploader no longer keeps retrying a contact that no longer exists.
+- DXCC country/zone enrichment no longer breaks if the bundled `cty.dat` is refreshed with a file that carries the standard lat/lon, continent, or UTC per-alias override tokens.
+- POTA auto-fill is more resilient: park references are matched more precisely in cluster comments (common tokens like `RST-599` are no longer mistaken for a reference), and spot timestamps are parsed tolerantly so a feed format change doesn't quietly stop it working.
+- Assorted hardening: the database file is created owner-only from the start, edits and the imported station callsign are validated more strictly, in-flight ADIF/Cabrillo exports are drained on exit so they can't be cut off by shutdown, and the "Stations Worked" header no longer lingers after the table is refreshed. Release downloads now ship a `SHA256SUMS` file.
+
 ### v1.16.0
 
 - QRZ/WRL uploads are now durable. Every logged QSO is recorded in a persistent upload outbox in the database — one entry per destination — that survives a crash, quit, or transient upload failure. Pending deliveries are retried automatically on the next launch and on a periodic timer with exponential backoff until each destination accepts them (a QSO deleted before it's accepted is dropped from the queue rather than sent). Previously an upload lived only in a single in-memory 60-second timer and was lost entirely if the app closed, crashed, or the upload failed before it fired.

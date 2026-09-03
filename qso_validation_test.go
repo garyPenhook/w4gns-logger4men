@@ -28,6 +28,9 @@ func TestValidateQSORejectsInvalidInput(t *testing.T) {
 		{"missing time", func(q *qso) { q.time = time.Time{} }},
 		{"missing end time", func(q *qso) { q.timeOff = time.Time{} }},
 		{"end before start", func(q *qso) { q.timeOff = q.time.Add(-time.Second) }},
+		{"malformed grid square", func(q *qso) { q.grid = "ZZ99" }},
+		{"non-grid text in grid", func(q *qso) { q.grid = "hello" }},
+		{"bad station callsign character", func(q *qso) { q.stationCallsign = "W4@GNS" }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

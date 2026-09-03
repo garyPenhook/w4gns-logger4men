@@ -64,14 +64,19 @@ func runBackup(ctx context.Context, st *store, profileID int64) (backupResult, e
 	dbStaged := filepath.Join(tempDir, dbName)
 	adifStaged := filepath.Join(tempDir, adifName)
 
+	// VACUUM INTO takes the single writer connection (SetMaxOpenConns(1)) for
+	// its full duration, so this step does briefly block concurrent logging on
+	// a large database — the trade for a transactionally consistent snapshot
+	// without a second connection to the live DB.
 	if _, err := st.db.ExecContext(ctx, `VACUUM INTO ?`, dbStaged); err != nil {
 		return backupResult{}, fmt.Errorf("snapshot database: %w", err)
 	}
 
-	// Export from the staged snapshot, not the live database: the UI isn't
-	// blocked while a backup runs in the background, so a QSO logged
-	// between VACUUM INTO and the export would otherwise appear in the
-	// .adi file but not in the .db snapshot uploaded alongside it.
+	// Export from the staged snapshot, not the live database: a QSO logged
+	// after the VACUUM INTO snapshot completes would otherwise appear in the
+	// .adi file but not in the .db snapshot uploaded alongside it. Reading the
+	// snapshot also keeps the (longer) ADIF export off the live connection so
+	// it doesn't block logging.
 	snapshotDB, err := sql.Open("sqlite", dbStaged)
 	if err != nil {
 		return backupResult{}, fmt.Errorf("open staged database snapshot: %w", err)

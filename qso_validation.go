@@ -42,6 +42,15 @@ func validateQSO(q qso) error {
 	if err := validateCallsignChars(call); err != nil {
 		return err
 	}
+	// The station (operator) callsign is re-emitted to ADIF as STATION_CALLSIGN
+	// and, on the live path, drives the cluster login line, so it needs the
+	// same character check as the worked call to keep control characters
+	// (CR/LF injection) out of both. It's optional, so only checked when set.
+	if sc := strings.TrimSpace(q.stationCallsign); sc != "" {
+		if err := validateCallsignChars(sc); err != nil {
+			return fmt.Errorf("station callsign: %w", err)
+		}
+	}
 	if strings.TrimSpace(q.band) == "" {
 		return fmt.Errorf("band is required")
 	}
@@ -56,6 +65,15 @@ func validateQSO(q qso) error {
 	if strings.TrimSpace(q.frequency) != "" {
 		if err := validateBandFrequency(q.band, q.frequency); err != nil {
 			return err
+		}
+	}
+	// The grid is optional, but when present it must be a real Maidenhead
+	// locator: an unchecked value (e.g. an imported GRIDSQUARE of "ZZ99" or
+	// free text) would otherwise be stored, re-exported verbatim, and uploaded
+	// to WRL as if it were valid.
+	if strings.TrimSpace(q.grid) != "" {
+		if _, err := ParseGridSquare(q.grid); err != nil {
+			return fmt.Errorf("invalid grid square %q: %w", strings.TrimSpace(q.grid), err)
 		}
 	}
 	if !strings.EqualFold(strings.TrimSpace(q.mode), cwMode) {

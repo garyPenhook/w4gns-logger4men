@@ -18,6 +18,14 @@ jobs:
         with:
           go-version-file: go.mod
           check-latest: true
+      - name: Check formatting
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
       - run: go vet ./...
       - run: go test ./...
       # -short skips the 100k-QSO import benchmark: the plain run above

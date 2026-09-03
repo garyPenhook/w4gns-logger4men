@@ -113,6 +113,13 @@ func potaSignal(reference string) string {
 }
 
 func openStore(path string) (*store, error) {
+	// Pre-create the database file 0600 before any data is written. sql.Open
+	// is lazy and the driver would otherwise create the .db/-wal/-shm files
+	// under the process umask (often 0644) during schema/migrate, leaving a
+	// window in which this app's private QSO data is group/world-readable.
+	// tightenDBFilePermissions still runs at the end as a backstop for files
+	// (e.g. sidecars) created after this point.
+	precreateDBFile(path)
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, fmt.Errorf("open db: %w", err)
@@ -160,6 +167,23 @@ func openStore(path string) (*store, error) {
 // OS umask) can otherwise leave it group- or world-readable.
 const dbFilePermBits = 0o600
 
+// precreateDBFile best-effort creates the database file with owner-only
+// permissions before the SQLite driver opens it, so the file never exists with
+// looser (umask-derived) permissions even briefly. An in-memory or empty path,
+// or an already-existing file, is left untouched. Any error is ignored: the
+// driver and tightenDBFilePermissions handle the file from here.
+func precreateDBFile(path string) {
+	if path == "" || path == ":memory:" || strings.HasPrefix(path, "file::memory:") {
+		return
+	}
+	if _, err := os.Stat(path); err == nil {
+		return // already exists; don't disturb it
+	}
+	if f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, dbFilePermBits); err == nil {
+		f.Close()
+	}
+}
+
 // tightenDBFilePermissions best-effort chmods the database file and its WAL/
 // SHM sidecars, mirroring tightenKeyFilePermissions in qrz.go. Sidecar
 // files that don't exist (e.g. WAL checkpointed away) are silently skipped.
@@ -180,7 +204,14 @@ func tightenDBFilePermissions(path string) {
 func configureSQLite(db *sql.DB) error {
 	for _, statement := range []string{
 		`PRAGMA journal_mode=WAL`,
-		`PRAGMA synchronous=NORMAL`,
+		// FULL (not NORMAL) so a committed QSO and its upload_outbox rows are
+		// fsynced at commit and survive an OS crash / power loss, not just a
+		// process exit. The outbox advertises durable delivery across a crash
+		// (see outbox.go); under WAL+NORMAL, un-checkpointed frames can be lost
+		// on power loss, silently dropping the last logged QSOs and their
+		// pending uploads. Commits are human-paced (or batched 1,000-at-a-time
+		// on import), so the extra fsync per commit is not a hot path.
+		`PRAGMA synchronous=FULL`,
 		`PRAGMA foreign_keys=ON`,
 		`PRAGMA busy_timeout=5000`,
 		`PRAGMA temp_store=MEMORY`,
@@ -650,11 +681,11 @@ func (s *store) updateQSO(id int64, q qso) error {
 		`UPDATE qso SET call = ?, band = ?, freq = NULLIF(?, ''), rst_sent = ?, rst_rcvd = ?, name = ?, qth = ?,
 			gridsquare = ?, state = ?, county = ?, email = ?, country = NULLIF(?, ''), dxcc = ?, cqz = ?, ituz = ?, sig = NULLIF(?, ''),
 			sig_info = NULLIF(?, ''), park_name = ?, comment = ?, contest_id = ?, stx = ?, stx_string = ?, srx = ?, srx_string = ?
-			WHERE id = ?`,
+			WHERE id = ? AND profile_id = ?`,
 		q.call, q.band, q.frequency, q.rstSent, q.rstRcvd, q.name, q.qth,
 		q.grid, q.state, q.county, q.email, country, dxccNumber, cqZone, ituZone, potaSignal(q.potaRef),
 		q.potaRef, q.parkName, q.comment, q.contestID, q.stx, q.stxString, q.srx, q.srxString,
-		id,
+		id, q.profileID,
 	)
 	if err != nil {
 		return fmt.Errorf("update qso %d: %w", id, err)
@@ -665,8 +696,24 @@ func (s *store) updateQSO(id int64, q qso) error {
 // deleteQSO permanently removes one QSO. There is no undo; callers must
 // confirm with the operator before calling this.
 func (s *store) deleteQSO(profileID, id int64) error {
-	if _, err := s.db.Exec(`DELETE FROM qso WHERE id = ? AND profile_id = ?`, id, profileID); err != nil {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin delete qso %d: %w", id, err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM qso WHERE id = ? AND profile_id = ?`, id, profileID); err != nil {
 		return fmt.Errorf("delete qso %d: %w", id, err)
+	}
+	// The upload_outbox has no foreign key onto qso (foreign_keys=ON therefore
+	// can't cascade here), so its pending rows must be removed explicitly in the
+	// same transaction. Otherwise the drain keeps trying to deliver a QSO that
+	// no longer exists until it exhausts maxUploadAttempts and parks the row a
+	// year out with a permanent stale error.
+	if _, err := tx.Exec(`DELETE FROM upload_outbox WHERE qso_id = ?`, id); err != nil {
+		return fmt.Errorf("delete outbox rows for qso %d: %w", id, err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit delete qso %d: %w", id, err)
 	}
 	return nil
 }

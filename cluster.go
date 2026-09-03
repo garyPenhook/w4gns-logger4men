@@ -14,6 +14,25 @@ import (
 const (
 	k3lrClusterName = "K3LR DX Cluster"
 	k3lrClusterAddr = "dx.k3lr.com:23"
+
+	// clusterIdleTimeout bounds how long a single read may block. A cluster
+	// node (or an intervening NAT) can silently black-hole the TCP flow
+	// without sending a RST, which would otherwise leave readNext blocked
+	// forever with the UI still showing "connected". If no line arrives within
+	// this window the read returns a timeout error, surfacing the dead peer so
+	// the auto-reconnect path can recover. It is generous because a quiet CW
+	// cluster can legitimately go minutes between spots.
+	clusterIdleTimeout = 10 * time.Minute
+	// clusterWriteTimeout bounds the login write so a server that accepts the
+	// connection but never drains its receive buffer can't block the dial Cmd.
+	clusterWriteTimeout = 15 * time.Second
+
+	// Auto-reconnect backoff: cluster nodes cycle/restart routinely, so a
+	// dropped feed is reconnected automatically with exponential backoff
+	// (guarded by clusterGeneration so a user disconnect cancels it) rather
+	// than silently freezing the DX Spots panel until a manual re-connect.
+	clusterReconnectBase = 2 * time.Second
+	clusterReconnectMax  = 60 * time.Second
 )
 
 type clusterSpot struct {
@@ -43,15 +62,28 @@ type clusterLineMsg struct {
 }
 
 func connectK3LR(callsign string, generation uint64) tea.Cmd {
+	return connectK3LRAfter(0, callsign, generation)
+}
+
+// connectK3LRAfter dials the cluster after an optional backoff delay, used by
+// the auto-reconnect path. A stale attempt (the user disconnected or a newer
+// attempt superseded it while this one was waiting) is dropped by the
+// generation check on clusterConnectedMsg, so the delay need not be cancelled.
+func connectK3LRAfter(delay time.Duration, callsign string, generation uint64) tea.Cmd {
 	return func() tea.Msg {
+		if delay > 0 {
+			time.Sleep(delay)
+		}
 		conn, err := net.DialTimeout("tcp", k3lrClusterAddr, 10*time.Second)
 		if err != nil {
 			return clusterConnectedMsg{generation: generation, err: fmt.Errorf("connect to %s: %w", k3lrClusterName, err)}
 		}
+		_ = conn.SetWriteDeadline(time.Now().Add(clusterWriteTimeout))
 		if _, err := fmt.Fprintf(conn, "%s\n", strings.ToUpper(strings.TrimSpace(callsign))); err != nil {
 			conn.Close()
 			return clusterConnectedMsg{generation: generation, err: fmt.Errorf("send cluster callsign: %w", err)}
 		}
+		_ = conn.SetWriteDeadline(time.Time{}) // clear; no further writes are made
 		scanner := bufio.NewScanner(conn)
 		scanner.Buffer(make([]byte, 4*1024), 64*1024)
 		return clusterConnectedMsg{generation: generation, client: &clusterClient{conn: conn, scanner: scanner, generation: generation}}
@@ -60,6 +92,11 @@ func connectK3LR(callsign string, generation uint64) tea.Cmd {
 
 func (c *clusterClient) readNext() tea.Cmd {
 	return func() tea.Msg {
+		// Refresh the idle deadline before each line so a live-but-quiet feed
+		// stays connected while a truly dead peer trips the timeout.
+		if c.conn != nil {
+			_ = c.conn.SetReadDeadline(time.Now().Add(clusterIdleTimeout))
+		}
 		if c.scanner.Scan() {
 			return clusterLineMsg{generation: c.generation, line: c.scanner.Text()}
 		}

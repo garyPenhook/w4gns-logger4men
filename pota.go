@@ -21,7 +21,13 @@ var potaSpotAPI = "https://api.pota.app/spot/"
 // (or a MITM) ever returns something huge.
 const maxPOTAResponseBytes = 5 << 20
 
-var potaReferencePattern = regexp.MustCompile(`(?i)\b[A-Z]{1,3}-\d{1,6}\b`)
+// potaReferencePattern matches a POTA park reference (e.g. "K-0001",
+// "VE-5082", "US-222") in free-form cluster comment text. The prefix is
+// limited to 1-2 characters and the number to 3+ digits: the original
+// 1-3-letter / 1-digit form matched common non-POTA tokens like "RST-599"
+// (3-letter prefix) and "CQ-1" (single digit), tagging QSOs with bogus
+// references.
+var potaReferencePattern = regexp.MustCompile(`(?i)\b[A-Z0-9]{1,2}-\d{3,6}\b`)
 
 type potaSpot struct {
 	SpotTime  string `json:"spotTime"`
@@ -80,7 +86,7 @@ func recentPOTASpot(spots []potaSpot, call string, now time.Time) (reference, pa
 		if strings.TrimSpace(spot.Reference) == "" && strings.TrimSpace(spot.Name) == "" {
 			continue
 		}
-		spotTime, err := time.ParseInLocation("2006-01-02T15:04:05", spot.SpotTime, time.UTC)
+		spotTime, err := parsePOTASpotTime(spot.SpotTime)
 		if err != nil || spotTime.Before(cutoff) || spotTime.After(now.UTC().Add(time.Minute)) {
 			continue
 		}
@@ -91,6 +97,27 @@ func recentPOTASpot(spots []potaSpot, call string, now time.Time) (reference, pa
 		}
 	}
 	return reference, parkName, reference != "" || parkName != ""
+}
+
+// parsePOTASpotTime parses a POTA spotTime, which the live feed currently
+// emits as a bare "2006-01-02T15:04:05" in UTC. It also accepts an explicit
+// trailing "Z", a timezone offset, and fractional seconds so a future format
+// change (or a proxy that normalizes the timestamp) doesn't silently cause
+// every spot to be skipped and POTA auto-fill to stop working. Values without
+// a zone are interpreted as UTC.
+func parsePOTASpotTime(value string) (time.Time, error) {
+	value = strings.TrimSpace(value)
+	for _, layout := range []string{
+		"2006-01-02T15:04:05",
+		"2006-01-02T15:04:05Z07:00",
+		"2006-01-02T15:04:05.999999999",
+		"2006-01-02T15:04:05.999999999Z07:00",
+	} {
+		if t, err := time.ParseInLocation(layout, value, time.UTC); err == nil {
+			return t.UTC(), nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("unrecognized POTA spotTime %q", value)
 }
 
 // recentClusterPOTAReference scans spots (newest-first, per

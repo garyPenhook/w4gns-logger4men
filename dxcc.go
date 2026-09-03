@@ -51,7 +51,17 @@ type dxccTable struct {
 	prefixByFirst map[byte][]dxccAlias
 }
 
-var aliasTokenPattern = regexp.MustCompile(`^(=)?([A-Z0-9/]+)(?:\((\d+)\))?(?:\[(\d+)\])?$`)
+// aliasOverridePattern matches a single AD1C per-alias override group so they
+// can be stripped from a token in any order, leaving the bare prefix. AD1C
+// cty.dat defines five override kinds: (CQ zone), [ITU zone], <lat/lon>,
+// {continent}, and ~UTC offset~. Earlier versions of this parser accepted only
+// (cq) and [itu] via one rigid anchored pattern, so any alias carrying a
+// <>/{}/~~ override — routine in upstream cty.dat releases — made the whole
+// load fail and silently disabled all DXCC enrichment app-wide. This parser
+// instead applies the overrides it uses (CQ/ITU/continent) and ignores the
+// rest, so a data refresh degrades gracefully rather than turning enrichment
+// off.
+var aliasOverridePattern = regexp.MustCompile(`\((\d+)\)|\[(\d+)\]|<([^>]*)>|\{([^}]*)\}|~([^~]*)~`)
 
 // loadDXCCTable parses the bundled cty.dat (the standard AD1C-style country
 // file: a header line per DXCC entity followed by one or more indented,
@@ -180,23 +190,30 @@ func (t *dxccTable) addAliases(base dxccEntity, list string) error {
 		if token == "" {
 			continue
 		}
-		match := aliasTokenPattern.FindStringSubmatch(token)
-		if match == nil {
+		exact := strings.HasPrefix(token, "=")
+		token = strings.TrimPrefix(token, "=")
+		entity := base
+		// Apply each override group, then strip it, leaving the bare prefix.
+		for _, group := range aliasOverridePattern.FindAllStringSubmatch(token, -1) {
+			switch {
+			case group[1] != "": // (CQ zone)
+				if zone, err := strconv.Atoi(group[1]); err == nil {
+					entity.CQZone = zone
+				}
+			case group[2] != "": // [ITU zone]
+				if zone, err := strconv.Atoi(group[2]); err == nil {
+					entity.ITUZone = zone
+				}
+			case group[4] != "": // {continent}
+				entity.Continent = strings.ToUpper(strings.TrimSpace(group[4]))
+			}
+			// group[3] (<lat/lon>) and group[5] (~UTC~) are not used by this app.
+		}
+		prefix := aliasOverridePattern.ReplaceAllString(token, "")
+		if prefix == "" {
 			return fmt.Errorf("malformed cty.dat alias %q", token)
 		}
-		entity := base
-		if match[3] != "" {
-			if zone, err := strconv.Atoi(match[3]); err == nil {
-				entity.CQZone = zone
-			}
-		}
-		if match[4] != "" {
-			if zone, err := strconv.Atoi(match[4]); err == nil {
-				entity.ITUZone = zone
-			}
-		}
-		prefix := match[2]
-		if match[1] == "=" {
+		if exact {
 			if t.exactAliases == nil {
 				t.exactAliases = make(map[string]dxccEntity)
 			}

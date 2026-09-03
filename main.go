@@ -40,7 +40,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.16.0"
+const appVersion = "1.16.1"
 
 type screen int
 
@@ -263,16 +263,21 @@ type model struct {
 	stationFields   []textinput.Model
 	stationFocusIdx int
 
-	clusterClient       *clusterClient
-	clusterSpots        []clusterSpot
-	clusterSpotsScroll  int
-	clusterStatus       string
-	clusterConnecting   bool
-	clusterGeneration   uint64
-	clusterFilters      clusterFilters
-	clusterFilterFields []textinput.Model
-	clusterFilterFocus  int
-	clusterBandFocus    int
+	clusterClient      *clusterClient
+	clusterSpots       []clusterSpot
+	clusterSpotsScroll int
+	clusterStatus      string
+	clusterConnecting  bool
+	clusterGeneration  uint64
+	// clusterReconnect is true while the operator wants the feed up, so a
+	// dropped connection auto-reconnects; a manual disconnect clears it.
+	// clusterReconnectDelay is the current exponential backoff.
+	clusterReconnect      bool
+	clusterReconnectDelay time.Duration
+	clusterFilters        clusterFilters
+	clusterFilterFields   []textinput.Model
+	clusterFilterFocus    int
+	clusterBandFocus      int
 	// editClusterBands is the working copy of the band selection while the
 	// Cluster Filters edit screen is open. Space toggles this clone, not the
 	// live clusterFilters.Bands, so Esc discards band changes and only Enter
@@ -574,6 +579,8 @@ func (m *model) connectClusterIfNeeded() tea.Cmd {
 	}
 	m.clusterGeneration++
 	m.clusterConnecting = true
+	m.clusterReconnect = true
+	m.clusterReconnectDelay = 0
 	m.clusterStatus = "connecting to " + k3lrClusterAddr + "…"
 	return connectK3LR(m.activeStation.Callsign, m.clusterGeneration)
 }
@@ -689,7 +696,21 @@ func (m model) cabrilloExportCmd(contestID string) tea.Cmd {
 	st := m.store
 	profile := m.activeStation
 	event, ok := m.eventForContestID()
+	wg := m.bgTasks
+	bgCtx := m.bgCtx
+	if bgCtx == nil {
+		bgCtx = context.Background()
+	}
+	// Register synchronously (this runs inside Update, before the returned
+	// closure's goroutine starts) so shutdown's bgTasks.Wait() drains this
+	// export before the store is closed and can't miss it.
+	if wg != nil {
+		wg.Add(1)
+	}
 	return func() tea.Msg {
+		if wg != nil {
+			defer wg.Done()
+		}
 		if !ok {
 			return cabrilloExportedMsg{err: fmt.Errorf("no matching event/contest found for %q — select one on the Events (F7) screen first", contestID)}
 		}
@@ -706,7 +727,7 @@ func (m model) cabrilloExportCmd(contestID string) tea.Cmd {
 		}
 		filename := fmt.Sprintf("%s_%s.cbr", sanitizeFilenameComponent(callsign), sanitizeFilenameComponent(contestID))
 		path := filepath.Join(downloads, filename)
-		ctx, cancel := context.WithTimeout(context.Background(), backupTimeout)
+		ctx, cancel := context.WithTimeout(bgCtx, backupTimeout)
 		defer cancel()
 		count, err := writeCabrilloAtomic(ctx, downloads, path, profile, event, contestID, st)
 		if err != nil {
@@ -729,7 +750,21 @@ type adifExportedMsg struct {
 func (m model) adifExportCmd() tea.Cmd {
 	st := m.store
 	profile := m.activeStation
+	wg := m.bgTasks
+	bgCtx := m.bgCtx
+	if bgCtx == nil {
+		bgCtx = context.Background()
+	}
+	// Register synchronously (this runs inside Update, before the returned
+	// closure's goroutine starts) so shutdown's bgTasks.Wait() drains this
+	// export before the store is closed and can't miss it.
+	if wg != nil {
+		wg.Add(1)
+	}
 	return func() tea.Msg {
+		if wg != nil {
+			defer wg.Done()
+		}
 		downloads, err := defaultDownloadsDir()
 		if err != nil {
 			return adifExportedMsg{err: err}
@@ -744,7 +779,7 @@ func (m model) adifExportCmd() tea.Cmd {
 		filename := fmt.Sprintf("%s_%s.adi", sanitizeFilenameComponent(callsign), time.Now().UTC().Format("20060102-150405"))
 		path := nonCollidingPath(filepath.Join(downloads, filename))
 
-		ctx, cancel := context.WithTimeout(context.Background(), backupTimeout)
+		ctx, cancel := context.WithTimeout(bgCtx, backupTimeout)
 		defer cancel()
 		count, err := writeADIFAtomic(ctx, downloads, path, profile.ID, st)
 		if err != nil {
@@ -808,6 +843,8 @@ func (m model) importADIFFile(path string) tea.Cmd {
 
 func (m *model) disconnectCluster() {
 	m.clusterGeneration++ // invalidates a pending dial or reader result.
+	m.clusterReconnect = false
+	m.clusterReconnectDelay = 0
 	err := m.clusterClient.close()
 	m.clusterClient = nil
 	m.clusterConnecting = false
@@ -816,6 +853,30 @@ func (m *model) disconnectCluster() {
 		return
 	}
 	m.clusterStatus = k3lrClusterName + " — disconnected"
+}
+
+// scheduleClusterReconnect starts a backed-off reconnect attempt after the
+// feed drops (dial failure or read error), unless the operator has disconnected
+// (clusterReconnect cleared). It bumps the generation so the in-flight failed
+// attempt's late results are ignored, then dials again after an exponentially
+// growing delay capped at clusterReconnectMax. Returns nil when no reconnect
+// should be attempted, so callers fall back to their normal error status.
+func (m *model) scheduleClusterReconnect(cause error) tea.Cmd {
+	if !m.clusterReconnect || strings.TrimSpace(m.activeStation.Callsign) == "" {
+		return nil
+	}
+	if m.clusterReconnectDelay <= 0 {
+		m.clusterReconnectDelay = clusterReconnectBase
+	} else {
+		m.clusterReconnectDelay *= 2
+		if m.clusterReconnectDelay > clusterReconnectMax {
+			m.clusterReconnectDelay = clusterReconnectMax
+		}
+	}
+	m.clusterGeneration++
+	m.clusterConnecting = true
+	m.clusterStatus = fmt.Sprintf("%s — reconnecting in %s (%v)", k3lrClusterName, m.clusterReconnectDelay.Round(time.Second), cause)
+	return connectK3LRAfter(m.clusterReconnectDelay, m.activeStation.Callsign, m.clusterGeneration)
 }
 
 // clusterDupeWindow is how long a station stays suppressed on the same band
@@ -920,6 +981,11 @@ func (m *model) refreshTableRows() {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
 		return
 	}
+	// This repopulates the table with the default Recent QSOs list, so the
+	// "Stations Worked" view is no longer showing; clear workedCall or the
+	// header keeps labeling the default list as a call's prior contacts (e.g.
+	// after deleting a row while the F9 worked-call view was up).
+	m.workedCall = ""
 	rows := make([]table.Row, 0, len(recent))
 	for _, q := range recent {
 		rows = append(rows, table.Row{
@@ -1760,10 +1826,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.clusterConnecting = false
 		if message.err != nil {
+			// A dial failure is retried on the same backoff schedule as a
+			// dropped read, so the feed recovers from a node that's briefly
+			// down without operator intervention.
+			if cmd := m.scheduleClusterReconnect(message.err); cmd != nil {
+				return m, cmd
+			}
 			m.clusterStatus = message.err.Error()
 			return m, nil
 		}
 		m.clusterClient = message.client
+		m.clusterReconnectDelay = 0 // reset backoff on a healthy connection
 		m.clusterStatus = k3lrClusterName + " — connected"
 		return m, m.clusterClient.readNext()
 	}
@@ -1781,6 +1854,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.clusterClient = nil
 			m.clusterConnecting = false
+			if cmd := m.scheduleClusterReconnect(message.err); cmd != nil {
+				return m, cmd
+			}
 			m.clusterStatus = fmt.Sprintf("cluster connection ended: %v", message.err)
 			return m, nil
 		}
@@ -2119,6 +2195,8 @@ func (m model) updateCluster(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.clusterGeneration++
 			m.clusterConnecting = true
+			m.clusterReconnect = true
+			m.clusterReconnectDelay = 0
 			m.clusterStatus = "connecting to " + k3lrClusterAddr + "…"
 			return m, connectK3LR(m.activeStation.Callsign, m.clusterGeneration)
 		case "f6":
