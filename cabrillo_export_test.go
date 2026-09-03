@@ -121,6 +121,52 @@ func TestCabrilloQSOLineFormatsExpectedFields(t *testing.T) {
 	}
 }
 
+// TestCabrilloQSOLineRejectsLineInjectionAndOversizedFields guards the
+// fixed-column QSO line against imported data that carries CR/LF (which would
+// split or forge a line) or an over-long value (which would shift every
+// following column).
+func TestCabrilloQSOLineRejectsLineInjectionAndOversizedFields(t *testing.T) {
+	q := validTestQSO()
+	q.frequency = "14.025"
+	q.stationCallsign = "W4GNS"
+	q.call = "W1AW\r\nQSO: 14025 CW 2026-08-31 1200 FORGED"
+	q.srxString = strings.Repeat("X", 100)
+
+	line, err := cabrilloQSOLine(q, testStationProfile())
+	if err != nil {
+		t.Fatalf("cabrilloQSOLine: %v", err)
+	}
+	if strings.ContainsAny(line, "\r\n") {
+		t.Fatalf("cabrilloQSOLine leaked a line break: %q", line)
+	}
+	if strings.Contains(line, "FORGED") {
+		t.Fatalf("cabrilloQSOLine let a forged line through: %q", line)
+	}
+	// The received exchange column is 13 wide; an over-long value is truncated.
+	if strings.Contains(line, strings.Repeat("X", 14)) {
+		t.Fatalf("cabrilloQSOLine did not enforce the field width: %q", line)
+	}
+}
+
+// TestCabrilloHeaderValueStripsLineBreaks guards header values (free-text
+// profile fields) against the same line-injection vector.
+func TestCabrilloHeaderValueStripsLineBreaks(t *testing.T) {
+	profile := testStationProfile()
+	profile.Club = "Test Club\r\nX-QSO: forged"
+	lines := cabrilloHeaderLines(profile, testEventDefinition())
+	for _, line := range lines {
+		if strings.ContainsAny(line, "\r\n") {
+			t.Fatalf("header line leaked a break: %q", line)
+		}
+	}
+	joined := strings.Join(lines, "|")
+	if strings.Contains(joined, "forged") == false {
+		// The text is kept, just flattened onto one line — sanity that we
+		// didn't drop the content entirely.
+		t.Fatalf("expected sanitized club text to survive on one line: %v", lines)
+	}
+}
+
 // TestCabrilloQSOLineFallsBackToBandDefaultFrequency mirrors
 // uploadQSOToWRL's fallback: frequency is optional for local logging but
 // Cabrillo's QSO: line always needs a numeric frequency.

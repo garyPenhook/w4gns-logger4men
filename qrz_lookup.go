@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -203,17 +204,35 @@ func qrzXMLLookupCallsign(ctx context.Context, sessionKey, call string) (qrzCall
 	}, nil
 }
 
+// redactQRZURLError strips the request URL out of a *url.Error before it can
+// reach the status bar or logs. The QRZ XML API carries the operator's
+// username/password (on login) or session key (on lookup) in the request
+// query string, and net/http embeds that full URL in every *url.Error it
+// returns — a transport failure would otherwise print the credentials in
+// plain text. Only the operation and the underlying cause (e.g. "dial tcp:
+// connection refused") are kept.
+func redactQRZURLError(err error) error {
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		if urlErr.Err != nil {
+			return fmt.Errorf("%s: %w", urlErr.Op, urlErr.Err)
+		}
+		return errors.New(urlErr.Op)
+	}
+	return err
+}
+
 func fetchQRZXML(ctx context.Context, values url.Values) (qrzXMLResponse, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, qrzXMLAPI+"?"+values.Encode(), nil)
 	if err != nil {
-		return qrzXMLResponse{}, fmt.Errorf("create request: %w", err)
+		return qrzXMLResponse{}, fmt.Errorf("create request: %w", redactQRZURLError(err))
 	}
 	request.Header.Set("User-Agent", qrzXMLUserAgent)
 
 	client := &http.Client{Timeout: qrzXMLLookupTimeout}
 	response, err := client.Do(request)
 	if err != nil {
-		return qrzXMLResponse{}, fmt.Errorf("request: %w", err)
+		return qrzXMLResponse{}, fmt.Errorf("request: %w", redactQRZURLError(err))
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {

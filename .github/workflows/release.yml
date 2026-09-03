@@ -9,7 +9,37 @@ permissions:
   contents: write
 
 jobs:
+  # Tag pushes are excluded from the normal CI triggers (push to main /
+  # pull_request), so without this gate a release could publish binaries that
+  # never ran the test suite, or whose baked-in appVersion disagrees with the
+  # tag being released. Both are checked here before any artifact is built.
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+      - run: go vet ./...
+      - run: go test ./...
+      - run: go test -race -short ./...
+      - name: Verify tag matches appVersion
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          appVersion="$(sed -n 's/^const appVersion = "\(.*\)"/\1/p' main.go)"
+          if [ -z "$appVersion" ]; then
+            echo "could not read appVersion from main.go" >&2
+            exit 1
+          fi
+          if [ "$tag" != "$appVersion" ]; then
+            echo "tag v$tag does not match appVersion $appVersion in main.go" >&2
+            exit 1
+          fi
+          echo "tag v$tag matches appVersion $appVersion"
+
   build:
+    needs: verify
     runs-on: ubuntu-latest
     strategy:
       matrix:

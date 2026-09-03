@@ -28,7 +28,7 @@ func TestImportADIFImportsCWAndSkipsOtherModes(t *testing.T) {
 	if result.Imported != 1 || result.Skipped != 1 {
 		t.Fatalf("result = %#v", result)
 	}
-	if count, _ := st.count(); count != 1 {
+	if count, _ := st.count(profile.ID); count != 1 {
 		t.Fatalf("count = %d", count)
 	}
 }
@@ -197,7 +197,7 @@ func TestImportADIFStreamsAcrossMultipleBatches(t *testing.T) {
 	if result.Imported != total || result.Skipped != 0 {
 		t.Fatalf("result = %#v, want %d imported / 0 skipped", result, total)
 	}
-	count, err := st.count()
+	count, err := st.count(profile.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -235,7 +235,7 @@ func TestImportADIFStopsOnErrorButKeepsPriorBatches(t *testing.T) {
 	if result.Imported != importBatchSize {
 		t.Fatalf("Imported = %d, want the first full batch (%d) preserved", result.Imported, importBatchSize)
 	}
-	count, err := st.count()
+	count, err := st.count(profile.ID)
 	if err != nil {
 		t.Fatal(err)
 	}

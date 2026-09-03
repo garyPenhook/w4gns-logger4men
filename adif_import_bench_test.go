@@ -44,7 +44,7 @@ func TestImportADIF100kQSOsBenchmark(t *testing.T) {
 	if result.Imported != total {
 		t.Fatalf("Imported = %d, want %d", result.Imported, total)
 	}
-	count, err := st.count()
+	count, err := st.count(profile.ID)
 	if err != nil {
 		t.Fatal(err)
 	}

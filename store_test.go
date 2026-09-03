@@ -149,7 +149,8 @@ func TestOpenStoreMigratesDatabaseMissingIndexedColumn(t *testing.T) {
 	if !exists {
 		t.Fatal("profile_id column was not added by migrate()")
 	}
-	if count, err := st.count(); err != nil || count != 1 {
+	// The legacy row is backfilled onto the default profile (id 1) on open.
+	if count, err := st.count(1); err != nil || count != 1 {
 		t.Fatalf("count = %d, err = %v, want 1 (the pre-existing legacy row)", count, err)
 	}
 }
@@ -275,7 +276,7 @@ func TestInsertQSOBatchHandlesMultipleTransactions(t *testing.T) {
 	if inserted != len(qsos) {
 		t.Errorf("insertQSOBatch inserted = %d, want %d", inserted, len(qsos))
 	}
-	count, err := st.count()
+	count, err := st.count(0)
 	if err != nil {
 		t.Fatalf("count returned error: %v", err)
 	}
@@ -314,7 +315,7 @@ func TestInsertQSOBatchSkipsExactDuplicatesOnReimport(t *testing.T) {
 		t.Errorf("second insertQSOBatch inserted = %d, want 0 (all duplicates)", second)
 	}
 
-	count, err := st.count()
+	count, err := st.count(0)
 	if err != nil {
 		t.Fatalf("count returned error: %v", err)
 	}
@@ -477,7 +478,7 @@ func TestQSOsByCallReturnsOnlyPriorContacts(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	contacts, err := st.qsosByCall("W4GNS")
+	contacts, err := st.qsosByCall(0, "W4GNS")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -521,7 +522,7 @@ func TestQSOByIDLoadsEditableFields(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := st.qsoByID(id)
+	got, err := st.qsoByID(0, id)
 	if err != nil {
 		t.Fatalf("qsoByID returned error: %v", err)
 	}
@@ -535,7 +536,7 @@ func TestQSOByIDLoadsEditableFields(t *testing.T) {
 		t.Errorf("qsoByID(%d) country/dxccNumber = %q/%q, want both resolved", id, got.country, got.dxccNumber)
 	}
 
-	if _, err := st.qsoByID(id + 1000); err == nil {
+	if _, err := st.qsoByID(0, id+1000); err == nil {
 		t.Fatal("qsoByID returned no error for a nonexistent id")
 	}
 }
@@ -555,7 +556,7 @@ func TestUpdateQSOOverwritesEditableFieldsOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	original, err := st.qsoByID(id)
+	original, err := st.qsoByID(0, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -567,7 +568,7 @@ func TestUpdateQSOOverwritesEditableFieldsOnly(t *testing.T) {
 		t.Fatalf("updateQSO returned error: %v", err)
 	}
 
-	got, err := st.qsoByID(id)
+	got, err := st.qsoByID(0, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -587,7 +588,7 @@ func TestUpdateQSOOverwritesEditableFieldsOnly(t *testing.T) {
 	if stationCallsign != "W4GNS" || operatorName != "Gary" {
 		t.Errorf("updateQSO touched the station-identity snapshot: callsign=%q operator=%q", stationCallsign, operatorName)
 	}
-	if count, err := st.count(); err != nil || count != 1 {
+	if count, err := st.count(0); err != nil || count != 1 {
 		t.Fatalf("count after update = %d, err = %v, want 1 (update must not insert a new row)", count, err)
 	}
 }
@@ -603,13 +604,13 @@ func TestDeleteQSORemovesRow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := st.deleteQSO(id); err != nil {
+	if err := st.deleteQSO(0, id); err != nil {
 		t.Fatalf("deleteQSO returned error: %v", err)
 	}
-	if count, err := st.count(); err != nil || count != 0 {
+	if count, err := st.count(0); err != nil || count != 0 {
 		t.Fatalf("count after delete = %d, err = %v, want 0", count, err)
 	}
-	if _, err := st.qsoByID(id); err == nil {
+	if _, err := st.qsoByID(0, id); err == nil {
 		t.Fatal("qsoByID found a row after deleteQSO")
 	}
 }

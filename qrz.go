@@ -66,6 +66,7 @@ func tightenKeyFilePermissions(keyFile string) {
 }
 
 type qrzUploadMsg struct {
+	qsoID int64
 	call  string
 	logID string
 	err   error
@@ -80,11 +81,12 @@ func qrzUploadCmd(apiKey string, q qso) tea.Cmd {
 		return nil
 	}
 	call := q.call
+	id := q.id
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), qrzUploadTimeout)
 		defer cancel()
 		logID, err := uploadQSOToQRZ(ctx, apiKey, q)
-		return qrzUploadMsg{call: call, logID: logID, err: err}
+		return qrzUploadMsg{qsoID: id, call: call, logID: logID, err: err}
 	}
 }
 

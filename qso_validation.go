@@ -45,6 +45,14 @@ func validateQSO(q qso) error {
 	if strings.TrimSpace(q.band) == "" {
 		return fmt.Errorf("band is required")
 	}
+	// Validate the band even when no frequency is present. An imported record
+	// with an unsupported band but a blank FREQ would otherwise be accepted
+	// here and only fail much later at WRL upload or Cabrillo export
+	// (cabrilloFrequencyKHz/uploadQSOToWRL both fall back to the band's
+	// default frequency, which doesn't exist for an unknown band).
+	if bandIndex(q.band) < 0 {
+		return fmt.Errorf("unsupported amateur band %q", strings.TrimSpace(q.band))
+	}
 	if strings.TrimSpace(q.frequency) != "" {
 		if err := validateBandFrequency(q.band, q.frequency); err != nil {
 			return err

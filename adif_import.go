@@ -29,6 +29,7 @@ type adifImportResult struct {
 func importADIF(ctx context.Context, reader io.Reader, profileID int64, st *store) (adifImportResult, error) {
 	result := adifImportResult{}
 	batch := make([]qso, 0, importBatchSize)
+	batchBytes := 0
 	flush := func() error {
 		if len(batch) == 0 {
 			return nil
@@ -37,6 +38,7 @@ func importADIF(ctx context.Context, reader io.Reader, profileID int64, st *stor
 		result.Imported += n
 		result.Skipped += len(batch) - n
 		batch = batch[:0]
+		batchBytes = 0
 		return err
 	}
 	parseErr := parseADIRecords(reader, func(record map[string]string) error {
@@ -46,7 +48,13 @@ func importADIF(ctx context.Context, reader io.Reader, profileID int64, st *stor
 			return nil
 		}
 		batch = append(batch, q)
-		if len(batch) == importBatchSize {
+		// Flush on whichever cap is hit first: importBatchSize bounds the
+		// transaction size, and maxImportBatchBytes bounds peak memory
+		// independently of it — a batch of records that each retain large
+		// (but individually legal) fields would otherwise hold the whole
+		// batch's worth of those fields in memory at once.
+		batchBytes += qsoApproxBytes(q)
+		if len(batch) >= importBatchSize || batchBytes >= maxImportBatchBytes {
 			return flush()
 		}
 		return nil
@@ -134,6 +142,20 @@ func qsoFromADI(record map[string]string, profileID int64) (qso, bool) {
 	}, true
 }
 
+// qsoApproxBytes estimates the heap footprint of a parsed qso's string
+// fields, used to bound a pending import batch by bytes (see
+// maxImportBatchBytes) rather than only by record count. It doesn't need to
+// be exact — only to grow with the fields an attacker could inflate.
+func qsoApproxBytes(q qso) int {
+	return len(q.call) + len(q.band) + len(q.mode) + len(q.rstSent) + len(q.rstRcvd) +
+		len(q.frequency) + len(q.name) + len(q.qth) + len(q.grid) + len(q.state) +
+		len(q.county) + len(q.email) + len(q.country) + len(q.cqZone) + len(q.ituZone) +
+		len(q.dxccNumber) + len(q.comment) + len(q.potaRef) + len(q.contestID) +
+		len(q.stx) + len(q.stxString) + len(q.srx) + len(q.srxString) + len(q.exchange) +
+		len(q.srxString) + len(q.myGridSquare) + len(q.stationCallsign) +
+		len(q.operatorName) + len(q.myRig) + len(q.myAntenna) + len(q.txPower)
+}
+
 // firstNonEmpty returns the first argument with non-blank content, preferring
 // an ADIF "_INTL" field (present when the source value contains non-ASCII
 // text) over its plain ASCII counterpart.
@@ -165,9 +187,19 @@ func adifPOTAReference(record map[string]string) string {
 // ~1GB allocation, and an unterminated or field-less blob of input would
 // otherwise buffer without limit while scanning for '<' or '>'.
 const (
-	maxADIFTagLength       = 256      // "FIELDNAME:12345:T" is a handful of bytes in practice
-	maxADIFFieldBytes      = 10 << 20 // 10 MiB; far larger than any real ADIF field
-	maxADIFFieldsPerRecord = 2000     // a real ADIF record has a few dozen fields at most
+	maxADIFTagLength       = 256     // "FIELDNAME:12345:T" is a handful of bytes in practice
+	maxADIFFieldBytes      = 1 << 20 // 1 MiB; far larger than any real ADIF field
+	maxADIFFieldsPerRecord = 2000    // a real ADIF record has a few dozen fields at most
+	// maxADIFRecordBytes caps the cumulative size of all fields in a single
+	// record. Without it, maxADIFFieldsPerRecord * maxADIFFieldBytes (2000 *
+	// 1 MiB ≈ 2 GiB) could all land in one record's map — well beyond what a
+	// real record (a few KiB) ever needs.
+	maxADIFRecordBytes = 1 << 20 // 1 MiB per record, cumulative across its fields
+	// maxImportBatchBytes bounds the heap held by one pending import batch
+	// (see importADIF). importBatchSize alone (1000 records) times a legal
+	// per-record size would otherwise let a hostile file pin a large,
+	// attacker-chosen amount of memory between flushes.
+	maxImportBatchBytes = 16 << 20 // 16 MiB
 )
 
 // parseADIRecords streams reader for ADIF records and invokes onRecord for
@@ -182,6 +214,7 @@ const (
 func parseADIRecords(reader io.Reader, onRecord func(map[string]string) error) error {
 	br := bufio.NewReaderSize(reader, 64*1024)
 	record := make(map[string]string)
+	recordBytes := 0
 	// ADIF permits an omitted header, so records are accepted from the first
 	// field unless an explicit <EOH> resets the accumulated header fields.
 	inRecords := true
@@ -209,6 +242,7 @@ func parseADIRecords(reader io.Reader, onRecord func(map[string]string) error) e
 		case "EOH":
 			inRecords = true
 			record = make(map[string]string)
+			recordBytes = 0
 			continue
 		case "EOR":
 			if inRecords && len(record) > 0 {
@@ -216,6 +250,7 @@ func parseADIRecords(reader io.Reader, onRecord func(map[string]string) error) e
 					return err
 				}
 				record = make(map[string]string)
+				recordBytes = 0
 			}
 			continue
 		}
@@ -237,6 +272,10 @@ func parseADIRecords(reader io.Reader, onRecord func(map[string]string) error) e
 		if inRecords {
 			if len(record) >= maxADIFFieldsPerRecord {
 				return fmt.Errorf("ADIF record exceeds %d fields", maxADIFFieldsPerRecord)
+			}
+			recordBytes += len(value)
+			if recordBytes > maxADIFRecordBytes {
+				return fmt.Errorf("ADIF record exceeds %d bytes", maxADIFRecordBytes)
 			}
 			record[strings.ToUpper(strings.TrimSpace(parts[0]))] = string(value)
 		}

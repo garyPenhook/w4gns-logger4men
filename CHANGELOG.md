@@ -1,5 +1,17 @@
 # Changelog
 
+### v1.16.0
+
+- QRZ/WRL uploads are now durable. Every logged QSO is recorded in a persistent upload outbox in the database — one entry per destination — that survives a crash, quit, or transient upload failure. Pending deliveries are retried automatically on the next launch and on a periodic timer with exponential backoff until each destination accepts them (a QSO deleted before it's accepted is dropped from the queue rather than sent). Previously an upload lived only in a single in-memory 60-second timer and was lost entirely if the app closed, crashed, or the upload failed before it fired.
+- macOS and Windows (and minimal Linux hosts) now start correctly. When no supported terminal emulator can be launched, the app runs in the current terminal instead of exiting — previously it quit with an error unless you knew to pass `--in-current-terminal`.
+- Recent QSOs, call history, the QSO count, and edit/delete are now scoped to the active station profile, matching the dupe check and exports. A multi-profile database no longer shows or lets you modify QSOs belonging to another profile.
+- QRZ callsign-lookup credentials (and session keys) can no longer leak into the status bar: transport-error messages that used to embed the full request URL — which carries your username/password or session key — are now redacted.
+- Cabrillo export is now written atomically (a temporary file is renamed into place) so a failure partway through can't destroy a previously exported submission, and imported QSO/header fields are sanitized so control characters or over-long values can't inject or shift lines in the output.
+- A QRZ callsign lookup that resolves after you've already logged the QSO now patches the correct row even when two same-callsign QSOs are logged in quick succession.
+- ADIF import is hardened against malformed/hostile files (bounded per-record and per-batch memory) and now rejects unsupported bands even when the frequency field is blank. A second import can no longer be started while one is running, and an in-flight import is cancelled and drained cleanly on exit.
+- Cluster Filters band changes now only take effect when you press Enter — pressing Esc discards them — and applying filters immediately drops already-buffered spots that no longer match.
+- Assorted robustness fixes: CLI export refuses to overwrite the database through a symlink, timestamped ADIF exports no longer collide within the same second, backup retention still runs after a partial upload failure, dead DX-cluster sockets are closed explicitly, conflicting/incomplete command-line flags are rejected, and the event catalog is validated more strictly at load.
+
 ### v1.15.6
 
 - The DX Spots panel can now also be scrolled with the mouse wheel, in addition to `PgUp`/`PgDn`. Mouse support (`tea.WithMouseCellMotion`) is now enabled app-wide. This is the more reliable option on setups where PgUp/PgDn gets captured by the terminal emulator, a multiplexer (tmux/screen), or the window manager before it reaches the app.

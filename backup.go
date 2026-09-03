@@ -92,18 +92,28 @@ func runBackup(ctx context.Context, st *store, profileID int64) (backupResult, e
 	}
 
 	remoteDir := backupRemote + ":" + backupRemoteDir
+	var uploadErr error
 	for _, staged := range []string{dbStaged, adifStaged} {
 		if err := rcloneCopyTo(ctx, rclonePath, staged, remoteDir+"/"+filepath.Base(staged)); err != nil {
-			return backupResult{}, fmt.Errorf("upload %s: %w", filepath.Base(staged), err)
+			uploadErr = fmt.Errorf("upload %s: %w", filepath.Base(staged), err)
+			break
 		}
 	}
 
+	// Prune regardless of a partial upload failure. If the .db uploaded but
+	// the .adi didn't (or vice versa), returning early without pruning let
+	// retention silently lapse, so repeated partial failures accumulated
+	// orphan backups past backupKeepCount. Retention is keyed on filename
+	// timestamps and is safe to run whether or not this run fully succeeded.
 	result := backupResult{dbName: dbName, adifName: adifName}
-	if err := pruneRemoteBackups(ctx, rclonePath, remoteDir, "w4gns-*.db"); err != nil {
-		return result, fmt.Errorf("prune old database backups: %w", err)
+	if err := pruneRemoteBackups(ctx, rclonePath, remoteDir, "w4gns-*.db"); err != nil && uploadErr == nil {
+		uploadErr = fmt.Errorf("prune old database backups: %w", err)
 	}
-	if err := pruneRemoteBackups(ctx, rclonePath, remoteDir, "w4gns-*.adi"); err != nil {
-		return result, fmt.Errorf("prune old ADIF backups: %w", err)
+	if err := pruneRemoteBackups(ctx, rclonePath, remoteDir, "w4gns-*.adi"); err != nil && uploadErr == nil {
+		uploadErr = fmt.Errorf("prune old ADIF backups: %w", err)
+	}
+	if uploadErr != nil {
+		return backupResult{}, uploadErr
 	}
 	return result, nil
 }

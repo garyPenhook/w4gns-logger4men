@@ -220,7 +220,7 @@ func TestLogCurrentQSORejectsBandOutsideEventAllowedBands(t *testing.T) {
 	if !strings.Contains(m.statusMsg, "not in") {
 		t.Fatalf("statusMsg = %q, want an allowed-bands warning", m.statusMsg)
 	}
-	if count, err := st.count(); err != nil || count != 0 {
+	if count, err := st.count(m.activeStation.ID); err != nil || count != 0 {
 		t.Fatalf("count = %d, err = %v, want 0 — the QSO must not be committed", count, err)
 	}
 	if m.fields[fieldCall].Value() != "W1AW" {
@@ -265,7 +265,7 @@ func TestLogCurrentQSORejectsContestDupeEvenIfCachedWarningIsStale(t *testing.T)
 	if !strings.Contains(m.statusMsg, "DUPE") {
 		t.Fatalf("statusMsg = %q, want a DUPE rejection despite the stale cached indicator", m.statusMsg)
 	}
-	if count, err := st.count(); err != nil || count != 1 {
+	if count, err := st.count(m.activeStation.ID); err != nil || count != 1 {
 		t.Fatalf("count = %d, err = %v, want 1 (only the pre-existing QSO)", count, err)
 	}
 }
@@ -324,7 +324,7 @@ func TestEditQSOFlowSavesChangesWithoutInsertingANewRow(t *testing.T) {
 	m := initialModel(st)
 	m.fields[fieldCall].SetValue("W1AW")
 	m, _ = m.logCurrentQSO()
-	original, err := st.qsoByID(m.recentQSOs[0].id)
+	original, err := st.qsoByID(m.activeStation.ID, m.recentQSOs[0].id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -352,7 +352,7 @@ func TestEditQSOFlowSavesChangesWithoutInsertingANewRow(t *testing.T) {
 		t.Fatalf("statusMsg = %q, want an updated confirmation", m.statusMsg)
 	}
 
-	got, err := st.qsoByID(original.id)
+	got, err := st.qsoByID(m.activeStation.ID, original.id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -362,7 +362,7 @@ func TestEditQSOFlowSavesChangesWithoutInsertingANewRow(t *testing.T) {
 	if !got.time.Equal(original.time) {
 		t.Errorf("time = %v, want unchanged %v", got.time, original.time)
 	}
-	if count, err := st.count(); err != nil || count != 1 {
+	if count, err := st.count(m.activeStation.ID); err != nil || count != 1 {
 		t.Fatalf("count = %d, err = %v, want 1 (edit must not insert a new row)", count, err)
 	}
 }
@@ -383,7 +383,7 @@ func TestEditQSOFlowSavesCountyEmailAndParkName(t *testing.T) {
 	m := initialModel(st)
 	m.fields[fieldCall].SetValue("W1AW")
 	m, _ = m.logCurrentQSO()
-	original, err := st.qsoByID(m.recentQSOs[0].id)
+	original, err := st.qsoByID(m.activeStation.ID, m.recentQSOs[0].id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -404,7 +404,7 @@ func TestEditQSOFlowSavesCountyEmailAndParkName(t *testing.T) {
 		t.Fatalf("editingQSOID = %d after save, want 0", m.editingQSOID)
 	}
 
-	got, err := st.qsoByID(original.id)
+	got, err := st.qsoByID(m.activeStation.ID, original.id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -443,7 +443,7 @@ func TestEscCancelsEditWithoutQuitting(t *testing.T) {
 	if m.editingQSOID != 0 {
 		t.Fatal("Esc did not cancel the in-progress edit")
 	}
-	got, err := st.qsoByID(m.recentQSOs[0].id)
+	got, err := st.qsoByID(m.activeStation.ID, m.recentQSOs[0].id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -473,7 +473,7 @@ func TestDeleteRequiresSecondDConfirmation(t *testing.T) {
 	if !m.deleteArmed {
 		t.Fatal("first d press did not arm delete")
 	}
-	if count, _ := st.count(); count != 1 {
+	if count, _ := st.count(m.activeStation.ID); count != 1 {
 		t.Fatal("first d press deleted the row instead of arming confirmation")
 	}
 
@@ -483,7 +483,7 @@ func TestDeleteRequiresSecondDConfirmation(t *testing.T) {
 	if m.deleteArmed {
 		t.Fatal("a non-d key did not cancel the armed delete")
 	}
-	if count, _ := st.count(); count != 1 {
+	if count, _ := st.count(m.activeStation.ID); count != 1 {
 		t.Fatal("delete happened despite being cancelled")
 	}
 
@@ -492,7 +492,7 @@ func TestDeleteRequiresSecondDConfirmation(t *testing.T) {
 	m = updated.(model)
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("d")})
 	m = updated.(model)
-	if count, err := st.count(); err != nil || count != 0 {
+	if count, err := st.count(m.activeStation.ID); err != nil || count != 0 {
 		t.Fatalf("count after confirmed delete = %d, err = %v, want 0", count, err)
 	}
 }
@@ -612,6 +612,11 @@ func TestValidateArgsRejectsUnrecognizedAndIncompleteFlags(t *testing.T) {
 		{"--exprot-adif", "log.adi"},
 		{"--export-adif"},
 		{"--import-adif"},
+		// A recognized flag must not be consumed as another flag's path operand.
+		{"--export-adif", "--version"},
+		{"--export-adif", "--import-adif", "log.adi"},
+		// Conflicting actions must be rejected outright.
+		{"--export-adif", "a.adi", "--import-adif", "b.adi"},
 	} {
 		if err := validateArgs(args); err == nil {
 			t.Errorf("validateArgs(%v) returned no error", args)

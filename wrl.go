@@ -75,8 +75,9 @@ func firstLine(s string) string {
 }
 
 type wrlUploadMsg struct {
-	call string
-	err  error
+	qsoID int64
+	call  string
+	err   error
 }
 
 // wrlUploadCmd forwards one freshly logged QSO to World Radio League. It
@@ -88,11 +89,12 @@ func wrlUploadCmd(apiKey, logbookID string, q qso) tea.Cmd {
 		return nil
 	}
 	call := q.call
+	id := q.id
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), wrlUploadTimeout)
 		defer cancel()
 		err := uploadQSOToWRL(ctx, apiKey, logbookID, q)
-		return wrlUploadMsg{call: call, err: err}
+		return wrlUploadMsg{qsoID: id, call: call, err: err}
 	}
 }
 

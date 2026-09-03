@@ -41,6 +41,19 @@ type eventSession struct {
 	Schedule string `json:"schedule"`
 }
 
+// validDupeScope reports whether scope is one the dupe checker understands
+// (see store.isDupe): blank means the casual 15-minute window, and the two
+// named scopes select session- or contest-wide checking. Any other value
+// would silently fall through to contest-wide scope, hiding a config typo.
+func validDupeScope(scope string) bool {
+	switch strings.TrimSpace(scope) {
+	case "", "call+band", "call+band+session":
+		return true
+	default:
+		return false
+	}
+}
+
 func loadEventCatalog() ([]eventDefinition, error) {
 	entries, err := eventConfigFiles.ReadDir("events")
 	if err != nil {
@@ -71,6 +84,32 @@ func loadEventCatalog() ([]eventDefinition, error) {
 			}
 			if _, exists := ids[event.ID]; exists {
 				return nil, fmt.Errorf("duplicate event id %q", event.ID)
+			}
+			if !validDupeScope(event.DupeScope) {
+				return nil, fmt.Errorf("event %q has unsupported dupe_scope %q", event.ID, event.DupeScope)
+			}
+			for _, band := range event.Bands {
+				if bandIndex(band) < 0 {
+					return nil, fmt.Errorf("event %q lists unsupported band %q", event.ID, band)
+				}
+			}
+			sessionIDs := make(map[string]struct{}, len(event.Sessions))
+			for _, session := range event.Sessions {
+				sessionID := strings.TrimSpace(session.ID)
+				if sessionID == "" {
+					return nil, fmt.Errorf("event %q has a session without an id", event.ID)
+				}
+				if _, exists := sessionIDs[sessionID]; exists {
+					return nil, fmt.Errorf("event %q has duplicate session id %q", event.ID, sessionID)
+				}
+				sessionIDs[sessionID] = struct{}{}
+				// selectEvent writes "event.ID-session.ID" into the Contest
+				// field, whose CharLimit is maxEventSelectionLength; a longer
+				// generated value would be silently truncated and then fail to
+				// resolve back to its event (eventForContestID).
+				if selection := event.ID + "-" + sessionID; len(selection) > maxEventSelectionLength {
+					return nil, fmt.Errorf("event %q session %q generates a %d-character contest id, exceeding the %d-character limit", event.ID, sessionID, len(selection), maxEventSelectionLength)
+				}
 			}
 			ids[event.ID] = struct{}{}
 			events = append(events, event)

@@ -138,6 +138,10 @@ func openStore(path string) (*store, error) {
 		db.Close()
 		return nil, fmt.Errorf("apply schema indexes: %w", err)
 	}
+	if _, err := db.Exec(uploadOutboxSchema); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("apply upload outbox schema: %w", err)
+	}
 	if err := s.ensureDefaultProfile(); err != nil {
 		db.Close()
 		return nil, err
@@ -568,11 +572,11 @@ func (s *store) isDupe(call, band, contestID, eventID, dupeScope string, profile
 // recentQSOs returns the most recent QSOs, newest first, for populating the
 // log table. Each qso's id is populated so a selected table row can be
 // looked up (for editing or deletion) without a second query.
-func (s *store) recentQSOs(limit int) ([]qso, error) {
+func (s *store) recentQSOs(profileID int64, limit int) ([]qso, error) {
 	rows, err := s.db.Query(
 		`SELECT id, call, band, mode, rst_sent, rst_rcvd, srx_string, qso_date, time_on
-		 FROM qso ORDER BY id DESC LIMIT ?`,
-		limit,
+		 FROM qso WHERE profile_id = ? ORDER BY id DESC LIMIT ?`,
+		profileID, limit,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("recent qsos: %w", err)
@@ -602,7 +606,7 @@ func (s *store) recentQSOs(limit int) ([]qso, error) {
 // snapshot (my grid, station callsign, operator, rig, antenna, power) so
 // callers that need a fully-formed QSO for external upload (see
 // uploadBufferCmd) don't get blank ADIF station fields.
-func (s *store) qsoByID(id int64) (qso, error) {
+func (s *store) qsoByID(profileID, id int64) (qso, error) {
 	var q qso
 	var date, timeOn, dateOff, timeOff string
 	var cqZone, ituZone, dxccNumber sql.NullString
@@ -613,7 +617,7 @@ func (s *store) qsoByID(id int64) (qso, error) {
 		COALESCE(stx, ''), COALESCE(stx_string, ''), COALESCE(srx, ''), COALESCE(srx_string, ''), profile_id,
 		COALESCE(my_gridsquare, ''), COALESCE(station_callsign, ''), COALESCE(operator_name, ''),
 		COALESCE(my_rig, ''), COALESCE(my_antenna, ''), COALESCE(tx_pwr, '')
-		FROM qso WHERE id = ?`, id).Scan(
+		FROM qso WHERE id = ? AND profile_id = ?`, id, profileID).Scan(
 		&q.id, &q.call, &date, &timeOn, &dateOff, &timeOff, &q.band, &q.frequency, &q.mode, &q.rstSent, &q.rstRcvd,
 		&q.name, &q.qth, &q.grid, &q.state, &q.county, &q.email, &q.country, &dxccNumber, &cqZone, &ituZone, &q.potaRef, &q.parkName, &q.comment, &q.contestID,
 		&q.stx, &q.stxString, &q.srx, &q.srxString, &q.profileID,
@@ -660,8 +664,8 @@ func (s *store) updateQSO(id int64, q qso) error {
 
 // deleteQSO permanently removes one QSO. There is no undo; callers must
 // confirm with the operator before calling this.
-func (s *store) deleteQSO(id int64) error {
-	if _, err := s.db.Exec(`DELETE FROM qso WHERE id = ?`, id); err != nil {
+func (s *store) deleteQSO(profileID, id int64) error {
+	if _, err := s.db.Exec(`DELETE FROM qso WHERE id = ? AND profile_id = ?`, id, profileID); err != nil {
 		return fmt.Errorf("delete qso %d: %w", id, err)
 	}
 	return nil
@@ -674,11 +678,11 @@ func (s *store) deleteQSO(id int64) error {
 // populated so this list can also back the Recent QSOs table's F9
 // browse/edit/delete selection while it's showing call history instead of
 // the default recent list (see showWorkedCall).
-func (s *store) qsosByCall(call string) ([]qso, error) {
+func (s *store) qsosByCall(profileID int64, call string) ([]qso, error) {
 	rows, err := s.db.Query(
 		`SELECT id, call, band, mode, rst_sent, rst_rcvd, srx_string, qso_date, time_on
-		 FROM qso WHERE call = ? ORDER BY qso_date DESC, time_on DESC, id DESC`,
-		call,
+		 FROM qso WHERE call = ? AND profile_id = ? ORDER BY qso_date DESC, time_on DESC, id DESC`,
+		call, profileID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("query call history: %w", err)
@@ -700,8 +704,8 @@ func (s *store) qsosByCall(call string) ([]qso, error) {
 }
 
 // count returns the total number of logged QSOs.
-func (s *store) count() (int, error) {
+func (s *store) count(profileID int64) (int, error) {
 	var n int
-	err := s.db.QueryRow(`SELECT COUNT(1) FROM qso`).Scan(&n)
+	err := s.db.QueryRow(`SELECT COUNT(1) FROM qso WHERE profile_id = ?`, profileID).Scan(&n)
 	return n, err
 }

@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -39,7 +40,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.15.6"
+const appVersion = "1.16.0"
 
 type screen int
 
@@ -209,6 +210,17 @@ type model struct {
 	editingQSOID    int64
 	editingOriginal qso
 
+	// qrzPending maps a normalized callsign to a FIFO queue of logged QSO ids
+	// still awaiting QRZ enrichment. A QRZ callsign lookup fires while the
+	// operator is still typing (before the QSO has an id), so a result that
+	// resolves after the QSO was logged and the form cleared is matched back
+	// to the right row by popping the oldest id queued for that exact call —
+	// not by guessing "the most recently logged QSO", which patches the wrong
+	// row when two QSOs are logged before the first one's lookup returns (or
+	// discards the result entirely when their callsigns differ). See the
+	// qrzCallsignLookupMsg handler in Update.
+	qrzPending map[string][]int64
+
 	qrzAPIKey    string
 	wrlAPIKey    string
 	wrlLogbookID string
@@ -219,6 +231,19 @@ type model struct {
 	backupInProgress         bool
 	cabrilloExportInProgress bool
 	adifExportInProgress     bool
+	// importInProgress guards against launching a second ADIF import while
+	// one is still running (repeated Enter on the Import screen), which would
+	// otherwise start concurrent jobs racing on the same database.
+	importInProgress bool
+
+	// bgCtx/bgCancel/bgTasks coordinate background database work (currently
+	// the async ADIF import) with shutdown: main() cancels bgCtx and waits on
+	// bgTasks before closing the database, so an import can't outlive the UI
+	// and write into a closing/closed database. bgTasks is a pointer so it
+	// survives Update's value-receiver copies.
+	bgCtx    context.Context
+	bgCancel context.CancelFunc
+	bgTasks  *sync.WaitGroup
 
 	dupeWarning  bool
 	statusMsg    string
@@ -248,6 +273,12 @@ type model struct {
 	clusterFilterFields []textinput.Model
 	clusterFilterFocus  int
 	clusterBandFocus    int
+	// editClusterBands is the working copy of the band selection while the
+	// Cluster Filters edit screen is open. Space toggles this clone, not the
+	// live clusterFilters.Bands, so Esc discards band changes and only Enter
+	// (saveClusterFilters) commits them — matching how the DX/DE text fields
+	// are only read back into clusterFilters on Enter.
+	editClusterBands    map[string]bool
 	adifPathField       textinput.Model
 	detailFields        []textinput.Model
 	detailFocusIdx      int
@@ -383,12 +414,16 @@ func initialModel(st *store) model {
 		table.WithStyles(tableStylesUnfocused),
 	)
 
+	bgCtx, bgCancel := context.WithCancel(context.Background())
 	m := model{
 		contestName:    "W4GNS Logger 4 Men — CW Log",
 		fields:         fields,
 		store:          st,
 		table:          t,
 		clusterFilters: defaultClusterFilters(),
+		bgCtx:          bgCtx,
+		bgCancel:       bgCancel,
+		bgTasks:        &sync.WaitGroup{},
 		detailFields:   details,
 		contestFields:  contests,
 		events:         events,
@@ -552,6 +587,10 @@ func (m *model) openClusterFilters() {
 		newStationTextInput(f.DECQZone, 14), newStationTextInput(f.DEContinent, 14),
 		newStationTextInput(f.DECallArea, 14),
 	}
+	m.editClusterBands = make(map[string]bool, len(m.clusterFilters.Bands))
+	for band, enabled := range m.clusterFilters.Bands {
+		m.editClusterBands[band] = enabled
+	}
 	m.screen = clusterFiltersScreen
 	m.focusClusterFilterField(0)
 	m.statusMsg = "Cluster filters: CW only; use Up/Down and Space to select bands. DE Call Area e.g. \"2,3,4\""
@@ -578,8 +617,38 @@ func (m *model) saveClusterFilters() {
 	m.clusterFilters.DECQZone = strings.TrimSpace(m.clusterFilterFields[clusterDECQField].Value())
 	m.clusterFilters.DEContinent = strings.TrimSpace(m.clusterFilterFields[clusterDEContinentField].Value())
 	m.clusterFilters.DECallArea = strings.TrimSpace(m.clusterFilterFields[clusterDECallAreaField].Value())
+	if m.editClusterBands != nil {
+		m.clusterFilters.Bands = m.editClusterBands
+		m.editClusterBands = nil
+	}
+	// Re-apply the just-committed filters to spots already buffered under the
+	// old filters, so a spot that's no longer allowed (a now-deselected band,
+	// a newly narrowed DX/DE filter) disappears immediately instead of
+	// lingering until it scrolls off the capped list.
+	m.pruneClusterSpots()
 	m.screen = clusterScreen
 	m.clusterStatus = "cluster filters applied — CW only"
+}
+
+// pruneClusterSpots drops every buffered spot the current filters no longer
+// allow and clamps the scroll offset to the shortened list.
+func (m *model) pruneClusterSpots() {
+	kept := m.clusterSpots[:0]
+	for _, spot := range m.clusterSpots {
+		if m.clusterFilters.allowsSpot(spot) {
+			kept = append(kept, spot)
+		}
+	}
+	m.clusterSpots = kept
+	// Clamp the scroll offset to the shortened list without the status-bar
+	// side effect scrollClusterSpots carries.
+	maxScroll := len(m.clusterSpots) - recentQSOsVisibleRows
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	if m.clusterSpotsScroll > maxScroll {
+		m.clusterSpotsScroll = maxScroll
+	}
 }
 
 type adifImportedMsg struct {
@@ -637,20 +706,11 @@ func (m model) cabrilloExportCmd(contestID string) tea.Cmd {
 		}
 		filename := fmt.Sprintf("%s_%s.cbr", sanitizeFilenameComponent(callsign), sanitizeFilenameComponent(contestID))
 		path := filepath.Join(downloads, filename)
-		file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
-		if err != nil {
-			return cabrilloExportedMsg{err: fmt.Errorf("create Cabrillo file: %w", err)}
-		}
 		ctx, cancel := context.WithTimeout(context.Background(), backupTimeout)
 		defer cancel()
-		count, err := exportCabrillo(ctx, file, profile, event, contestID, st)
-		closeErr := file.Close()
+		count, err := writeCabrilloAtomic(ctx, downloads, path, profile, event, contestID, st)
 		if err != nil {
-			os.Remove(path)
 			return cabrilloExportedMsg{err: err}
-		}
-		if closeErr != nil {
-			return cabrilloExportedMsg{err: fmt.Errorf("write Cabrillo file: %w", closeErr)}
 		}
 		return cabrilloExportedMsg{path: path, count: count}
 	}
@@ -682,7 +742,7 @@ func (m model) adifExportCmd() tea.Cmd {
 			callsign = "LOG"
 		}
 		filename := fmt.Sprintf("%s_%s.adi", sanitizeFilenameComponent(callsign), time.Now().UTC().Format("20060102-150405"))
-		path := filepath.Join(downloads, filename)
+		path := nonCollidingPath(filepath.Join(downloads, filename))
 
 		ctx, cancel := context.WithTimeout(context.Background(), backupTimeout)
 		defer cancel()
@@ -691,6 +751,25 @@ func (m model) adifExportCmd() tea.Cmd {
 			return adifExportedMsg{err: err}
 		}
 		return adifExportedMsg{path: path, count: count}
+	}
+}
+
+// nonCollidingPath returns path unchanged if nothing exists there, otherwise
+// inserts "-1", "-2", … before the extension until it finds a free name. The
+// ADIF export filename is timestamped only to the second, so two exports in
+// the same second would otherwise land on the same path and the second would
+// silently overwrite the first.
+func nonCollidingPath(path string) string {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return path
+	}
+	ext := filepath.Ext(path)
+	base := strings.TrimSuffix(path, ext)
+	for i := 1; ; i++ {
+		candidate := fmt.Sprintf("%s-%d%s", base, i, ext)
+		if _, err := os.Stat(candidate); os.IsNotExist(err) {
+			return candidate
+		}
 	}
 }
 
@@ -703,13 +782,26 @@ func (m *model) openADIFImport() {
 }
 
 func (m model) importADIFFile(path string) tea.Cmd {
+	ctx := m.bgCtx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	wg := m.bgTasks
+	st := m.store
+	profileID := m.activeStation.ID
 	return func() tea.Msg {
+		// The matching bgTasks.Add(1) runs on the update loop before this
+		// goroutine starts (see updateADIFImport), so shutdown's Wait() sees
+		// this job; release it here whichever way the import ends.
+		if wg != nil {
+			defer wg.Done()
+		}
 		file, err := os.Open(strings.TrimSpace(path))
 		if err != nil {
 			return adifImportedMsg{err: fmt.Errorf("open ADIF file: %w", err)}
 		}
 		defer file.Close()
-		result, err := importADIF(context.Background(), file, m.activeStation.ID, m.store)
+		result, err := importADIF(ctx, file, profileID, st)
 		return adifImportedMsg{result: result, err: err}
 	}
 }
@@ -792,7 +884,10 @@ func (m *model) isDuplicateClusterSpot(spot clusterSpot) bool {
 }
 
 func (m model) Init() tea.Cmd {
-	cmds := []tea.Cmd{textinput.Blink, fetchSolarIndicesCmd(), solarTickCmd()}
+	// uploadDrainTickCmd starts the outbox drain loop, which also resumes any
+	// deliveries left pending in the database from a previous run (a crash,
+	// quit, or transient failure), so no logged QSO's upload is lost.
+	cmds := []tea.Cmd{textinput.Blink, fetchSolarIndicesCmd(), solarTickCmd(), uploadDrainTickCmd()}
 	// main() pre-sets clusterConnecting (and the generation/status that go
 	// with it) before constructing the program, since Init has a value
 	// receiver and can't mutate the model itself — only kick off the
@@ -820,7 +915,7 @@ func (m *model) setTableFocused(focused bool) {
 }
 
 func (m *model) refreshTableRows() {
-	recent, err := m.store.recentQSOs(50)
+	recent, err := m.store.recentQSOs(m.activeStation.ID, 50)
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
 		return
@@ -846,7 +941,7 @@ func (m *model) refreshTableRows() {
 		}
 	}
 
-	if n, err := m.store.count(); err == nil {
+	if n, err := m.store.count(m.activeStation.ID); err == nil {
 		m.qsoCount = n
 	}
 }
@@ -865,7 +960,7 @@ func (m model) selectedRecentQSO() (qso, bool) {
 // for editing. The next final Enter (see logCurrentQSO) saves changes back
 // to this same row instead of inserting a new one.
 func (m *model) beginEditQSO(q qso) {
-	full, err := m.store.qsoByID(q.id)
+	full, err := m.store.qsoByID(m.activeStation.ID, q.id)
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
 		return
@@ -977,7 +1072,7 @@ func (m *model) selectBand(direction int) {
 }
 
 func (m *model) showWorkedCall(call string) {
-	contacts, err := m.store.qsosByCall(call)
+	contacts, err := m.store.qsosByCall(m.activeStation.ID, call)
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("history error: %v", err)
 		return
@@ -1124,6 +1219,110 @@ func (m *model) autoFillFromQRZ() tea.Cmd {
 	return lookupQRZCallsignCmd(m.qrzXMLCreds, m.qrzXMLSessionKey, call)
 }
 
+// applyQRZRecordToLoggedQSO patches a QRZ callsign-lookup result into a QSO
+// that was already saved to the database, for the case where the lookup
+// resolves after the operator logged the QSO and cleared the form (see the
+// qrzCallsignLookupMsg handler in Update). It only fills fields that are
+// still blank on the saved record, mirroring the live-form autofill's
+// don't-overwrite-what-the-operator-typed behavior.
+func (m *model) applyQRZRecordToLoggedQSO(id int64, call string, record qrzCallsignRecord) error {
+	q, err := m.store.qsoByID(m.activeStation.ID, id)
+	if err != nil {
+		return err
+	}
+	if normalizeCall(q.call) != call {
+		// The id has since been edited to a different callsign; the lookup
+		// no longer applies to whatever this id now holds.
+		return nil
+	}
+	filled := false
+	if record.name != "" && strings.TrimSpace(q.name) == "" {
+		q.name = record.name
+		filled = true
+	}
+	if record.qth != "" && strings.TrimSpace(q.qth) == "" {
+		q.qth = record.qth
+		filled = true
+	}
+	if record.grid != "" && strings.TrimSpace(q.grid) == "" {
+		q.grid = record.grid
+		filled = true
+	}
+	if record.state != "" && strings.TrimSpace(q.state) == "" {
+		q.state = record.state
+		filled = true
+	}
+	if record.county != "" && strings.TrimSpace(q.county) == "" {
+		q.county = record.county
+		filled = true
+	}
+	if record.email != "" && strings.TrimSpace(q.email) == "" {
+		q.email = record.email
+		filled = true
+	}
+	if !filled {
+		return nil
+	}
+	if err := m.store.updateQSO(id, q); err != nil {
+		return err
+	}
+	m.statusMsg = "QRZ: filled details for " + call + " (already logged)"
+	m.refreshTableRows()
+	return nil
+}
+
+// enqueuePendingQRZ records that a freshly logged QSO (id) may still receive
+// a QRZ callsign-lookup result after the form has cleared, so the result can
+// be matched back to this exact row. Only queued when QRZ XML lookup is
+// actually configured, so the queue can't grow for an operator who never
+// triggers a lookup.
+// maxPendingQRZPerCall and maxPendingQRZCalls bound qrzPending. Entries only
+// matter for the seconds between logging a QSO and its lookup returning; a
+// lookup that never resolves (never triggered, or it errored) would otherwise
+// leave its entry forever, so these caps keep the map from growing without
+// bound over a long session. Dropping a stale entry just forgoes late
+// enrichment of that one already-logged QSO.
+const (
+	maxPendingQRZPerCall = 32
+	maxPendingQRZCalls   = 256
+)
+
+func (m *model) enqueuePendingQRZ(call string, id int64) {
+	if m.qrzXMLCreds.empty() {
+		return
+	}
+	if m.qrzPending == nil {
+		m.qrzPending = make(map[string][]int64)
+	}
+	ids := append(m.qrzPending[call], id)
+	if len(ids) > maxPendingQRZPerCall {
+		ids = ids[len(ids)-maxPendingQRZPerCall:]
+	}
+	m.qrzPending[call] = ids
+	for len(m.qrzPending) > maxPendingQRZCalls {
+		for k := range m.qrzPending {
+			delete(m.qrzPending, k)
+			break
+		}
+	}
+}
+
+// dequeuePendingQRZ pops the oldest logged-QSO id awaiting enrichment for
+// call, if any, so each queued QSO is patched by at most one lookup result.
+func (m *model) dequeuePendingQRZ(call string) (int64, bool) {
+	ids := m.qrzPending[call]
+	if len(ids) == 0 {
+		return 0, false
+	}
+	id := ids[0]
+	if len(ids) == 1 {
+		delete(m.qrzPending, call)
+	} else {
+		m.qrzPending[call] = ids[1:]
+	}
+	return id, true
+}
+
 func (m *model) resetQSOClockIfReturningToCall(nextFocus int) {
 	if nextFocus != fieldCall || m.qsoStartedAt.IsZero() {
 		return
@@ -1159,7 +1358,7 @@ func (m model) updateRecentQSOsTable(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.deleteArmed = false
-		if err := m.store.deleteQSO(q.id); err != nil {
+		if err := m.store.deleteQSO(m.activeStation.ID, q.id); err != nil {
 			m.statusMsg = fmt.Sprintf("db error: %v", err)
 			return m, nil
 		}
@@ -1286,29 +1485,88 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 	m.statusMsg = fmt.Sprintf("logged %s (%s)", call, endedAt.Sub(startedAt).Round(time.Second))
 	m.qsoStartedAt = time.Time{}
 	m.workedCall = ""
+	m.enqueuePendingQRZ(call, id)
+	m.enqueueUploads(id)
 	m.clearQSOForm()
 	m.refreshTableRows()
-	return m, uploadBufferCmd(id)
+	return m, nil
 }
 
-// uploadBufferDelay is how long a freshly logged QSO sits before it's pushed
-// to QRZ/WRL. It gives the operator a window to fix a mistyped call or other
-// field (via Edit) before the QSO goes out to external services, which don't
-// offer a clean way to retract or correct an upload.
+// uploadBufferDelay is how long a freshly logged QSO waits before its first
+// delivery attempt. It gives the operator a window to fix a mistyped call or
+// other field (via Edit) before the QSO goes out to external services, which
+// don't offer a clean way to retract or correct an upload. The QSO is read
+// fresh from the database at send time, so an edit made during this window is
+// picked up automatically.
 const uploadBufferDelay = 60 * time.Second
 
-// pendingUploadMsg fires once uploadBufferDelay has elapsed after a QSO was
-// logged, naming the QSO to upload by ID rather than carrying a snapshot of
-// its fields — that way an edit made during the buffer window is picked up
-// automatically when the delay expires.
-type pendingUploadMsg struct {
-	id int64
+// uploadDrainInterval is how often the outbox is polled for due deliveries.
+// uploadInFlightLease exceeds the per-upload timeout so a delivery already in
+// flight is never re-claimed and double-sent by the next tick.
+const (
+	uploadDrainInterval = 20 * time.Second
+	uploadInFlightLease = 90 * time.Second
+	uploadDrainBatch    = 20
+)
+
+// uploadDrainMsg wakes the outbox drain on a fixed interval.
+type uploadDrainMsg struct{}
+
+func uploadDrainTickCmd() tea.Cmd {
+	return tea.Tick(uploadDrainInterval, func(time.Time) tea.Msg { return uploadDrainMsg{} })
 }
 
-func uploadBufferCmd(id int64) tea.Cmd {
-	return tea.Tick(uploadBufferDelay, func(time.Time) tea.Msg {
-		return pendingUploadMsg{id: id}
-	})
+// enqueueUploads queues a freshly logged QSO for delivery to every configured
+// external destination, deferred by uploadBufferDelay so the edit window
+// applies. A destination with no credentials is skipped so its rows can't pile
+// up unsendable. Enqueue errors only affect delivery durability, so they're
+// surfaced in the status bar rather than failing the log.
+func (m *model) enqueueUploads(id int64) {
+	notBefore := time.Now().Add(uploadBufferDelay)
+	if strings.TrimSpace(m.qrzAPIKey) != "" {
+		if err := m.store.enqueueUpload(id, m.activeStation.ID, uploadDestQRZ, notBefore); err != nil {
+			m.statusMsg = fmt.Sprintf("upload queue error: %v", err)
+		}
+	}
+	if strings.TrimSpace(m.wrlAPIKey) != "" {
+		if err := m.store.enqueueUpload(id, m.activeStation.ID, uploadDestWRL, notBefore); err != nil {
+			m.statusMsg = fmt.Sprintf("upload queue error: %v", err)
+		}
+	}
+}
+
+// drainOutbox claims every delivery now due and returns the upload commands to
+// run for them. Each claimed QSO is read fresh (picking up edits); a delivery
+// whose QSO was deleted, or whose destination is no longer configured, is
+// dropped from the outbox instead of retried forever.
+func (m *model) drainOutbox() []tea.Cmd {
+	entries, err := m.store.claimDueUploads(time.Now(), uploadInFlightLease, uploadDrainBatch)
+	if err != nil {
+		m.statusMsg = fmt.Sprintf("upload queue error: %v", err)
+		return nil
+	}
+	var cmds []tea.Cmd
+	for _, e := range entries {
+		q, err := m.store.qsoByID(e.profileID, e.qsoID)
+		if err != nil {
+			_ = m.store.markUploadDone(e.qsoID, e.destination)
+			continue
+		}
+		var cmd tea.Cmd
+		switch e.destination {
+		case uploadDestQRZ:
+			cmd = qrzUploadCmd(m.qrzAPIKey, q)
+		case uploadDestWRL:
+			cmd = wrlUploadCmd(m.wrlAPIKey, m.wrlLogbookID, q)
+		}
+		if cmd == nil {
+			// Unknown or unconfigured destination: don't leave it stuck.
+			_ = m.store.markUploadDone(e.qsoID, e.destination)
+			continue
+		}
+		cmds = append(cmds, cmd)
+	}
+	return cmds
 }
 
 // clearQSOForm resets the fields that should go blank between QSOs. Band,
@@ -1361,6 +1619,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		call := normalizeCall(m.fields[fieldCall].Value())
 		if message.call != call {
+			// The operator already logged this QSO (or moved on to a
+			// different callsign) before the lookup returned. Match the
+			// result back to the specific row it was fired for by popping
+			// the oldest QSO queued for this exact callsign, and patch it
+			// unless that row is currently open for editing.
+			if message.err == nil {
+				if id, ok := m.dequeuePendingQRZ(message.call); ok && m.editingQSOID != id {
+					if err := m.applyQRZRecordToLoggedQSO(id, message.call, message.record); err != nil {
+						m.statusMsg = fmt.Sprintf("db error: %v", err)
+					}
+				}
+			}
 			return m, nil
 		}
 		if message.err != nil {
@@ -1413,27 +1683,40 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.termWidth, m.termHeight = message.Width, message.Height
 		return m, nil
 	}
-	if message, ok := msg.(pendingUploadMsg); ok {
-		current, err := m.store.qsoByID(message.id)
-		if err != nil {
-			// Deleted (or otherwise gone) during the buffer window: nothing to upload.
-			return m, nil
-		}
-		return m, tea.Batch(qrzUploadCmd(m.qrzAPIKey, current), wrlUploadCmd(m.wrlAPIKey, m.wrlLogbookID, current))
+	if _, ok := msg.(uploadDrainMsg); ok {
+		cmds := m.drainOutbox()
+		cmds = append(cmds, uploadDrainTickCmd())
+		return m, tea.Batch(cmds...)
 	}
 	if message, ok := msg.(qrzUploadMsg); ok {
 		if message.err != nil {
-			m.statusMsg = fmt.Sprintf("QRZ upload failed for %s: %v", message.call, message.err)
+			if err := m.store.recordUploadFailure(message.qsoID, uploadDestQRZ, message.err.Error(), time.Now()); err != nil {
+				m.statusMsg = fmt.Sprintf("upload queue error: %v", err)
+			} else {
+				m.statusMsg = fmt.Sprintf("QRZ upload failed for %s (will retry): %v", message.call, message.err)
+			}
 		} else {
-			m.statusMsg = fmt.Sprintf("QRZ upload OK for %s (LOGID %s)", message.call, message.logID)
+			if err := m.store.markUploadDone(message.qsoID, uploadDestQRZ); err != nil {
+				m.statusMsg = fmt.Sprintf("upload queue error: %v", err)
+			} else {
+				m.statusMsg = fmt.Sprintf("QRZ upload OK for %s (LOGID %s)", message.call, message.logID)
+			}
 		}
 		return m, nil
 	}
 	if message, ok := msg.(wrlUploadMsg); ok {
 		if message.err != nil {
-			m.statusMsg = fmt.Sprintf("WRL upload failed for %s: %v", message.call, message.err)
+			if err := m.store.recordUploadFailure(message.qsoID, uploadDestWRL, message.err.Error(), time.Now()); err != nil {
+				m.statusMsg = fmt.Sprintf("upload queue error: %v", err)
+			} else {
+				m.statusMsg = fmt.Sprintf("WRL upload failed for %s (will retry): %v", message.call, message.err)
+			}
 		} else {
-			m.statusMsg = fmt.Sprintf("WRL upload OK for %s", message.call)
+			if err := m.store.markUploadDone(message.qsoID, uploadDestWRL); err != nil {
+				m.statusMsg = fmt.Sprintf("upload queue error: %v", err)
+			} else {
+				m.statusMsg = fmt.Sprintf("WRL upload OK for %s", message.call)
+			}
 		}
 		return m, nil
 	}
@@ -1489,6 +1772,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if message.err != nil {
+			// Explicitly close the socket rather than just dropping the
+			// reference: the read failed, but the underlying TCP connection
+			// (and its file descriptor) may still be open, so leaking it would
+			// accumulate half-open sockets over repeated reconnects.
+			if m.clusterClient != nil {
+				m.clusterClient.close()
+			}
 			m.clusterClient = nil
 			m.clusterConnecting = false
 			m.clusterStatus = fmt.Sprintf("cluster connection ended: %v", message.err)
@@ -1507,6 +1797,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// before it finishes must not cause this result to be silently dropped
 	// when it later arrives on a different screen.
 	if message, ok := msg.(adifImportedMsg); ok {
+		m.importInProgress = false
 		if message.err != nil {
 			m.statusMsg = fmt.Sprintf("ADIF import failed: %v", message.err)
 			return m, nil
@@ -1870,7 +2161,7 @@ func (m model) updateClusterFilters(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case " ":
 			band := cwBands[m.clusterBandFocus]
-			m.clusterFilters.Bands[band] = !m.clusterFilters.Bands[band]
+			m.editClusterBands[band] = !m.editClusterBands[band]
 			return m, nil
 		case "enter":
 			m.saveClusterFilters()
@@ -1895,12 +2186,21 @@ func (m model) updateADIFImport(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focusField(fieldCall)
 			return m, nil
 		case "enter":
+			if m.importInProgress {
+				m.statusMsg = "An ADIF import is already running…"
+				return m, nil
+			}
 			path := strings.TrimSpace(m.adifPathField.Value())
 			if path == "" {
 				m.statusMsg = "ADIF file path is required"
 				return m, nil
 			}
+			m.importInProgress = true
 			m.statusMsg = "Importing ADIF…"
+			// Register the job synchronously on the update loop (before the
+			// async command's goroutine starts) so main()'s bgTasks.Wait() on
+			// shutdown can never miss it.
+			m.bgTasks.Add(1)
 			return m, m.importADIFFile(path)
 		}
 	}
@@ -2176,7 +2476,7 @@ func (m model) clusterFiltersView() string {
 	b.WriteString("\nBands: ")
 	for i, band := range cwBands {
 		mark := " "
-		if m.clusterFilters.Bands[band] {
+		if m.editClusterBands[band] {
 			mark = "x"
 		}
 		item := fmt.Sprintf("[%s] %s", mark, band)
@@ -2380,11 +2680,19 @@ func main() {
 		return
 	}
 	if !hasArg(os.Args[1:], terminalChildArg) && !hasArg(os.Args[1:], inCurrentTerminalArg) {
-		if err := launchInOwnTerminal(); err != nil {
-			fmt.Fprintf(os.Stderr, "error opening W4GNS Logger 4 Men in its own terminal: %v\n", err)
-			os.Exit(1)
+		if err := launchInOwnTerminal(); err == nil {
+			return
+		} else {
+			// Fall back to running in the current terminal instead of exiting.
+			// macOS and Windows — both published release targets — have none
+			// of the Linux terminal emulators launchInOwnTerminal searches
+			// for, and a minimal Linux host may not either. Exiting here left
+			// those users unable to start the app at all unless they happened
+			// to discover the --in-current-terminal flag. bubbletea's TUI runs
+			// fine in the invoking terminal (Terminal.app, Windows Terminal,
+			// cmd, or any Linux shell), so this is a safe default.
+			fmt.Fprintf(os.Stderr, "no separate terminal window available (%v); running in the current terminal\n", err)
 		}
-		return
 	}
 
 	dbPath := defaultDBPath()
@@ -2442,6 +2750,17 @@ func main() {
 	// through here, so a single backup-on-exit call (and remembering the
 	// terminal size for next launch) covers all of them.
 	if m, ok := finalModel.(model); ok {
+		// Cancel and drain any in-flight background database work (an ADIF
+		// import) before the backup reads the database and before defer
+		// st.Close() runs, so it can't write into a closing/closed database
+		// or leave the shutdown snapshot half-imported. bubbletea does not
+		// wait for outstanding tea.Cmd goroutines before p.Run() returns.
+		if m.bgCancel != nil {
+			m.bgCancel()
+		}
+		if m.bgTasks != nil {
+			m.bgTasks.Wait()
+		}
 		saveWindowSize(m.termWidth, m.termHeight)
 		fmt.Println("backing up to Google Drive…")
 		ctx, cancel := context.WithTimeout(context.Background(), backupTimeout)
@@ -2477,6 +2796,7 @@ var recognizedArgs = map[string]bool{
 // through to launching the TUI — which would otherwise hide a typo'd flag
 // (e.g. --export-adiff) or an accidentally dropped path argument.
 func validateArgs(args []string) error {
+	sawExport, sawImport := false, false
 	for i, arg := range args {
 		if !strings.HasPrefix(arg, "--") {
 			continue
@@ -2484,9 +2804,27 @@ func validateArgs(args []string) error {
 		if !recognizedArgs[arg] {
 			return fmt.Errorf("unrecognized flag %q", arg)
 		}
-		if (arg == "--export-adif" || arg == "--import-adif") && i+1 >= len(args) {
-			return fmt.Errorf("%s requires a file path argument", arg)
+		if arg == "--export-adif" {
+			sawExport = true
 		}
+		if arg == "--import-adif" {
+			sawImport = true
+		}
+		if arg == "--export-adif" || arg == "--import-adif" {
+			// The path operand is required and must be an actual path, not the
+			// next flag: "--export-adif --version" (or "--export-adif
+			// --import-adif x") would otherwise treat "--version" as the export
+			// path and silently do the wrong thing.
+			if i+1 >= len(args) {
+				return fmt.Errorf("%s requires a file path argument", arg)
+			}
+			if recognizedArgs[args[i+1]] {
+				return fmt.Errorf("%s requires a file path argument, not the flag %q", arg, args[i+1])
+			}
+		}
+	}
+	if sawExport && sawImport {
+		return fmt.Errorf("--export-adif and --import-adif cannot be combined")
 	}
 	return nil
 }
@@ -2514,7 +2852,7 @@ func runADIFExport(path string) {
 	if dbPath == "" {
 		dbPath = defaultDBPath()
 	}
-	if pathsReferToSameFile(path, dbPath) {
+	if exportTargetCollidesWithDB(path, dbPath) {
 		fmt.Fprintln(os.Stderr, "ADIF export path must not be the SQLite database")
 		os.Exit(1)
 	}
@@ -2524,6 +2862,15 @@ func runADIFExport(path string) {
 		os.Exit(1)
 	}
 	defer st.Close()
+	// Re-check now that openStore has created the database (and its WAL/SHM
+	// sidecars) on disk. A path that looked distinct before — a dangling
+	// symlink pointing at the not-yet-created database, say — can resolve onto
+	// it only once the target exists, and the export's final rename would then
+	// clobber the live database.
+	if exportTargetCollidesWithDB(path, dbPath) {
+		fmt.Fprintln(os.Stderr, "ADIF export path must not be the SQLite database")
+		os.Exit(1)
+	}
 	profile, err := st.activeStationProfile()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error loading station profile: %v\n", err)
@@ -2543,9 +2890,36 @@ func pathsReferToSameFile(first, second string) bool {
 	if firstErr == nil && secondErr == nil && os.SameFile(firstInfo, secondInfo) {
 		return true
 	}
-	firstPath, firstErr := filepath.Abs(first)
-	secondPath, secondErr := filepath.Abs(second)
-	return firstErr == nil && secondErr == nil && firstPath == secondPath
+	return resolvePath(first) == resolvePath(second)
+}
+
+// resolvePath returns path's symlink-resolved absolute form when possible,
+// falling back to its lexically-cleaned absolute form. filepath.EvalSymlinks
+// fails on a path that doesn't exist yet or is a dangling symlink, so the
+// fallback keeps two plain distinct paths distinguishable while still
+// collapsing a resolvable symlink onto its real target.
+func resolvePath(path string) string {
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		if abs, err := filepath.Abs(resolved); err == nil {
+			return abs
+		}
+	}
+	if abs, err := filepath.Abs(path); err == nil {
+		return abs
+	}
+	return path
+}
+
+// exportTargetCollidesWithDB reports whether exportPath resolves onto the
+// SQLite database file or one of its WAL/SHM sidecars. Overwriting any of the
+// three would corrupt the live log, so the CLI export refuses all of them.
+func exportTargetCollidesWithDB(exportPath, dbPath string) bool {
+	for _, p := range []string{dbPath, dbPath + "-wal", dbPath + "-shm"} {
+		if pathsReferToSameFile(exportPath, p) {
+			return true
+		}
+	}
+	return false
 }
 
 func runADIFImport(path string) {
