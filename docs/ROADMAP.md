@@ -80,10 +80,12 @@ the log, submitted contest results, or external services.
   `MoveFileEx` with replace-existing/write-through flags. The Windows target is
   cross-built; native Windows filesystem regression coverage remains desirable.
 
-- 🔧 **Map internal contest/session ids to standard ADIF identifiers.** CQ WW
-  CW and CQ 160 CW now join CWT and CW Open in the exporter mapping, stripping
-  session suffixes. The correct durable solution is still a validated per-event
-  `adif_contest_id` catalog field covering each promoted event.
+- ✅ **Map internal contest/session ids to standard ADIF identifiers.** Every
+  currently promoted event (CWT, CW Open, CQ WW CW, and CQ 160 CW) declares a
+  validated per-event `adif_contest_id`; ADIF export resolves session-specific
+  internal ids through that catalog metadata while preserving the database's
+  internal id for scoring and dupe scope. The values are checked against the
+  ADIF Contest ID Enumeration.
 
 - ✅ **Scoring prefers persisted entity context.** Contest iteration loads each
   QSO's country/DXCC/CQZ/ITUZ fields and `contestState` uses valid recorded

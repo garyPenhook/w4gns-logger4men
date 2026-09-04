@@ -196,6 +196,36 @@ func TestLoadEventCatalogCQWWHasRealScoringRules(t *testing.T) {
 	}
 }
 
+func TestLoadEventCatalogCarriesCheckedADIFContestIDs(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for id, want := range map[string]string{
+		"CWT":       "CWOPS-CWT",
+		"CW-OPEN":   "CWOPS-CW-OPEN",
+		"CQ-WW-CW":  "CQ-WW-CW",
+		"CQ-160-CW": "CQ-160-CW",
+	} {
+		if got := events[eventIndex(t, events, id)].ADIFContestID; got != want {
+			t.Errorf("event %q adif_contest_id = %q, want %q", id, got, want)
+		}
+	}
+}
+
+func TestValidADIFContestID(t *testing.T) {
+	for _, id := range []string{"", "CQ-WW-CW", "CWOPS-CWT", "7QP"} {
+		if !validADIFContestID(id) {
+			t.Errorf("validADIFContestID(%q) = false, want true", id)
+		}
+	}
+	for _, id := range []string{"cq-ww-cw", "CQ WW CW", "CQ_WW_CW", "CQ/WW"} {
+		if validADIFContestID(id) {
+			t.Errorf("validADIFContestID(%q) = true, want false", id)
+		}
+	}
+}
+
 // TestLoadEventCatalogCQ160HasRealScoringRules guards the curated
 // CQ-160-CW entry's actual scoring config (roadmap §3 Phase 3 "real
 // per-contest wiring"), sourced from cq160.com/rules/index.htm rather than

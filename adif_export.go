@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 )
@@ -15,25 +17,53 @@ import (
 // https://www.adif.org/ for the current release.
 const adifVersion = "3.1.7"
 
-// standardContestIDs maps this application's internal, session-granular
-// contest_id values (e.g. "CWT-1900", used for per-session dupe checking and
-// display) onto the interoperable identifiers from the official ADIF Contest
-// ID List, so exported logs match what other software and contest robots
-// expect.
-var standardContestIDs = map[string]string{
-	"CWT":       "CWOPS-CWT",
-	"CW-OPEN":   "CWOPS-CW-OPEN",
-	"CQ-WW-CW":  "CQ-WW-CW",
-	"CQ-160-CW": "CQ-160-CW",
+type adifContestIDMapping struct {
+	eventID string
+	adifID  string
+}
+
+var (
+	adifContestIDMappingsOnce sync.Once
+	adifContestIDMappings     []adifContestIDMapping
+)
+
+// configuredADIFContestIDMappings obtains ADIF IDs from the event catalog,
+// rather than maintaining a second, easy-to-stale list in the exporter. A
+// broken catalog must not prevent an operator from exporting their log, so an
+// unavailable mapping simply falls back to the persisted internal ID below.
+func configuredADIFContestIDMappings() []adifContestIDMapping {
+	adifContestIDMappingsOnce.Do(func() {
+		events, err := loadEventCatalog()
+		if err != nil {
+			return
+		}
+		for _, event := range events {
+			if adifID := strings.TrimSpace(event.ADIFContestID); adifID != "" {
+				adifContestIDMappings = append(adifContestIDMappings, adifContestIDMapping{
+					eventID: event.ID,
+					adifID:  adifID,
+				})
+			}
+		}
+		// Match the longest event ID first. This makes a future pair such as
+		// FOO and FOO-BAR deterministic for session IDs of the form ID-session.
+		sort.Slice(adifContestIDMappings, func(i, j int) bool {
+			if len(adifContestIDMappings[i].eventID) != len(adifContestIDMappings[j].eventID) {
+				return len(adifContestIDMappings[i].eventID) > len(adifContestIDMappings[j].eventID)
+			}
+			return adifContestIDMappings[i].eventID < adifContestIDMappings[j].eventID
+		})
+	})
+	return adifContestIDMappings
 }
 
 // adifContestID maps an internal contest_id to its ADIF-standard equivalent
-// when one is known, leaving session/serial tracking in the database
-// untouched.
+// when the event catalog provides one, leaving session/serial tracking in the
+// database untouched.
 func adifContestID(internal string) string {
-	for prefix, standard := range standardContestIDs {
-		if internal == prefix || strings.HasPrefix(internal, prefix+"-") {
-			return standard
+	for _, mapping := range configuredADIFContestIDMappings() {
+		if internal == mapping.eventID || strings.HasPrefix(internal, mapping.eventID+"-") {
+			return mapping.adifID
 		}
 	}
 	return internal

@@ -119,14 +119,16 @@ func TestAdifQSOFieldsExportsDXCCNumber(t *testing.T) {
 	}
 }
 
-func TestAdifContestIDMapsCWTAndCWOpenToStandardIDs(t *testing.T) {
+func TestAdifContestIDMapsCatalogConfiguredEventsToStandardIDs(t *testing.T) {
 	cases := map[string]string{
-		"CWT-1900":      "CWOPS-CWT",
-		"CWT-0300":      "CWOPS-CWT",
-		"CW-OPEN-1":     "CWOPS-CW-OPEN",
-		"CW-OPEN-3":     "CWOPS-CW-OPEN",
-		"ARRL-DX-CW":    "ARRL-DX-CW",
-		"TNQP-DAVIDSON": "TNQP-DAVIDSON",
+		"CWT-1900":       "CWOPS-CWT",
+		"CWT-0300":       "CWOPS-CWT",
+		"CW-OPEN-1":      "CWOPS-CW-OPEN",
+		"CW-OPEN-3":      "CWOPS-CW-OPEN",
+		"CQ-WW-CW-2026":  "CQ-WW-CW",
+		"CQ-160-CW-2026": "CQ-160-CW",
+		"ARRL-DX-CW":     "ARRL-DX-CW",
+		"TNQP-DAVIDSON":  "TNQP-DAVIDSON",
 	}
 	for internal, want := range cases {
 		if got := adifContestID(internal); got != want {

@@ -25,7 +25,14 @@ type eventDefinition struct {
 	// ID isn't the sponsor's identifier — e.g. a contest with distinct "home"
 	// and "DX" side entries (different exchanges) that both submit under one
 	// Cabrillo contest name. Blank means "use ID", preserving existing events.
-	CabrilloContest  string   `json:"cabrillo_contest"`
+	CabrilloContest string `json:"cabrillo_contest"`
+	// ADIFContestID is the interoperable ADIF CONTEST_ID value. It is separate
+	// from ID because ID is intentionally application/session-oriented (for
+	// example, CWT-1900), while ADIF has one standard identifier for the whole
+	// event (CWOPS-CWT). Blank leaves the stored internal ID untouched in ADIF
+	// output, which is appropriate until an event has been checked against the
+	// ADIF Contest ID Enumeration.
+	ADIFContestID    string   `json:"adif_contest_id"`
 	Organizer        string   `json:"organizer"`
 	Kind             string   `json:"kind"`
 	Schedule         string   `json:"schedule"`
@@ -279,6 +286,25 @@ func validCabrilloLayout(layout string) bool {
 	}
 }
 
+// validADIFContestID accepts the deliberately narrow token shape used by the
+// ADIF Contest ID Enumeration. We do not attempt to duplicate that external
+// enumeration here: a catalog entry may name a newly added official ID before
+// this application updates. Rejecting internal whitespace, punctuation, and
+// lowercase still catches configuration mistakes that would create an invalid
+// ADIF field.
+func validADIFContestID(id string) bool {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return true
+	}
+	for _, r := range id {
+		if !(r >= 'A' && r <= 'Z') && !(r >= '0' && r <= '9') && r != '-' {
+			return false
+		}
+	}
+	return true
+}
+
 // cabrilloReady is intentionally strict: a catalog record without a checked
 // line layout is not safe to export as a contest submission.
 func (e eventDefinition) cabrilloReady() bool {
@@ -371,6 +397,10 @@ func loadEventCatalog() ([]eventDefinition, error) {
 		for _, event := range configured {
 			event.ID = strings.TrimSpace(event.ID)
 			event.Name = strings.TrimSpace(event.Name)
+			// ADIF contest IDs are standardized uppercase ASCII tokens. Normalize
+			// surrounding whitespace here, while validation below keeps malformed
+			// values from becoming silent, non-interoperable export data.
+			event.ADIFContestID = strings.TrimSpace(event.ADIFContestID)
 			if event.ID == "" || event.Name == "" {
 				return nil, fmt.Errorf("event config %s has an event without id or name", entry.Name())
 			}
@@ -394,6 +424,9 @@ func loadEventCatalog() ([]eventDefinition, error) {
 			}
 			if !validCabrilloLayout(event.CabrilloLayout) {
 				return nil, fmt.Errorf("event %q has unsupported cabrillo_layout %q", event.ID, event.CabrilloLayout)
+			}
+			if !validADIFContestID(event.ADIFContestID) {
+				return nil, fmt.Errorf("event %q has invalid adif_contest_id %q", event.ID, event.ADIFContestID)
 			}
 			if err := event.validateCapability(); err != nil {
 				return nil, err
