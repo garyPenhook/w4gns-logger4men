@@ -69,7 +69,9 @@ the log, submitted contest results, or external services.
   "Canada"]`); `CQ-WW-CW` needed no change since its exchange is a uniform CQ
   zone on both sides. ARRL DX CW's non-W/VE exchange is power, not a zone, so
   it's out of scope for this schema — its state/province-vs-DXCC multiplier
-  asymmetry remains the separate open "exchange-derived multiplier kind" gap.
+  asymmetry was the separate "exchange-derived multiplier kind" gap, since
+  resolved (§3 Phase 3, `exchange_area` multiplier kind + `DXScoring`/
+  `DomesticCountries`/`effectiveScoring`).
   The loader rejects a domestic list configured without an autofill kind.
   Tests: `events_test.go`
   (`TestLoadEventCatalogCQ160HasRealScoringRules`,
@@ -425,16 +427,17 @@ every panel *and* scoring so they always agree.
   `record()`, summed in `multiplierCount()`) and threads the operator's
   in-progress received-exchange field text into `wouldBeNewMultiplier`
   (new `exchangeText` parameter, wired from `analysisPanel`) so the as-you-
-  type "NEW MULT" flag works for this kind too. **Deliberately not wired
-  into ARRL DX CW**: that contest's version of this multiplier (Rule 5.2.2)
-  is genuinely side-asymmetric — it replaces the DXCC-entity multiplier for
-  a DX-side entrant rather than adding to it, and this app's own station
-  profile is W/VE-side, so adding it to ARRL DX CW's existing scoring block
-  would double-count. Applying it correctly needs the app to know which side
-  the *operator's own station* is on and pick one multiplier rule set or the
-  other — a real gap, but a different one than "no exchange-derived kind
-  exists," and left open pending that side-detection work. Separately noted,
-  not fixed here (out of scope for this change): CQ 160's `dxcc` multiplier
+  type "NEW MULT" flag works for this kind too. **Not wired into ARRL DX CW
+  here**: that contest's version of this multiplier (Rule 5.2.2) is
+  genuinely side-asymmetric — it replaces the DXCC-entity multiplier for a
+  DX-side entrant rather than adding to it, unlike CQ 160's uniform award, so
+  adding it to ARRL DX CW's single `scoring` block as configured here would
+  double-count for this app's own (W/VE-side) station profile. Wiring it
+  correctly needed the app to know which side the *operator's own station*
+  is on and pick one multiplier rule set or the other — done in the very
+  next entry below (`DXScoring`/`DomesticCountries`/`effectiveScoring`).
+  Separately noted, not fixed here (out of scope for this change): CQ 160's
+  `dxcc` multiplier
   as configured doesn't exclude the operator's own country, so a domestic
   QSO can be miscounted as a spurious 1-multiplier "DXCC entity" that isn't
   actually in the rule's DXCC/WAE country list — pre-existing, not
@@ -445,26 +448,49 @@ every panel *and* scoring so they always agree.
   `TestContestStateWouldBeNewMultiplierExchangeArea`), `events_test.go`
   (`TestLoadEventCatalogCQ160HasRealScoringRules`).
 - ✅ **Real per-contest wiring: ARRL International DX Contest, CW's actual
-  scoring rules.** Curated `ARRL-DX-CW` (`events/contestcalendar.json`) now
-  carries a real `scoring` block sourced from
-  `contests.arrl.org/ContestRules/DX-Rules.pdf`: a flat 3 points per QSO
-  (§5.1) and a DXCC-entity multiplier counted once per band (§5.2.1/§5.2.2).
-  The rules are asymmetric by side — W/VE entrants count DXCC entities except
-  USA/Canada as their multiplier; DX entrants instead count US
-  states/DC/Canadian provinces and territories (§5.2.3), which this app can't
-  express yet since states/provinces come from the received exchange text,
-  not the worked callsign (the same schema gap CQ-160-CW's DX-side multiplier
-  left open). This config is therefore only correct for a W/VE-side entrant —
-  the case this app's station profile is for — and would silently overcount a
-  DX-side entrant's multipliers if selected there; a future exchange-derived
-  multiplier kind is needed before this event can be promoted for DX-side
-  operation. `adif_contest_id` (`ARRL-DX-CW`, confirmed against the ADIF
-  Contest ID Enumeration) and `cabrillo_layout: cw_rst_exchange` (the
+  scoring rules, including the side-asymmetric DX-side multiplier this entry
+  originally left unwired.** Curated `ARRL-DX-CW`
+  (`events/contestcalendar.json`) carries a real `scoring` block sourced from
+  `contests.arrl.org/ContestRules/DX-Rules.pdf`: a flat 3 points per QSO on
+  both sides (§5.1), a DXCC-entity multiplier counted once per band for a
+  W/VE-side entrant (§5.2.1, `scoring`), and — now that `exchange_area`
+  exists — the DX-side entrant's own US-state/DC/Canadian-province
+  multiplier counted once per band (§5.2.2, new `dx_scoring`). **New
+  side-asymmetric scoring schema** (`events.go`): `eventDefinition.DXScoring`
+  is an alternate `scoringRules` block that applies instead of `Scoring`
+  when the operator's own station does *not* resolve to one of the new
+  `DomesticCountries` (`["United States", "Canada"]` here); blank/nil
+  `DXScoring` (every event configured before this field existed) always uses
+  `Scoring` regardless of country, so no other event needed changes.
+  `eventDefinition.effectiveScoring(stationCountry)` implements the
+  selection (falling back to `Scoring` for an unresolved station rather than
+  guessing DX-side rules), and `contest_state.go`'s new `stationCountry`
+  helper resolves an operator's callsign to feed it. Every consumer that
+  used to read `event.Scoring` directly now goes through
+  `effectiveScoring`: `computeContestScore` (`cabrillo_export.go`, so
+  Cabrillo `CLAIMED-SCORE` is correct for whichever side actually submits),
+  `rateMeterLine`'s Q/Mult (`rate_meter.go`), and the as-you-type "NEW MULT"
+  flag (`analysisPanel`, `analysis_panel.go`) — so a DX-side entrant now
+  gets a correct claimed score and live multiplier flag instead of the
+  W/VE-side rules silently misapplying to their log. The loader validates
+  `DXScoring`/`Scoring` identically (extracted `validateScoringRules`,
+  reused for both) and requires `DomesticCountries` whenever `DXScoring` is
+  set (and vice versa) so the two fields can't be configured
+  inconsistently. `adif_contest_id` (`ARRL-DX-CW`, confirmed against the
+  ADIF Contest ID Enumeration) and `cabrillo_layout: cw_rst_exchange` (the
   exchange is one free-text field after RST on both sides — state/province
   for W/VE, power for DX — the same shape CQ WW/CQ 160 already use) were
   added alongside the scoring block, promoting the event's `capability` to
-  `scoring-ready`. Test: `events_test.go`
-  (`TestLoadEventCatalogARRLDXCWHasRealScoringRules`).
+  `scoring-ready`. Separately noted, not fixed here (out of scope for this
+  change, same caveat as CQ-160-CW's `dxcc` multiplier above): the W/VE-side
+  `dxcc` multiplier doesn't itself exclude US/Canada, so it only stays
+  correct because §1.1 structurally forbids a W/VE entrant from logging a
+  domestic QSO under this contest in the first place — an operator error
+  that logged one anyway would still be miscounted. Tests: `events_test.go`
+  (`TestLoadEventCatalogARRLDXCWHasRealScoringRules`,
+  `TestEventDefinitionEffectiveScoring`, `TestValidateScoringRules`),
+  `cabrillo_export_test.go`
+  (`TestComputeContestScoreARRLDXCWSideAsymmetric`).
 - ✅ **Real per-contest wiring: CQ WW WPX Contest, CW's actual scoring
   rules**, the multiplier/points schema gap the CQ-160-CW and ARRL-DX-CW
   entries above left open ("prefix mult + band-tiered points"). Sourced from

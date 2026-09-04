@@ -75,7 +75,7 @@ func (m model) rateMeterLine() string {
 	}
 	var rules *scoringRules
 	if event, ok := m.eventForContestID(); ok {
-		rules = event.Scoring
+		rules = event.effectiveScoring(stationCountry(m.activeStation.Callsign))
 	}
 	rm := m.contestIndex.rate(time.Now(), rules)
 	line := fmt.Sprintf("Rate: L10 %.1f  L100 %.1f  All %.1f", rm.last10, rm.last100, rm.overall)

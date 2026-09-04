@@ -338,6 +338,80 @@ func TestComputeContestScoreNoRulesIsZero(t *testing.T) {
 	}
 }
 
+// arrlDXCWScoringEvent mirrors the curated ARRL-DX-CW catalog entry's
+// side-asymmetric scoring (events/contestcalendar.json): a W/VE-side
+// entrant's Scoring counts DXCC entities per band, a DX-side entrant's
+// DXScoring instead counts the exchange_area (state/province) multiplier
+// per band, and DomesticCountries decides which applies.
+func arrlDXCWScoringEvent() eventDefinition {
+	return eventDefinition{
+		ID:                "ARRL-DX-CW",
+		Name:              "ARRL Inter. DX Contest, CW",
+		Bands:             []string{"160M", "80M", "40M", "20M", "15M", "10M"},
+		CabrilloLayout:    "cw_rst_exchange",
+		Scoring:           &scoringRules{PointsPerQSO: 3, Multipliers: []multiplierRule{{Kind: "dxcc", Per: "band"}}},
+		DXScoring:         &scoringRules{PointsPerQSO: 3, Multipliers: []multiplierRule{{Kind: "exchange_area", Per: "band"}}},
+		DomesticCountries: []string{"United States", "Canada"},
+	}
+}
+
+// TestComputeContestScoreARRLDXCWSideAsymmetric exercises effectiveScoring's
+// wiring through computeContestScore end to end: a W/VE-side station's own
+// callsign resolves to Scoring's DXCC-entity multiplier, while a DX-side
+// station's own callsign resolves to DXScoring's exchange_area multiplier.
+// Each side's log holds only the QSOs that side's rules (§1.1: "DX stations
+// may only contact W/VE stations") actually permit it to make — a W/VE
+// entrant's log has only DX contacts, a DX entrant's log has only W/VE
+// contacts — using separate contest IDs so the two scenarios don't share
+// rows.
+func TestComputeContestScoreARRLDXCWSideAsymmetric(t *testing.T) {
+	st, err := openStore(t.TempDir() + "/logger.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	profile, err := st.activeStationProfile()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mk := func(call, band, contestID, srxString string) qso {
+		q := validTestQSO()
+		q.call, q.band, q.contestID, q.profileID, q.srxString = call, band, contestID, profile.ID, srxString
+		return q
+	}
+	weContestID, dxContestID := "ARRL-DX-CW-WE", "ARRL-DX-CW-DX"
+	for _, q := range []qso{
+		mk("DL1ABC", "20M", weContestID, "599"), // W/VE entrant's log: only DX contacts
+		mk("K5ABC", "20M", dxContestID, "CT"),   // DX entrant's log: only W/VE contacts
+	} {
+		if _, err := st.insertQSO(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	event := arrlDXCWScoringEvent()
+
+	weProfile := profile
+	weProfile.Callsign = "W1AW" // United States: W/VE side, Scoring applies
+	weScore, err := computeContestScore(context.Background(), weProfile, event, weContestID, st)
+	if err != nil {
+		t.Fatalf("computeContestScore (W/VE side): %v", err)
+	}
+	if weScore.qsoPoints != 3 || weScore.multipliers != 1 || weScore.total() != 3 {
+		t.Fatalf("W/VE-side score = %d pts x %d mults = %d, want 3 x 1 = 3 (DXCC mult from DL1ABC)", weScore.qsoPoints, weScore.multipliers, weScore.total())
+	}
+
+	dxProfile := profile
+	dxProfile.Callsign = "DL2XYZ" // Germany: DX side, DXScoring applies
+	dxScore, err := computeContestScore(context.Background(), dxProfile, event, dxContestID, st)
+	if err != nil {
+		t.Fatalf("computeContestScore (DX side): %v", err)
+	}
+	if dxScore.qsoPoints != 3 || dxScore.multipliers != 1 || dxScore.total() != 3 {
+		t.Fatalf("DX-side score = %d pts x %d mults = %d, want 3 x 1 = 3 (exchange_area mult from K5ABC/CT)", dxScore.qsoPoints, dxScore.multipliers, dxScore.total())
+	}
+}
+
 // TestExportCabrilloWritesComputedClaimedScore ties the scorer to the header:
 // a CW Open session log must carry the computed CLAIMED-SCORE, not 0.
 func TestExportCabrilloWritesComputedClaimedScore(t *testing.T) {

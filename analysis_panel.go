@@ -66,13 +66,14 @@ func (m model) analysisPanel(width int) string {
 		}
 	}
 
+	rules := event.effectiveScoring(stationCountry(m.activeStation.Callsign))
 	switch {
 	case m.dupeWarning:
 		lines = append(lines, truncateToWidth(dupeStyle.Render("DUPE — worked before on this band"), width))
-	case m.contestIndex != nil && event.Scoring != nil:
+	case m.contestIndex != nil && rules != nil:
 		band := m.fields[fieldBand].Value()
 		exchangeText := m.contestFields[contestExchangeRcvd].Value()
-		newMult, workedBefore := m.contestIndex.wouldBeNewMultiplier(event.Scoring, call, band, exchangeText, entity, entityFound)
+		newMult, workedBefore := m.contestIndex.wouldBeNewMultiplier(rules, call, band, exchangeText, entity, entityFound)
 		switch {
 		case newMult:
 			lines = append(lines, truncateToWidth(newMultStyle.Render("NEW MULT"), width))

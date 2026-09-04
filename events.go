@@ -75,7 +75,97 @@ type eventDefinition struct {
 	// contest instead of the informational 0 it emits for events with no rules
 	// configured. Cabrillo export is per-session, so the computed score is one
 	// session's score; the sponsor's robot recomputes the authoritative total.
+	// For an event whose rules are side-asymmetric (DXScoring is set), Scoring
+	// is specifically the rule set for an operator on the "domestic" side
+	// (DomesticCountries) — e.g. ARRL DX CW's W/VE-side DXCC-entity
+	// multiplier, matching this app's own station profile.
 	Scoring *scoringRules `json:"scoring"`
+	// DXScoring, when set, is the scoring rule set for an operator whose own
+	// station does NOT resolve to one of DomesticCountries — the other half
+	// of a side-asymmetric contest (e.g. ARRL DX CW Rule 5.2.2's DX-side
+	// US-state/DC/Canadian-province multiplier, which replaces rather than
+	// adds to the W/VE-side DXCC-entity multiplier in Scoring). Blank/nil
+	// (the default) means the contest's scoring doesn't depend on which side
+	// the operator is on, and every entrant uses Scoring — the shape every
+	// event configured before this field existed already has.
+	DXScoring *scoringRules `json:"dx_scoring,omitempty"`
+	// DomesticCountries lists cty.dat country names (exact match, e.g.
+	// "United States", "Canada") that make the operator's own station
+	// "domestic" for effectiveScoring's side selection. Required whenever
+	// DXScoring is set — there is no meaningful side split otherwise. Reuses
+	// the same shape as ReceivedExchangeAutofillDomestic (a different
+	// side-detection need: which entities to exclude from zone autofill).
+	DomesticCountries []string `json:"domestic_countries,omitempty"`
+}
+
+// effectiveScoring picks which scoring rule set applies to an operator whose
+// own station resolves to stationCountry (a cty.dat dxccEntity.Country
+// value, or "" if unresolved): Scoring unless DXScoring is configured and
+// stationCountry does NOT match one of DomesticCountries, in which case the
+// DX-side rules apply instead. An unresolved station's own country
+// conservatively falls back to Scoring (this app's own station profile is
+// domestic/W-VE for every side-asymmetric event configured so far) rather
+// than guessing DX-side rules for a station that couldn't be resolved.
+func (e eventDefinition) effectiveScoring(stationCountry string) *scoringRules {
+	if e.DXScoring == nil {
+		return e.Scoring
+	}
+	if strings.TrimSpace(stationCountry) == "" || countryInList(e.DomesticCountries, stationCountry) {
+		return e.Scoring
+	}
+	return e.DXScoring
+}
+
+// validateScoringRules checks one scoringRules block (an event's Scoring or
+// DXScoring) for internal consistency, the same checks the loader ran
+// inline before DXScoring existed — extracted so both blocks get identical
+// validation. label identifies which field a failure is in (e.g. "scoring"
+// vs "dx_scoring"). A nil rules is valid (no scoring configured for that
+// side) and returns nil immediately.
+func validateScoringRules(eventID, label string, rules *scoringRules) error {
+	if rules == nil {
+		return nil
+	}
+	if rules.PointsPerQSO < 0 {
+		return fmt.Errorf("event %q has negative %s.points_per_qso %d", eventID, label, rules.PointsPerQSO)
+	}
+	if len(rules.Multipliers) > 0 {
+		for _, rule := range rules.Multipliers {
+			if !validMultiplierKind(rule.Kind) {
+				return fmt.Errorf("event %q has unsupported %s multiplier kind %q", eventID, label, rule.Kind)
+			}
+			if !validMultiplierPer(rule.Per) {
+				return fmt.Errorf("event %q %s multiplier %q has unsupported per scope %q", eventID, label, rule.Kind, rule.Per)
+			}
+		}
+	} else if !validScoringMultiplier(rules.Multiplier) {
+		return fmt.Errorf("event %q has unsupported %s multiplier %q", eventID, label, rules.Multiplier)
+	}
+	p := rules.Points
+	if p == nil {
+		return nil
+	}
+	if p.SameCountry < 0 || p.SameContinent < 0 || p.OtherContinent < 0 ||
+		p.LowBandSameContinent < 0 || p.LowBandOtherContinent < 0 {
+		return fmt.Errorf("event %q has a negative %s points value", eventID, label)
+	}
+	for continent, value := range p.SameContinentOverrides {
+		if !validContinentCode(continent) {
+			return fmt.Errorf("event %q has a %s.same_continent_overrides entry for unsupported continent %q", eventID, label, continent)
+		}
+		if value < 0 {
+			return fmt.Errorf("event %q has a negative %s.same_continent_overrides value for %q", eventID, label, continent)
+		}
+	}
+	for continent, value := range p.LowBandSameContinentOverrides {
+		if !validContinentCode(continent) {
+			return fmt.Errorf("event %q has a %s.low_band_same_continent_overrides entry for unsupported continent %q", eventID, label, continent)
+		}
+		if value < 0 {
+			return fmt.Errorf("event %q has a negative %s.low_band_same_continent_overrides value for %q", eventID, label, continent)
+		}
+	}
+	return nil
 }
 
 const (
@@ -295,12 +385,22 @@ func (e eventDefinition) receivedExchangeZoneKind() string {
 // zone ReceivedExchangeAutofill names, so autofillReceivedExchange must leave
 // the field blank rather than prefill a wrong guess.
 func (e eventDefinition) receivedExchangeAutofillExcluded(country string) bool {
+	return countryInList(e.ReceivedExchangeAutofillDomestic, country)
+}
+
+// countryInList reports whether country (a cty.dat dxccEntity.Country value)
+// case-insensitively matches an entry in list, trimming both sides — the
+// matching rule shared by receivedExchangeAutofillExcluded's zone-autofill
+// exclusion and effectiveScoring's domestic/DX side selection. A blank
+// country never matches, so an unresolved worked/own station is never
+// mistaken for a specific listed entity.
+func countryInList(list []string, country string) bool {
 	country = strings.TrimSpace(country)
 	if country == "" {
 		return false
 	}
-	for _, excluded := range e.ReceivedExchangeAutofillDomestic {
-		if strings.EqualFold(strings.TrimSpace(excluded), country) {
+	for _, candidate := range list {
+		if strings.EqualFold(strings.TrimSpace(candidate), country) {
 			return true
 		}
 	}
@@ -476,44 +576,17 @@ func loadEventCatalog() ([]eventDefinition, error) {
 			if event.CabrilloLayout != "" && event.CabrilloOmitRST != (event.CabrilloLayout == "cw_exchange_only") {
 				return nil, fmt.Errorf("event %q has inconsistent cabrillo_omit_rst and cabrillo_layout", event.ID)
 			}
-			if event.Scoring != nil {
-				if event.Scoring.PointsPerQSO < 0 {
-					return nil, fmt.Errorf("event %q has negative points_per_qso %d", event.ID, event.Scoring.PointsPerQSO)
-				}
-				if len(event.Scoring.Multipliers) > 0 {
-					for _, rule := range event.Scoring.Multipliers {
-						if !validMultiplierKind(rule.Kind) {
-							return nil, fmt.Errorf("event %q has unsupported multiplier kind %q", event.ID, rule.Kind)
-						}
-						if !validMultiplierPer(rule.Per) {
-							return nil, fmt.Errorf("event %q multiplier %q has unsupported per scope %q", event.ID, rule.Kind, rule.Per)
-						}
-					}
-				} else if !validScoringMultiplier(event.Scoring.Multiplier) {
-					return nil, fmt.Errorf("event %q has unsupported scoring multiplier %q", event.ID, event.Scoring.Multiplier)
-				}
-				if p := event.Scoring.Points; p != nil {
-					if p.SameCountry < 0 || p.SameContinent < 0 || p.OtherContinent < 0 ||
-						p.LowBandSameContinent < 0 || p.LowBandOtherContinent < 0 {
-						return nil, fmt.Errorf("event %q has a negative points value", event.ID)
-					}
-					for continent, value := range p.SameContinentOverrides {
-						if !validContinentCode(continent) {
-							return nil, fmt.Errorf("event %q has a same_continent_overrides entry for unsupported continent %q", event.ID, continent)
-						}
-						if value < 0 {
-							return nil, fmt.Errorf("event %q has a negative same_continent_overrides value for %q", event.ID, continent)
-						}
-					}
-					for continent, value := range p.LowBandSameContinentOverrides {
-						if !validContinentCode(continent) {
-							return nil, fmt.Errorf("event %q has a low_band_same_continent_overrides entry for unsupported continent %q", event.ID, continent)
-						}
-						if value < 0 {
-							return nil, fmt.Errorf("event %q has a negative low_band_same_continent_overrides value for %q", event.ID, continent)
-						}
-					}
-				}
+			if err := validateScoringRules(event.ID, "scoring", event.Scoring); err != nil {
+				return nil, err
+			}
+			if err := validateScoringRules(event.ID, "dx_scoring", event.DXScoring); err != nil {
+				return nil, err
+			}
+			if event.DXScoring != nil && len(event.DomesticCountries) == 0 {
+				return nil, fmt.Errorf("event %q has dx_scoring without domestic_countries", event.ID)
+			}
+			if len(event.DomesticCountries) > 0 && event.DXScoring == nil {
+				return nil, fmt.Errorf("event %q has domestic_countries without dx_scoring", event.ID)
 			}
 			for _, band := range event.Bands {
 				if bandIndex(band) < 0 {

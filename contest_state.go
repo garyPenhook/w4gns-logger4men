@@ -149,6 +149,24 @@ func (c *contestState) setStation(callsign string) {
 	c.stationResolved = true
 }
 
+// stationCountry resolves callsign's DXCC entity and returns its country
+// name (a cty.dat dxccEntity.Country value), or "" if callsign is blank or
+// doesn't resolve. This is eventDefinition.effectiveScoring's input for
+// picking which side of a side-asymmetric contest's scoring rules applies to
+// the operator's own station — a separate, coarser need than setStation's
+// DXCC-number/continent pair (pointsRule classification).
+func stationCountry(callsign string) string {
+	table, err := sharedDXCCTable()
+	if err != nil {
+		return ""
+	}
+	entity, found := table.lookup(strings.ToUpper(strings.TrimSpace(callsign)))
+	if !found {
+		return ""
+	}
+	return entity.Country
+}
+
 // record adds one QSO to the index. Safe to call repeatedly in chronological
 // order while building, or once per newly logged QSO for an incremental
 // update.

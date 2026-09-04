@@ -236,23 +236,26 @@ type contestScore struct {
 func (c contestScore) total() int { return c.qsoPoints * c.multipliers }
 
 // computeContestScore tallies the claimed score for one contest session from
-// the QSOs tagged with contestID, applying event.Scoring. It returns a zero
-// score when the event has no scoring rule, which the header renders as the
-// informational "CLAIMED-SCORE: 0". A same-band duplicate is counted once for
-// points (matching CW Open's "once per band, per session") but its callsign
-// still counts as a multiplier, since a dupe is still a callsign worked.
-// Scoring reads the same contestState index (roadmap Appendix C) that will
-// back the live analysis panels, so the exported CLAIMED-SCORE and whatever
-// the UI shows can never disagree.
+// the QSOs tagged with contestID, applying event.effectiveScoring(...) for
+// profile's own station — Scoring, unless the event is side-asymmetric
+// (DXScoring set) and profile's callsign resolves to a non-domestic country.
+// It returns a zero score when that resolves to no scoring rule, which the
+// header renders as the informational "CLAIMED-SCORE: 0". A same-band
+// duplicate is counted once for points (matching CW Open's "once per band,
+// per session") but its callsign still counts as a multiplier, since a dupe
+// is still a callsign worked. Scoring reads the same contestState index
+// (roadmap Appendix C) that will back the live analysis panels, so the
+// exported CLAIMED-SCORE and whatever the UI shows can never disagree.
 func computeContestScore(ctx context.Context, profile stationProfile, event eventDefinition, contestID string, st *store) (contestScore, error) {
-	if event.Scoring == nil {
+	rules := event.effectiveScoring(stationCountry(profile.Callsign))
+	if rules == nil {
 		return contestScore{}, nil
 	}
 	state, err := buildContestState(ctx, profile.ID, profile.Callsign, contestID, st)
 	if err != nil {
 		return contestScore{}, err
 	}
-	return state.score(event.Scoring), nil
+	return state.score(rules), nil
 }
 
 // exportCabrillo writes a Cabrillo v3 submission for every QSO tagged with

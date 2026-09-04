@@ -70,6 +70,72 @@ func TestValidMultiplierKindAndPer(t *testing.T) {
 	}
 }
 
+// TestEventDefinitionEffectiveScoring guards the side-selection an
+// asymmetric-contest event (DXScoring + DomesticCountries set) needs: a
+// domestic-country station uses Scoring, a non-domestic one uses DXScoring
+// (case-insensitively), an unresolved station conservatively falls back to
+// Scoring, and an event with no DXScoring configured always uses Scoring
+// regardless of country — the shape every event predating this field has.
+func TestEventDefinitionEffectiveScoring(t *testing.T) {
+	weRules := &scoringRules{PointsPerQSO: 3}
+	dxRules := &scoringRules{PointsPerQSO: 1}
+	asymmetric := eventDefinition{
+		Scoring:           weRules,
+		DXScoring:         dxRules,
+		DomesticCountries: []string{"United States", "Canada"},
+	}
+	if got := asymmetric.effectiveScoring("United States"); got != weRules {
+		t.Error("a domestic country must use Scoring")
+	}
+	if got := asymmetric.effectiveScoring("canada"); got != weRules {
+		t.Error("a domestic country match must be case-insensitive")
+	}
+	if got := asymmetric.effectiveScoring("Germany"); got != dxRules {
+		t.Error("a non-domestic country must use DXScoring")
+	}
+	if got := asymmetric.effectiveScoring(""); got != weRules {
+		t.Error("an unresolved station must fall back to Scoring, not guess DXScoring")
+	}
+
+	symmetric := eventDefinition{Scoring: weRules}
+	if got := symmetric.effectiveScoring("Germany"); got != weRules {
+		t.Error("an event with no DXScoring must always use Scoring")
+	}
+}
+
+// TestValidateScoringRules guards the loader's per-scoring-block checks
+// (shared by an event's Scoring and DXScoring via the label parameter): nil
+// is valid (no rules configured for that side), and each of the checks the
+// loader used to run inline still fires with the field it's reporting named
+// in the error.
+func TestValidateScoringRules(t *testing.T) {
+	if err := validateScoringRules("EVT", "scoring", nil); err != nil {
+		t.Errorf("nil rules must be valid: %v", err)
+	}
+	cases := []struct {
+		name  string
+		rules *scoringRules
+	}{
+		{"negative points_per_qso", &scoringRules{PointsPerQSO: -1}},
+		{"unsupported multiplier kind", &scoringRules{Multipliers: []multiplierRule{{Kind: "bogus", Per: "band"}}}},
+		{"unsupported multiplier per", &scoringRules{Multipliers: []multiplierRule{{Kind: "dxcc", Per: "bogus"}}}},
+		{"unsupported legacy multiplier", &scoringRules{Multiplier: "bogus"}},
+		{"negative points value", &scoringRules{Points: &pointsRule{SameCountry: -1}}},
+		{"unsupported same_continent_overrides continent", &scoringRules{Points: &pointsRule{SameContinentOverrides: map[string]int{"ZZ": 1}}}},
+		{"negative same_continent_overrides value", &scoringRules{Points: &pointsRule{SameContinentOverrides: map[string]int{"NA": -1}}}},
+	}
+	for _, tc := range cases {
+		if err := validateScoringRules("EVT", "dx_scoring", tc.rules); err == nil {
+			t.Errorf("%s: want error, got nil", tc.name)
+		} else if !strings.Contains(err.Error(), "dx_scoring") {
+			t.Errorf("%s: error %q doesn't name the dx_scoring field", tc.name, err)
+		}
+	}
+	if err := validateScoringRules("EVT", "scoring", &scoringRules{PointsPerQSO: 1, Multiplier: "unique_call"}); err != nil {
+		t.Errorf("a valid rules block must not error: %v", err)
+	}
+}
+
 // TestReceivedExchangeZoneKindRequiresExplicitConfig guards against deriving
 // an exchange rule from descriptive hint prose: asymmetric contests can name
 // a DX zone and a domestic state/province in the same hint.
@@ -285,14 +351,12 @@ func TestReceivedExchangeAutofillExcludedIsCaseInsensitiveAndSafeOnBlank(t *test
 // ARRL-DX-CW entry's actual scoring config (roadmap §3 Phase 3 "real
 // per-contest wiring"), sourced from
 // contests.arrl.org/ContestRules/DX-Rules.pdf rather than guessed: a flat 3
-// points per QSO (§5.1) and a DXCC-entity multiplier counted once per band
-// (§5.2.1/§5.2.2). The rules are asymmetric — DX entrants count US
-// states/DC/Canadian provinces (§5.2.3) as their multiplier instead of DXCC
-// entities — but that side needs an exchange-derived multiplier kind the
-// schema doesn't have yet (states and provinces come from the received
-// exchange text, not the worked callsign), the same gap CQ-160-CW's DX-side
-// multiplier left open. This config is therefore only correct for a W/VE-side
-// entrant, which matches this app's station profile.
+// points per QSO on both sides (§5.1), a DXCC-entity multiplier counted once
+// per band for a W/VE-side entrant (§5.2.1), and an exchange_area multiplier
+// counted once per band for a DX-side entrant (§5.2.2) — the schema's
+// side-asymmetric scoring (Scoring/DXScoring/DomesticCountries,
+// effectiveScoring), replacing the W/VE-only limitation the original version
+// of this config had.
 func TestLoadEventCatalogARRLDXCWHasRealScoringRules(t *testing.T) {
 	events, err := loadEventCatalog()
 	if err != nil {
@@ -308,6 +372,31 @@ func TestLoadEventCatalogARRLDXCWHasRealScoringRules(t *testing.T) {
 	mults := arrl.Scoring.effectiveMultipliers()
 	if len(mults) != 1 || mults[0].Kind != "dxcc" || mults[0].Per != "band" {
 		t.Fatalf("ARRL-DX-CW multipliers = %+v, want [{dxcc band}]", mults)
+	}
+	if arrl.DXScoring == nil {
+		t.Fatal("ARRL-DX-CW must have a DXScoring rule for DX-side entrants")
+	}
+	if arrl.DXScoring.PointsPerQSO != 3 {
+		t.Fatalf("ARRL-DX-CW dx_scoring.points_per_qso = %d, want 3", arrl.DXScoring.PointsPerQSO)
+	}
+	dxMults := arrl.DXScoring.effectiveMultipliers()
+	if len(dxMults) != 1 || dxMults[0].Kind != "exchange_area" || dxMults[0].Per != "band" {
+		t.Fatalf("ARRL-DX-CW dx_scoring multipliers = %+v, want [{exchange_area band}]", dxMults)
+	}
+	if !countryInList(arrl.DomesticCountries, "United States") || !countryInList(arrl.DomesticCountries, "Canada") {
+		t.Fatalf("ARRL-DX-CW domestic_countries = %v, want United States and Canada", arrl.DomesticCountries)
+	}
+	if got := arrl.effectiveScoring("United States"); got != arrl.Scoring {
+		t.Fatal("a W/VE-side station (United States) must use Scoring")
+	}
+	if got := arrl.effectiveScoring("Canada"); got != arrl.Scoring {
+		t.Fatal("a W/VE-side station (Canada) must use Scoring")
+	}
+	if got := arrl.effectiveScoring("Germany"); got != arrl.DXScoring {
+		t.Fatal("a DX-side station (Germany) must use DXScoring")
+	}
+	if got := arrl.effectiveScoring(""); got != arrl.Scoring {
+		t.Fatal("an unresolved station must conservatively fall back to Scoring")
 	}
 	if arrl.ADIFContestID != "ARRL-DX-CW" {
 		t.Fatalf("ARRL-DX-CW adif_contest_id = %q, want ARRL-DX-CW", arrl.ADIFContestID)
