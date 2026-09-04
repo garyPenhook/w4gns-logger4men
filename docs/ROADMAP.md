@@ -138,7 +138,16 @@ every panel *and* scoring so they always agree.
   substring match covers the common case display-only.
 - ⏳ **Super Check Partial** highlight (known-good calls).
 - ⏳ **Worked/Needed by continent** panel; per-band paging.
-- ⏳ **Rate meter** (Q/hr last-10 / last-100 / overall, Q/Mult).
+- ✅ **Rate meter** (Q/hr last-10 / last-100 / overall, Q/Mult).
+  `contestState.times`/`.rate()` (`rate_meter.go`) extend the index with each
+  logged QSO's timestamp (rebuild and incremental-on-log paths both feed it
+  through the existing `record()` sync point) and compute Q/hr per window as
+  window-QSO-count ÷ elapsed-time-to-now from the window's oldest QSO — so
+  the rate visibly decays if the operator stops calling CQ. Q/Mult reads the
+  same `score()` multiplier count Cabrillo export uses, falling back to raw
+  unique calls for non-`unique_call` scoring. Rendered as a status line under
+  Recent QSOs/DX Spots on QSO Entry when a contest is active and something's
+  been logged (`main.go` `View()`, `rateMeterLine`).
 
 **Phase 3 — corrections, mult data, output parity**
 - ⏳ Log-wide **recompute on any edit** (dupes/mults/points) — SD's differentiator.

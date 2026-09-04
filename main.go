@@ -2702,6 +2702,11 @@ func (m model) View() string {
 	}
 	b.WriteString("\n\n")
 
+	if rate := m.rateMeterLine(); rate != "" {
+		b.WriteString(helpStyle.Render(rate))
+		b.WriteString("\n\n")
+	}
+
 	status := fmt.Sprintf("Qs: %d   %s", m.qsoCount, m.statusMsg)
 	b.WriteString(statusBarStyle.Render(status))
 	b.WriteString("\n")

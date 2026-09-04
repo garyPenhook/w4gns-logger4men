@@ -4,6 +4,7 @@ import (
 	"context"
 	"sort"
 	"strings"
+	"time"
 )
 
 // contestState is the in-memory index described in the roadmap (Appendix C):
@@ -24,6 +25,10 @@ type contestState struct {
 	// uniqueCalls is the set of distinct callsigns worked in the contest,
 	// regardless of band — the "unique_call" multiplier rule.
 	uniqueCalls map[string]struct{}
+	// times holds every logged QSO's start time, in the same chronological
+	// order they were recorded — the rate meter's only input (Appendix B/D
+	// "Rate meter (Q/hr L10/L100/overall, Q/Mult)").
+	times []time.Time
 }
 
 // newContestState returns an empty index, ready for QSOs to be recorded.
@@ -47,6 +52,9 @@ func (c *contestState) record(q qso) {
 	c.byCall[call] = append(c.byCall[call], q)
 	c.workedCallBand[call+"|"+band] = struct{}{}
 	c.uniqueCalls[call] = struct{}{}
+	if !q.time.IsZero() {
+		c.times = append(c.times, q.time)
+	}
 }
 
 // isWorkedOnBand reports whether call has already been logged on band —
