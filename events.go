@@ -317,7 +317,7 @@ type multiplierRule struct {
 // loudly at startup instead of silently scoring zero multipliers.
 func validMultiplierKind(kind string) bool {
 	switch strings.TrimSpace(kind) {
-	case "unique_call", "dxcc", "cqzone", "ituzone", "prefix", "exchange_area":
+	case "unique_call", "dxcc", "cqzone", "ituzone", "prefix", "exchange_area", "tn_county":
 		return true
 	default:
 		return false

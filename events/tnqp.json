@@ -1,7 +1,7 @@
 [
   {
     "id": "TNQP",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "Tennessee QSO Party",
     "organizer": "TNQP",
     "kind": "state QSO party",
@@ -11,6 +11,12 @@
     "sent_exchange_hint": "Your state/province/DX",
     "received_exchange_hint": "TN county (type name or code)",
     "dupe_scope": "call+band",
+    "adif_contest_id": "TN-QSO-PARTY",
+    "cabrillo_layout": "cw_rst_exchange",
+    "scoring": {
+      "points_per_qso": 3,
+      "multipliers": [{"kind": "tn_county", "per": "band"}]
+    },
     "rules_url": "https://tnqp.org/rules/",
     "score_submission_url": "https://tnqp.contesting.com/",
     "sessions": [{"id": "2026", "label": "TNQP 2026", "schedule": "September 6, 2026"}],

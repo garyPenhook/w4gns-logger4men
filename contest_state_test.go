@@ -451,6 +451,56 @@ func TestContestStateWouldBeNewMultiplierExchangeArea(t *testing.T) {
 	}
 }
 
+// TestContestStateScoreTNCountyMultiplierFromReceivedExchange exercises
+// TNQP's "tn_county" multiplier: a Tennessee county parsed from the worked
+// station's received exchange text, counted per band (tnqp.org/rules: "95
+// maximum per band"). A repeated county on the same band doesn't add
+// another; the same county on a different band does; unrecognized exchange
+// text (a state/province abbreviation, from an out-of-state station's own
+// sent exchange bleeding into the field) contributes nothing.
+func TestContestStateScoreTNCountyMultiplierFromReceivedExchange(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "K4TCG", band: "20M", srxString: "SHEL"}) // new: SHEL/20M
+	state.record(qso{call: "W4ABC", band: "20M", srxString: "shel"}) // same county+band, case-insensitive
+	state.record(qso{call: "W4DEF", band: "40M", srxString: "SHEL"}) // same county, new band
+	state.record(qso{call: "K4XYZ", band: "20M", srxString: "DAVI"}) // new: DAVI/20M
+	state.record(qso{call: "N4GHI", band: "20M", srxString: "TN"})   // not a county code
+
+	rules := &scoringRules{
+		PointsPerQSO: 3,
+		Multipliers:  []multiplierRule{{Kind: "tn_county", Per: "band"}},
+	}
+	score := state.score(rules)
+	if score.multipliers != 3 {
+		t.Fatalf("multipliers = %d, want 3 (SHEL/20M + SHEL/40M + DAVI/20M)", score.multipliers)
+	}
+}
+
+// TestContestStateWouldBeNewMultiplierTNCounty exercises the as-you-type
+// "NEW MULT" flag for the tn_county kind, which — like exchange_area — has
+// no callsign-derived fallback and reads only the operator's in-progress
+// received-exchange field text.
+func TestContestStateWouldBeNewMultiplierTNCounty(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "K4TCG", band: "20M", srxString: "SHEL"})
+
+	rules := &scoringRules{
+		Multipliers: []multiplierRule{{Kind: "tn_county", Per: "band"}},
+	}
+	// Same county, same band, already worked: not a new mult.
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "W4ABC", "20M", "SHEL", dxccEntity{}, false); newMult || !workedBefore {
+		t.Fatalf("SHEL/20M (already worked) = newMult=%v workedBefore=%v, want false/true", newMult, workedBefore)
+	}
+	// Same county, different band: new mult.
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "W4DEF", "40M", "SHEL", dxccEntity{}, false); !newMult || workedBefore {
+		t.Fatalf("SHEL/40M (new band) = newMult=%v workedBefore=%v, want true/false", newMult, workedBefore)
+	}
+	// Unrecognized exchange text: no flag either way.
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "K4XYZ", "20M", "TN", dxccEntity{}, false); newMult || workedBefore {
+		t.Fatalf("unrecognized exchange text = newMult=%v workedBefore=%v, want false/false", newMult, workedBefore)
+	}
+}
+
 // TestContestStateScorePointsRuleWPXBandTiering exercises CQ WPX's
 // band-tiered points (Rule V.B): high bands (10/15/20M) use the base
 // same-continent/other-continent values, low bands (40/80/160M) double them,

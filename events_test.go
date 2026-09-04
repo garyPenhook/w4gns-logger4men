@@ -211,7 +211,7 @@ func TestEventCapabilityValidationAndCatalogStatus(t *testing.T) {
 	}
 	for _, tc := range []struct{ id, capability string }{
 		{"SD-GENERAL", catalogCapabilitySelectionOnly},
-		{"TNQP", catalogCapabilityEntryAware},
+		{"TNQP", catalogCapabilityScoringReady},
 		{"CWT", catalogCapabilityScoringReady},
 		{"CW-OPEN", catalogCapabilityScoringReady},
 		{"CQ-WW-CW", catalogCapabilityScoringReady},
@@ -327,6 +327,40 @@ func TestLoadEventCatalogCQ160HasRealScoringRules(t *testing.T) {
 	}
 	if cq160.receivedExchangeAutofillExcluded("England") {
 		t.Fatal("CQ-160-CW must not exclude a DX entity from zone autofill")
+	}
+}
+
+// TestLoadEventCatalogTNQPHasRealScoringRules guards the curated TNQP
+// entry's actual scoring config, sourced from tnqp.org/rules/: a flat 3
+// points per QSO (mode-independent; this app logs CW only so the mode split
+// the rules describe doesn't apply) and a "tn_county" multiplier counted
+// once per band ("95 maximum per band"). The rules also describe a
+// state/province/DXCC multiplier set and a K4TCG working bonus, but both
+// only apply to a Tennessee-resident entrant — this catalog entry is
+// configured for an out-of-state operator (README.md), for whom TN counties
+// are the only multiplier category, so neither is wired here.
+func TestLoadEventCatalogTNQPHasRealScoringRules(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	tnqp := events[eventIndex(t, events, "TNQP")]
+	if tnqp.Capability != catalogCapabilityScoringReady {
+		t.Fatalf("TNQP capability = %q, want %q", tnqp.Capability, catalogCapabilityScoringReady)
+	}
+	if tnqp.Scoring == nil || tnqp.Scoring.PointsPerQSO != 3 {
+		t.Fatalf("TNQP scoring = %+v, want PointsPerQSO 3", tnqp.Scoring)
+	}
+	mults := tnqp.Scoring.effectiveMultipliers()
+	want := []multiplierRule{{Kind: "tn_county", Per: "band"}}
+	if len(mults) != len(want) || mults[0] != want[0] {
+		t.Fatalf("TNQP multipliers = %+v, want %+v", mults, want)
+	}
+	if tnqp.ADIFContestID != "TN-QSO-PARTY" {
+		t.Fatalf("TNQP adif_contest_id = %q, want TN-QSO-PARTY", tnqp.ADIFContestID)
+	}
+	if tnqp.CabrilloLayout != "cw_rst_exchange" {
+		t.Fatalf("TNQP cabrillo_layout = %q, want cw_rst_exchange", tnqp.CabrilloLayout)
 	}
 }
 

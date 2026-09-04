@@ -46,16 +46,36 @@ the log, submitted contest results, or external services.
   correct.** Every one of the 429 event records now declares and is validated
   against an explicit `capability`: 9 intentionally generic templates are
   `selection-only`, 413 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
-  `CQ-160-CW`, `ARRL-DX-CW`, and `CQ-WPX-CW` are `scoring-ready`. The Events
-  screen shows this status, so an operator can tell an entry-only template
-  from a checked submission before export. CWT's real scoring
+  `CQ-160-CW`, `ARRL-DX-CW`, `CQ-WPX-CW`, and `TNQP` are `scoring-ready`. The
+  Events screen shows this status, so an operator can tell an entry-only
+  template from a checked submission before export. CWT's real scoring
   (cwops.org/cwops-tests/: 1 point per QSO, multiplied by unique callsigns
   worked — the same points/multiplier shape as CW Open, scoped per session by
   its existing `call+band+session` dupe_scope) is now wired
   (`events/cwops.json`); test `TestLoadEventCatalogCWTHasRealScoringRules`
-  (`events_test.go`). The actual scoring audit remains: every event except
-  those six still has no `scoring` block and must not be promoted until its
-  rules are tested against authoritative examples.
+  (`events_test.go`). TNQP's real scoring (tnqp.org/rules/: flat 3 points per
+  QSO, plus a Tennessee-county multiplier counted once per band — "95
+  maximum per band") is also wired (`events/tnqp.json`). Only the
+  out-of-state entrant's multiplier category is configured, matching this
+  catalog entry's existing out-of-state scope (README.md): the rules also
+  describe a state/province/DXCC-entity multiplier set and a 100-point
+  bonus per QSO with sponsor station K4TCG, both of which apply only to a
+  Tennessee-resident entrant and so are out of scope here. New **`tn_county`
+  multiplier kind** (`tn_county.go`, mirroring `exchange_area.go`'s shape)
+  resolves the county from the worked station's received-exchange text
+  (`qso.srxString`) against the 95 official four-letter county codes;
+  `contest_state.go` extends the index with `tnCountyByBand`/`tnCountyAll`.
+  ADIF export maps every `TNQP-*` session id to `TN-QSO-PARTY` (confirmed
+  against the ADIF Contest ID Enumeration) and Cabrillo export uses the
+  existing `cw_rst_exchange` layout (RST + one free-text exchange field).
+  Tests: `tn_county_test.go` (`TestTNCountyCode`,
+  `TestTNCountyCodesHas95Values`), `contest_state_test.go`
+  (`TestContestStateScoreTNCountyMultiplierFromReceivedExchange`,
+  `TestContestStateWouldBeNewMultiplierTNCounty`), `events_test.go`
+  (`TestLoadEventCatalogTNQPHasRealScoringRules`). The actual scoring audit
+  remains: every event except those seven still has no `scoring` block and
+  must not be promoted until its rules are tested against authoritative
+  examples.
 
 - ✅ **Zone autofill no longer infers rules from prose hints, and is now
   side-aware by the worked entity.** It requires an explicit

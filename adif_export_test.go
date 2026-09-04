@@ -128,7 +128,7 @@ func TestAdifContestIDMapsCatalogConfiguredEventsToStandardIDs(t *testing.T) {
 		"CQ-WW-CW-2026":  "CQ-WW-CW",
 		"CQ-160-CW-2026": "CQ-160-CW",
 		"ARRL-DX-CW":     "ARRL-DX-CW",
-		"TNQP-DAVIDSON":  "TNQP-DAVIDSON",
+		"TNQP-DAVIDSON":  "TN-QSO-PARTY",
 	}
 	for internal, want := range cases {
 		if got := adifContestID(internal); got != want {
