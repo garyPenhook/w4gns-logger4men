@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.21.0
+
+- Wired the ARRL November Sweepstakes, CW's real scoring rules: flat 2 points per QSO times an ARRL/RAC-section multiplier counted once for the whole contest, sourced from contests.arrl.org's official rules. Also adds a dupe check that spans every band rather than one per band, matching Sweepstakes' "each station may be contacted only once, regardless of band" rule.
+
 ### v1.20.0
 
 - Wired the North American QSO Party, CW (NAQP CW)'s real scoring rules: flat 1 point per QSO times a state/province/other-North-America-entity multiplier counted again on every band, sourced from ncjweb.com's NAQP rules.
