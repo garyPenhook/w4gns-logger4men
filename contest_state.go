@@ -69,6 +69,12 @@ type contestState struct {
 	// when both the worked entity and the station resolved, scored QSOs only
 	// (same /X exclusion as scoredCallBand).
 	pointCategory map[string]qsoPointCategory
+	// pointCategoryContinent records the worked entity's continent for each
+	// pointCategorySameContinent entry in pointCategory, so pointsTotal can
+	// apply a pointsRule.SameContinentOverrides entry (e.g. CQ WW's North
+	// America same-continent exception) instead of the flat SameContinent
+	// value. Unset for any other category.
+	pointCategoryContinent map[string]string
 }
 
 // qsoPointCategory classifies a worked station relative to the operator's own
@@ -88,19 +94,20 @@ const (
 // newContestState returns an empty index, ready for QSOs to be recorded.
 func newContestState() *contestState {
 	return &contestState{
-		byCall:            make(map[string][]qso),
-		workedCallBand:    make(map[string]struct{}),
-		uniqueCalls:       make(map[string]struct{}),
-		scoredCallBand:    make(map[string]struct{}),
-		scoredUniqueCalls: make(map[string]struct{}),
-		continentBand:     make(map[string]map[string]int),
-		dxccByBand:        make(map[string]map[int]struct{}),
-		dxccAll:           make(map[int]struct{}),
-		cqZoneByBand:      make(map[string]map[int]struct{}),
-		cqZoneAll:         make(map[int]struct{}),
-		ituZoneByBand:     make(map[string]map[int]struct{}),
-		ituZoneAll:        make(map[int]struct{}),
-		pointCategory:     make(map[string]qsoPointCategory),
+		byCall:                 make(map[string][]qso),
+		workedCallBand:         make(map[string]struct{}),
+		uniqueCalls:            make(map[string]struct{}),
+		scoredCallBand:         make(map[string]struct{}),
+		scoredUniqueCalls:      make(map[string]struct{}),
+		continentBand:          make(map[string]map[string]int),
+		dxccByBand:             make(map[string]map[int]struct{}),
+		dxccAll:                make(map[int]struct{}),
+		cqZoneByBand:           make(map[string]map[int]struct{}),
+		cqZoneAll:              make(map[int]struct{}),
+		ituZoneByBand:          make(map[string]map[int]struct{}),
+		ituZoneAll:             make(map[int]struct{}),
+		pointCategory:          make(map[string]qsoPointCategory),
+		pointCategoryContinent: make(map[string]string),
 	}
 }
 
@@ -161,6 +168,7 @@ func (c *contestState) record(q qso) {
 						c.pointCategory[key] = pointCategorySameCountry
 					case entity.Continent != "" && entity.Continent == c.stationContinent:
 						c.pointCategory[key] = pointCategorySameContinent
+						c.pointCategoryContinent[key] = entity.Continent
 					default:
 						c.pointCategory[key] = pointCategoryOtherContinent
 					}
@@ -188,6 +196,18 @@ func recordMultiplierValue(byBand map[string]map[int]struct{}, all map[int]struc
 // fixed display order the Worked/Needed by Continent panel renders them —
 // stable regardless of which continents happen to be worked yet.
 var continents = []string{"NA", "SA", "EU", "AF", "AS", "OC"}
+
+// validContinentCode reports whether continent is one of the six standard
+// codes cty.dat/dxcc.go use — the same set continents lists — so a
+// pointsRule.SameContinentOverrides typo fails loudly at load time.
+func validContinentCode(continent string) bool {
+	for _, c := range continents {
+		if c == continent {
+			return true
+		}
+	}
+	return false
+}
 
 // continentSummary reports, for one continent on one band, whether it has
 // been worked (and how many times) — the "needed" complement is simply
@@ -272,7 +292,11 @@ func (c *contestState) pointsTotal(rule *pointsRule) int {
 		case pointCategorySameCountry:
 			total += rule.SameCountry
 		case pointCategorySameContinent:
-			total += rule.SameContinent
+			if override, ok := rule.SameContinentOverrides[c.pointCategoryContinent[key]]; ok {
+				total += override
+			} else {
+				total += rule.SameContinent
+			}
 		case pointCategoryOtherContinent:
 			total += rule.OtherContinent
 		}

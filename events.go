@@ -84,6 +84,14 @@ type pointsRule struct {
 	SameCountry    int `json:"same_country"`
 	SameContinent  int `json:"same_continent"`
 	OtherContinent int `json:"other_continent"`
+	// SameContinentOverrides replaces SameContinent for a specific worked
+	// continent, keyed by the two-letter code contest_state.go's continents
+	// list uses (NA, SA, EU, AF, AS, OC). CQ WW is the motivating case: same
+	// continent is 1 point everywhere except North America, where a
+	// different-country QSO is worth 2 ("Exception: Contacts between stations
+	// in different countries within the North American boundaries count two
+	// (2) points" — cqww.com/rules.htm).
+	SameContinentOverrides map[string]int `json:"same_continent_overrides,omitempty"`
 }
 
 // multiplierRule is one entry in scoringRules.Multipliers: what to count
@@ -300,6 +308,14 @@ func loadEventCatalog() ([]eventDefinition, error) {
 				if p := event.Scoring.Points; p != nil {
 					if p.SameCountry < 0 || p.SameContinent < 0 || p.OtherContinent < 0 {
 						return nil, fmt.Errorf("event %q has a negative points value", event.ID)
+					}
+					for continent, value := range p.SameContinentOverrides {
+						if !validContinentCode(continent) {
+							return nil, fmt.Errorf("event %q has a same_continent_overrides entry for unsupported continent %q", event.ID, continent)
+						}
+						if value < 0 {
+							return nil, fmt.Errorf("event %q has a negative same_continent_overrides value for %q", event.ID, continent)
+						}
 					}
 				}
 			}

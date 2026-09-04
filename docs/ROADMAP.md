@@ -236,13 +236,8 @@ every panel *and* scoring so they always agree.
   DXCC/zone-mult contest gets an accurate live flag too — and as a side
   effect now reads `scoredUniqueCalls` instead of `uniqueCalls` for the
   "worked before" line, so a QSO logged `/X` no longer wrongly suppresses
-  the flag. Real per-contest wiring (e.g. giving CQ WW's curated event an
-  actual `Multipliers` list) is deferred: CQ WW's DXCC+zone multiplier count
-  is straightforward from cty.dat, but its points-per-QSO formula depends on
-  continent/country reach, which needs its own schema extension (tracked
-  below) plus sourcing the exact rule text rather than guessing it into a
-  scoring config that exporters trust. Area-mult `.mlt` tables remain
-  blocked on data licensing (decision #2). Tests: `contest_state_test.go`
+  the flag. Area-mult `.mlt` tables remain blocked on data licensing
+  (decision #2). Tests: `contest_state_test.go`
   (`TestContestStateScoreSumsDXCCAndZoneMultipliersPerBand`,
   `TestContestStateScorePerContestMultiplierCountsOnce`,
   `TestContestStateUnscoredQSOExcludedFromMultiplierCount`,
@@ -259,14 +254,29 @@ every panel *and* scoring so they always agree.
   exclusion as the multiplier sets); `score()` sums `pointsTotal()` when
   `Points` is set. An unresolved station (or worked entity) contributes 0
   rather than guessing a tier. `buildContestState`/`computeContestScore`/
-  `rebuildContestIndex` thread the station's callsign through. Real
-  per-contest wiring (e.g. giving CQ WW's curated event an actual `Points`
-  rule) and the `.mlt` area-mult tables remain deferred/blocked on data
-  licensing (decision #2) — this closes the schema gap only. Tests:
-  `contest_state_test.go`
+  `rebuildContestIndex` thread the station's callsign through. The `.mlt`
+  area-mult tables remain deferred/blocked on data licensing (decision #2).
+  Tests: `contest_state_test.go`
   (`TestContestStateScorePointsRuleTiersByCountryAndContinent`,
   `TestContestStateScorePointsRuleUnresolvedStationScoresZero`,
   `TestContestStateScorePointsRuleTakesPrecedenceOverPointsPerQSO`).
+- ✅ **Real per-contest wiring: CQ WW CW's actual scoring rules.** Closes the
+  gap the two schema items above deliberately left open — curated
+  `CQ-WW-CW` (`events/contestcalendar.json`) now carries a real `scoring`
+  block sourced from cqww.com/rules.htm rather than a guess: `points` of
+  0/1/3 for same-country/same-continent/other-continent, plus `dxcc` and
+  `cqzone` multipliers counted per band. The rules include one exception the
+  existing `pointsRule` schema couldn't express — a same-continent,
+  different-country QSO *within North America* is worth 2 points, not the
+  contest's general same-continent value — so `pointsRule` gained
+  `SameContinentOverrides map[string]int` (`events.go`, keyed by the same
+  continent codes `contest_state.go`'s `continents` list uses, validated by
+  new `validContinentCode`) and `contestState` gained a parallel
+  `pointCategoryContinent` map recording which continent a
+  `pointCategorySameContinent` QSO resolved to, so `pointsTotal` can look up
+  an override before falling back to the flat `SameContinent` value. Tests:
+  `contest_state_test.go` (`TestContestStateScorePointsRulePerContinentOverride`),
+  `events_test.go` (`TestLoadEventCatalogCQWWHasRealScoringRules`).
 - ✅ **CSV export** (`Ctrl+R`). `csv_export.go` (`exportCSV`, `writeCSVAtomic`,
   `csvField`/`csvRow` — RFC 4180 quoting, CRLF rows) streams the active
   contest's QSOs (same `contest_id` scoping as Cabrillo/ADIF export) to

@@ -268,7 +268,7 @@ func TestContestStateUnscoredQSOExcludedFromMultiplierCount(t *testing.T) {
 // and one on another continent scores OtherContinent.
 func TestContestStateScorePointsRuleTiersByCountryAndContinent(t *testing.T) {
 	state := newContestState()
-	state.setStation("W1AW") // USA, NA
+	state.setStation("W1AW")                       // USA, NA
 	state.record(qso{call: "W2XYZ", band: "20M"})  // USA - same country
 	state.record(qso{call: "VE3ABC", band: "20M"}) // Canada - same continent
 	state.record(qso{call: "JA1ABC", band: "20M"}) // Japan - other continent
@@ -279,6 +279,36 @@ func TestContestStateScorePointsRuleTiersByCountryAndContinent(t *testing.T) {
 	score := state.score(rules)
 	if score.qsoPoints != 4 {
 		t.Fatalf("qsoPoints = %d, want 4 (0 + 1 + 3)", score.qsoPoints)
+	}
+}
+
+// TestContestStateScorePointsRulePerContinentOverride exercises CQ WW's own
+// exception to its 1-point same-continent tier: a same-continent,
+// different-country QSO within North America is worth 2 points under
+// SameContinentOverrides, while a same-continent QSO on any other continent
+// still uses the flat SameContinent value.
+func TestContestStateScorePointsRulePerContinentOverride(t *testing.T) {
+	state := newContestState()
+	state.setStation("W1AW")                       // USA, NA
+	state.record(qso{call: "VE3ABC", band: "20M"}) // Canada - NA override applies
+
+	otherState := newContestState()
+	otherState.setStation("JA1ABC")                     // Japan, AS
+	otherState.record(qso{call: "HL1ABC", band: "20M"}) // South Korea - same continent, no override configured
+
+	rules := &scoringRules{
+		Points: &pointsRule{
+			SameCountry:            0,
+			SameContinent:          1,
+			OtherContinent:         3,
+			SameContinentOverrides: map[string]int{"NA": 2},
+		},
+	}
+	if score := state.score(rules); score.qsoPoints != 2 {
+		t.Fatalf("NA qsoPoints = %d, want 2 (override applied)", score.qsoPoints)
+	}
+	if score := otherState.score(rules); score.qsoPoints != 1 {
+		t.Fatalf("AS qsoPoints = %d, want 1 (flat SameContinent, no override for AS)", score.qsoPoints)
 	}
 }
 

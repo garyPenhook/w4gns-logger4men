@@ -644,6 +644,20 @@
     "dupe_scope": "call+band",
     "rules_url": "https://www.cqww.com/rules.htm",
     "score_submission_url": "",
+    "scoring": {
+      "points": {
+        "same_country": 0,
+        "same_continent": 1,
+        "other_continent": 3,
+        "same_continent_overrides": {
+          "NA": 2
+        }
+      },
+      "multipliers": [
+        { "kind": "dxcc", "per": "band" },
+        { "kind": "cqzone", "per": "band" }
+      ]
+    },
     "sessions": [
       {
         "id": "0000ZNov28",

@@ -120,6 +120,45 @@ func TestLoadEventCatalogIncludesCWopsDefinitions(t *testing.T) {
 	}
 }
 
+// TestLoadEventCatalogCQWWHasRealScoringRules guards the curated CQ-WW-CW
+// entry's actual scoring config (roadmap §3 Phase 3 "real per-contest
+// wiring"), sourced from cqww.com/rules.htm rather than guessed: 0/1/3
+// points for same-country/same-continent/other-continent with a North
+// America same-continent exception (2 points), plus DXCC-entity and CQ-zone
+// multipliers counted per band.
+func TestLoadEventCatalogCQWWHasRealScoringRules(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	cqww := events[eventIndex(t, events, "CQ-WW-CW")]
+	if cqww.Scoring == nil || cqww.Scoring.Points == nil {
+		t.Fatal("CQ-WW-CW must have a Points scoring rule")
+	}
+	points := cqww.Scoring.Points
+	if points.SameCountry != 0 || points.SameContinent != 1 || points.OtherContinent != 3 {
+		t.Fatalf("CQ-WW-CW points = %+v, want {0,1,3,...}", points)
+	}
+	if points.SameContinentOverrides["NA"] != 2 {
+		t.Fatalf("CQ-WW-CW NA same-continent override = %d, want 2", points.SameContinentOverrides["NA"])
+	}
+	mults := cqww.Scoring.effectiveMultipliers()
+	if len(mults) != 2 {
+		t.Fatalf("CQ-WW-CW multiplier count = %d, want 2 (dxcc + cqzone)", len(mults))
+	}
+	for _, kind := range []string{"dxcc", "cqzone"} {
+		found := false
+		for _, rule := range mults {
+			if rule.Kind == kind && rule.Per == "band" {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("CQ-WW-CW missing %q multiplier per band", kind)
+		}
+	}
+}
+
 // TestSDContestCatalogLoadsWithDistinctSideVariants guards the imported SD
 // template catalog: the many contests load alongside the curated events with
 // unique IDs, and side-variant entries that submit under one Cabrillo contest
