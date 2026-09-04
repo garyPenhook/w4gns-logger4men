@@ -319,6 +319,13 @@ type model struct {
 	// call sites; see that function's doc comment for the sync rules.
 	contestIndex   *contestState
 	contestIndexID string
+	// contestExchangeRcvdEdited is true once the operator has typed into (or
+	// picked a suggested value for) contestExchangeRcvd this QSO, so
+	// autofillReceivedExchange stops overwriting it — the same
+	// autofill-until-overridden shape as nextSerial's carried-forward manual
+	// correction. Reset in clearQSOForm and selectEvent (both already blank
+	// the field for a fresh QSO/contest).
+	contestExchangeRcvdEdited bool
 }
 
 // formatSerial renders a running serial number the way contest exchanges are
@@ -1101,6 +1108,11 @@ func (m *model) beginEditQSO(q qso) {
 	m.contestFields[contestExchangeSent].SetValue(full.stxString)
 	m.contestFields[contestSerialRcvd].SetValue(full.srx)
 	m.contestFields[contestExchangeRcvd].SetValue(full.srxString)
+	// This QSO's received exchange is a real, previously-logged value, not a
+	// fresh guess to autofill over — treat it like an operator edit so
+	// autofillReceivedExchange leaves it alone if the operator retypes the
+	// call while correcting something else.
+	m.contestExchangeRcvdEdited = true
 
 	m.setTableFocused(false)
 	m.qsoStartedAt = time.Time{} // editing doesn't run the new-QSO timer
@@ -1176,6 +1188,9 @@ func (m *model) checkDupe() {
 	}
 	call := normalizeCall(m.fields[fieldCall].Value())
 	m.dupeWarning = false
+	// Runs even for a blank call (e.g. the operator backspaced it out) so a
+	// stale autofilled zone from the previous partial call doesn't linger.
+	m.autofillReceivedExchange(call)
 	if call == "" {
 		if m.workedCall != "" {
 			m.workedCall = ""
@@ -1198,6 +1213,47 @@ func (m *model) checkDupe() {
 		return
 	}
 	m.dupeWarning = dupe
+}
+
+// autofillReceivedExchange prefills the worked station's received-exchange
+// field with a zone derived from its callsign (roadmap Appendix B.8), for
+// contests whose exchange the catalog identifies as a CQ or ITU zone
+// (eventDefinition.receivedExchangeZoneKind). It runs on every Call-field
+// keystroke alongside checkDupe, so the guess sharpens as the operator types
+// more of the call, and never touches the field once the operator has edited
+// it themselves this QSO (contestExchangeRcvdEdited) — the operator's typed
+// value always wins, matching nextSerial's carried-forward-manual-correction
+// pattern.
+func (m *model) autofillReceivedExchange(call string) {
+	if m.contestExchangeRcvdEdited {
+		return
+	}
+	event, ok := m.eventForContestID()
+	if !ok {
+		return
+	}
+	kind := event.receivedExchangeZoneKind()
+	if kind == "" {
+		return
+	}
+	zone := ""
+	if call != "" {
+		if table, err := sharedDXCCTable(); err == nil {
+			if entity, found := table.lookup(call); found {
+				switch kind {
+				case "cq_zone":
+					if entity.CQZone > 0 {
+						zone = strconv.Itoa(entity.CQZone)
+					}
+				case "itu_zone":
+					if entity.ITUZone > 0 {
+						zone = strconv.Itoa(entity.ITUZone)
+					}
+				}
+			}
+		}
+	}
+	m.contestFields[contestExchangeRcvd].SetValue(zone)
 }
 
 func (m model) qsoBand() string {
@@ -1350,6 +1406,7 @@ func (m *model) selectEvent(event eventDefinition, session eventSession) {
 	}
 	m.contestFields[contestExchangeSent].Placeholder = event.SentExchangeHint
 	m.contestFields[contestExchangeRcvd].Placeholder = event.RcvdExchangeHint
+	m.contestExchangeRcvdEdited = false
 	m.statusMsg = event.Name + " selected"
 	m.exchangeChoiceFocus = -1
 	m.openQSOContest()
@@ -1817,6 +1874,7 @@ func (m *model) clearQSOForm() {
 	}
 	m.contestFields[contestSerialRcvd].SetValue("")
 	m.contestFields[contestExchangeRcvd].SetValue("")
+	m.contestExchangeRcvdEdited = false
 	if m.nextSerial > 0 {
 		m.contestFields[contestSerialSent].SetValue(formatSerial(m.nextSerial))
 	}
@@ -2233,11 +2291,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
+	// Captured before the update so a pure cursor-movement key (left/right/
+	// home/end — textinput handles these but leaves Value() unchanged) isn't
+	// mistaken for the operator overriding the autofilled zone; only an
+	// actual content change should disable autofillReceivedExchange.
+	before := ""
 	if input := m.focusedInput(); input != nil {
+		before = input.Value()
 		*input, cmd = input.Update(msg)
 	}
 	if m.focusIdx == fieldCall {
 		m.checkDupe()
+	}
+	if slots := m.entrySlots(); m.focusIdx >= 0 && m.focusIdx < len(slots) {
+		if s := slots[m.focusIdx]; s.contest && s.idx == contestExchangeRcvd {
+			if m.contestFields[contestExchangeRcvd].Value() != before {
+				m.contestExchangeRcvdEdited = true
+			}
+		}
 	}
 	return m, cmd
 }
@@ -2298,6 +2369,7 @@ func (m model) updateQSOContest(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "tab", "enter":
 			if key.String() == "enter" && m.exchangeChoiceFocus >= 0 && m.exchangeChoiceFocus < len(choices) {
 				m.contestFields[contestExchangeRcvd].SetValue(choices[m.exchangeChoiceFocus].Code)
+				m.contestExchangeRcvdEdited = true
 				m.exchangeChoiceFocus = -1
 				return m, nil
 			}
@@ -2311,12 +2383,16 @@ func (m model) updateQSOContest(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	var cmd tea.Cmd
+	beforeExchangeRcvd := m.contestFields[contestExchangeRcvd].Value()
 	m.contestFields[m.contestFocusIdx], cmd = m.contestFields[m.contestFocusIdx].Update(msg)
 	m.exchangeChoiceFocus = -1
 	if m.contestFocusIdx == contestName {
 		// The contest name determines dupe_scope; keep the dupeWarning
 		// indicator in sync as the operator types it.
 		m.checkDupe()
+	}
+	if m.contestFocusIdx == contestExchangeRcvd && m.contestFields[contestExchangeRcvd].Value() != beforeExchangeRcvd {
+		m.contestExchangeRcvdEdited = true
 	}
 	return m, cmd
 }

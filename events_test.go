@@ -21,6 +21,30 @@ func eventIndex(t *testing.T, events []eventDefinition, id string) int {
 	return -1
 }
 
+// TestReceivedExchangeZoneKindInfersFromHintText guards the heuristic
+// autofillReceivedExchange (main.go) relies on: it must read "cq_zone" or
+// "itu_zone" out of a catalog entry's free-text hint without any per-event
+// JSON tagging, so every existing and future zone-exchange contest gets
+// autofill for free, and it must not false-positive on unrelated hints.
+func TestReceivedExchangeZoneKindInfersFromHintText(t *testing.T) {
+	cases := []struct {
+		hint string
+		want string
+	}{
+		{"RST + CQ Zone No.", "cq_zone"},
+		{"Your ITU Zone", "itu_zone"},
+		{"CWSP Members: RST + \"M\" All Others: RST + ITU Zone No.", "itu_zone"},
+		{"599 + Name + State", ""},
+		{"", ""},
+	}
+	for _, tc := range cases {
+		event := eventDefinition{RcvdExchangeHint: tc.hint}
+		if got := event.receivedExchangeZoneKind(); got != tc.want {
+			t.Errorf("receivedExchangeZoneKind(%q) = %q, want %q", tc.hint, got, tc.want)
+		}
+	}
+}
+
 func TestLoadEventCatalogIncludesCWopsDefinitions(t *testing.T) {
 	events, err := loadEventCatalog()
 	if err != nil {

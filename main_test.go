@@ -552,6 +552,128 @@ func TestContestReceivedExchangeLoggedInlineOnEntryScreen(t *testing.T) {
 	}
 }
 
+// TestAutofillReceivedExchangeZonePrefillsAndSharpens guards roadmap Appendix
+// B.8 "auto data insert (zones)": for a contest whose exchange the catalog
+// hint identifies as a CQ zone (CQ-WW-CW), typing a callsign should prefill
+// the received-exchange field with that entity's CQ zone from the DXCC
+// table, and the guess should update (sharpen) as more of the call is typed.
+func TestAutofillReceivedExchangeZonePrefillsAndSharpens(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	cqww := m.events[eventIndex(t, m.events, "CQ-WW-CW")]
+	m.selectEvent(cqww, cqww.Sessions[0])
+	m.screen = qsoEntryScreen
+	m.focusField(fieldCall)
+
+	// 1A0KM is the Sov Mil Order of Malta entity, CQ zone 15 (see dxcc_test.go).
+	m.fields[fieldCall].SetValue("1A0KM")
+	m.checkDupe()
+	if got := m.contestFields[contestExchangeRcvd].Value(); got != "15" {
+		t.Fatalf("autofill for 1A0KM = %q, want CQ zone 15", got)
+	}
+
+	// Backspacing the call back to blank must clear the guess too, since it
+	// hasn't been overridden by the operator and no longer resolves to
+	// anything.
+	m.fields[fieldCall].SetValue("")
+	m.checkDupe()
+	if got := m.contestFields[contestExchangeRcvd].Value(); got != "" {
+		t.Fatalf("autofill after clearing the call = %q, want blank", got)
+	}
+}
+
+// TestAutofillReceivedExchangeZoneDoesNotClobberManualEdit guards the
+// override half of Appendix B.8: once the operator types their own value
+// into the received-exchange field, the autofill must stop touching it even
+// as the callsign keeps changing — the operator's typed value always wins.
+func TestAutofillReceivedExchangeZoneDoesNotClobberManualEdit(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	cqww := m.events[eventIndex(t, m.events, "CQ-WW-CW")]
+	m.selectEvent(cqww, cqww.Sessions[0])
+	m.screen = qsoEntryScreen
+	m.focusField(fieldCall)
+
+	m.fields[fieldCall].SetValue("1A0KM")
+	m.checkDupe()
+	if got := m.contestFields[contestExchangeRcvd].Value(); got != "15" {
+		t.Fatalf("autofill for 1A0KM = %q, want CQ zone 15", got)
+	}
+
+	slots := m.entrySlots()
+	m.focusField(len(slots) - 1) // the received-exchange slot
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("9")})
+	m = updated.(model)
+	if got := m.contestFields[contestExchangeRcvd].Value(); got != "159" {
+		t.Fatalf("manual keystroke into exchange field = %q, want 159", got)
+	}
+
+	m.focusField(fieldCall)
+	m.fields[fieldCall].SetValue("W1AW") // a different entity, CQ zone 5
+	m.checkDupe()
+	if got := m.contestFields[contestExchangeRcvd].Value(); got != "159" {
+		t.Fatalf("autofill clobbered a manual edit: got %q, want 159 unchanged", got)
+	}
+
+	// clearQSOForm (the between-QSO reset) must clear the override too, so
+	// the next QSO starts fresh.
+	m.clearQSOForm()
+	if m.contestExchangeRcvdEdited {
+		t.Fatal("clearQSOForm did not reset the manual-edit override flag")
+	}
+}
+
+// TestAutofillReceivedExchangeZoneIgnoresCursorMovement guards a subtler
+// case: moving the cursor within the received-exchange field (left/right —
+// textinput handles these but Value() doesn't change) must not be mistaken
+// for the operator overriding the autofilled value, or a single stray arrow
+// key would permanently disable autofill for the rest of the QSO.
+func TestAutofillReceivedExchangeZoneIgnoresCursorMovement(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	cqww := m.events[eventIndex(t, m.events, "CQ-WW-CW")]
+	m.selectEvent(cqww, cqww.Sessions[0])
+	m.screen = qsoEntryScreen
+	m.focusField(fieldCall)
+
+	m.fields[fieldCall].SetValue("1A0KM")
+	m.checkDupe()
+	if got := m.contestFields[contestExchangeRcvd].Value(); got != "15" {
+		t.Fatalf("autofill for 1A0KM = %q, want CQ zone 15", got)
+	}
+
+	slots := m.entrySlots()
+	m.focusField(len(slots) - 1) // the received-exchange slot
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	m = updated.(model)
+	if m.contestExchangeRcvdEdited {
+		t.Fatal("a cursor-movement key set the manual-edit override flag")
+	}
+
+	// Autofill must still track a new callsign after the cursor move.
+	m.focusField(fieldCall)
+	m.fields[fieldCall].SetValue("W1AW")
+	m.checkDupe()
+	if got := m.contestFields[contestExchangeRcvd].Value(); got == "15" {
+		t.Fatal("autofill did not update for the new callsign after a cursor-movement key")
+	}
+}
+
 func TestEditQSOFlowSavesChangesWithoutInsertingANewRow(t *testing.T) {
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {

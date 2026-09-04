@@ -84,6 +84,29 @@ func (e eventDefinition) cabrilloToken() string {
 	return e.ID
 }
 
+// receivedExchangeZoneKind reports which zone, if any, the operator is
+// expected to log for the worked station's received exchange, inferred from
+// the catalog's free-text RcvdExchangeHint (roadmap Appendix B.8 "auto data
+// insert"). It drives autofillReceivedExchange (main.go), which prefills the
+// zone from the resolved DXCC entity rather than making the operator type a
+// value that's already knowable from the callsign. "itu_zone" is checked
+// before "cq_zone" since a handful of hints mention both (e.g. IARU-style
+// contests naming ITU zone alongside a CQ-zone-based multiplier note) and ITU
+// is the one actually exchanged in those. Blank means no zone is inferable
+// from the hint text — most contests exchange something the DXCC table can't
+// derive (name, state, serial, RS(T) only).
+func (e eventDefinition) receivedExchangeZoneKind() string {
+	hint := strings.ToLower(e.RcvdExchangeHint)
+	switch {
+	case strings.Contains(hint, "itu zone"):
+		return "itu_zone"
+	case strings.Contains(hint, "cq zone"):
+		return "cq_zone"
+	default:
+		return ""
+	}
+}
+
 type exchangeOption struct {
 	Code string `json:"code"`
 	Name string `json:"name"`

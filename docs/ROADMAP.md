@@ -111,7 +111,18 @@ every panel *and* scoring so they always agree.
   (`rebuildContestIndex`, the sync point wired into `checkDupe`,
   `beginEditQSO`/`cancelEditQSO`, edit-save, insert, and delete — full
   recompute on edit/delete, incremental on log, per Appendix C).
-- ⏳ **Auto-fill zones/area codes** with per-station override carried forward.
+- ✅ **Auto-fill zones** with operator-override carried forward. For a contest
+  whose `received_exchange_hint` names a CQ or ITU zone,
+  `eventDefinition.receivedExchangeZoneKind` (`events.go`) infers which one
+  from the hint text (no per-event JSON tagging needed) and
+  `autofillReceivedExchange` (`main.go`) prefills the resolved DXCC entity's
+  zone into the inline Rcv Exch field as the operator types the call,
+  sharpening with each keystroke. `contestExchangeRcvdEdited` tracks the same
+  autofill-until-overridden shape as `nextSerial`: once the operator edits the
+  field's *content* (not just moves the cursor) or an edited QSO's real stored
+  exchange loads for editing, autofill stops touching it until the next QSO
+  (`clearQSOForm`) or contest (`selectEvent`). Area codes are deferred — they
+  need `.mlt` data that doesn't exist in this repo yet (Phase 3).
 
 **Phase 2 — databases & partials**
 - ⏳ `roster.go`: `.LST` club rosters (bidirectional call↔name↔number), prefill.
