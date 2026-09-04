@@ -38,9 +38,22 @@ the log, submitted contest results, or external services.
 - 🔧 **Cabrillo export is gated by checked per-event layouts.** The catalog now
   has validated `cabrillo_layout` values, and export refuses any event without
   one while leaving CSV available. The checked CW layouts currently cover CWT,
-  CW Open, CQ WW CW, CQ 160 CW, ARRL DX CW, and CQ WPX CW; every other catalog
-  entry is intentionally selection/entry-only until its sponsor-specific
-  schema is verified.
+  CW Open, CQ WW CW, CQ 160 CW, ARRL DX CW, CQ WPX CW, and (Cabrillo shape
+  only, no scoring yet) **SAC-CW**; every other catalog entry is intentionally
+  selection/entry-only until its sponsor-specific schema is verified.
+  Scandinavian Activity Contest, CW (`events/contestcalendar.json`) now
+  carries `cabrillo_layout: cw_rst_exchange` and `adif_contest_id: SAC-CW`,
+  promoting its `capability` from `entry-aware` to `cabrillo-ready` (the
+  distinct capability tier for "Cabrillo line shape checked, scoring not yet
+  audited") — sourced from sactest.net's Cabrillo 3.0 spec (`QSO: freq mo
+  date time call rst exch call rst exch t`: RS(T) + a single free-text
+  serial-number exchange field on both sides, the same shape the existing
+  `cw_rst_exchange` layout already renders) and confirmed against the ADIF
+  Contest ID Enumeration. No `scoring` block was added — SAC's real
+  points/multiplier rules (serial-number dupe/zero-point handling, per-band
+  multiplier shape) still need their own audit before this entry can move to
+  `scoring-ready`. Test: `events_test.go`
+  (`TestLoadEventCatalogSACCWHasCheckedCabrilloLayout`).
 
 - 🔧 **Audit and implement scoring per contest before presenting the catalog as
   correct.** Every one of the 429 event records now declares and is validated

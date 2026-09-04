@@ -453,7 +453,7 @@
   },
   {
     "id": "SAC-CW",
-    "capability": "entry-aware",
+    "capability": "cabrillo-ready",
     "name": "Scandinavian Activity Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -469,6 +469,8 @@
     "sent_exchange_hint": "RST + Serial No.",
     "received_exchange_hint": "RST + Serial No.",
     "dupe_scope": "call+band",
+    "adif_contest_id": "SAC-CW",
+    "cabrillo_layout": "cw_rst_exchange",
     "rules_url": "https://www.sactest.net/blog/scandinavian-activity-contest-2025-rules/",
     "score_submission_url": "",
     "sessions": [

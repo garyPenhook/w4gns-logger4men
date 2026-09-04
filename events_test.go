@@ -511,6 +511,38 @@ func TestLoadEventCatalogCWTHasRealScoringRules(t *testing.T) {
 	}
 }
 
+// TestLoadEventCatalogSACCWHasCheckedCabrilloLayout guards the Scandinavian
+// Activity Contest, CW catalog entry's promotion from entry-only to
+// cabrillo-ready: sactest.net's Cabrillo 3.0 QSO line ("QSO: freq mo date
+// time call rst exch call rst exch t") is RST plus one free-text exchange
+// field (the serial number) on both sides — the same shape as the existing
+// cw_rst_exchange layout CQ WW/CQ 160/ARRL DX/CQ WPX already use — and
+// SAC-CW is confirmed against the ADIF Contest ID Enumeration. No scoring
+// block is added here: SAC's real points/multiplier rules haven't been
+// audited yet, so the entry stays cabrillo-ready rather than scoring-ready.
+func TestLoadEventCatalogSACCWHasCheckedCabrilloLayout(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	sac := events[eventIndex(t, events, "SAC-CW")]
+	if !sac.cabrilloReady() {
+		t.Fatal("SAC-CW must have a checked Cabrillo layout")
+	}
+	if sac.CabrilloLayout != "cw_rst_exchange" {
+		t.Fatalf("SAC-CW cabrillo_layout = %q, want cw_rst_exchange", sac.CabrilloLayout)
+	}
+	if sac.ADIFContestID != "SAC-CW" {
+		t.Fatalf("SAC-CW adif_contest_id = %q, want SAC-CW", sac.ADIFContestID)
+	}
+	if sac.Capability != catalogCapabilityCabrilloReady {
+		t.Fatalf("SAC-CW capability = %q, want %q", sac.Capability, catalogCapabilityCabrilloReady)
+	}
+	if sac.Scoring != nil {
+		t.Fatal("SAC-CW must not claim scoring until its points/multiplier rules are audited")
+	}
+}
+
 // TestSDContestCatalogLoadsWithDistinctSideVariants guards the imported SD
 // template catalog: the many contests load alongside the curated events with
 // unique IDs, and side-variant entries that submit under one Cabrillo contest
