@@ -45,13 +45,17 @@ the log, submitted contest results, or external services.
 - 🔧 **Audit and implement scoring per contest before presenting the catalog as
   correct.** Every one of the 429 event records now declares and is validated
   against an explicit `capability`: 9 intentionally generic templates are
-  `selection-only`, 414 are `entry-aware`, CWT is `cabrillo-ready`, and
-  `CW-OPEN`, `CQ-WW-CW`, `CQ-160-CW`, `ARRL-DX-CW`, and `CQ-WPX-CW` are
-  `scoring-ready`. The Events screen shows this status, so an operator can
-  tell an entry-only template from a checked submission before export. The
-  actual scoring audit remains: every event except those five still has no
-  `scoring` block and must not be promoted until its rules are tested
-  against authoritative examples.
+  `selection-only`, 413 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
+  `CQ-160-CW`, `ARRL-DX-CW`, and `CQ-WPX-CW` are `scoring-ready`. The Events
+  screen shows this status, so an operator can tell an entry-only template
+  from a checked submission before export. CWT's real scoring
+  (cwops.org/cwops-tests/: 1 point per QSO, multiplied by unique callsigns
+  worked — the same points/multiplier shape as CW Open, scoped per session by
+  its existing `call+band+session` dupe_scope) is now wired
+  (`events/cwops.json`); test `TestLoadEventCatalogCWTHasRealScoringRules`
+  (`events_test.go`). The actual scoring audit remains: every event except
+  those six still has no `scoring` block and must not be promoted until its
+  rules are tested against authoritative examples.
 
 - ✅ **Zone autofill no longer infers rules from prose hints, and is now
   side-aware by the worked entity.** It requires an explicit

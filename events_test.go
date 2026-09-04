@@ -212,7 +212,7 @@ func TestEventCapabilityValidationAndCatalogStatus(t *testing.T) {
 	for _, tc := range []struct{ id, capability string }{
 		{"SD-GENERAL", catalogCapabilitySelectionOnly},
 		{"TNQP", catalogCapabilityEntryAware},
-		{"CWT", catalogCapabilityCabrilloReady},
+		{"CWT", catalogCapabilityScoringReady},
 		{"CW-OPEN", catalogCapabilityScoringReady},
 		{"CQ-WW-CW", catalogCapabilityScoringReady},
 		{"CQ-160-CW", catalogCapabilityScoringReady},
@@ -444,6 +444,36 @@ func TestLoadEventCatalogCQWPXHasRealScoringRules(t *testing.T) {
 	}
 	if !wpx.cabrilloReady() {
 		t.Fatal("CQ-WPX-CW must have a checked Cabrillo layout")
+	}
+}
+
+// TestLoadEventCatalogCWTHasRealScoringRules guards the curated CWT entry's
+// actual scoring config, sourced from cwops.org/cwops-tests/ rather than
+// guessed: 1 point per QSO, multiplied by the count of unique callsigns
+// worked ("If you had 75 QSOs with 40 different callsigns, your score is
+// 75 x 40 = 3000 points") — the same points/multiplier shape as CW Open,
+// scoped per session by CWT's existing call+band+session dupe_scope.
+func TestLoadEventCatalogCWTHasRealScoringRules(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	cwt := events[eventIndex(t, events, "CWT")]
+	if cwt.Scoring == nil {
+		t.Fatal("CWT must have a Scoring rule")
+	}
+	if cwt.Scoring.PointsPerQSO != 1 {
+		t.Fatalf("CWT points_per_qso = %d, want 1", cwt.Scoring.PointsPerQSO)
+	}
+	mults := cwt.Scoring.effectiveMultipliers()
+	if len(mults) != 1 || mults[0].Kind != "unique_call" {
+		t.Fatalf("CWT multipliers = %+v, want [{unique_call ...}]", mults)
+	}
+	if cwt.ADIFContestID != "CWOPS-CWT" {
+		t.Fatalf("CWT adif_contest_id = %q, want CWOPS-CWT", cwt.ADIFContestID)
+	}
+	if !cwt.cabrilloReady() {
+		t.Fatal("CWT must have a checked Cabrillo layout")
 	}
 }
 

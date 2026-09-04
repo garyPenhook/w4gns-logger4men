@@ -1,7 +1,7 @@
 [
   {
     "id": "CWT",
-    "capability": "cabrillo-ready",
+    "capability": "scoring-ready",
     "name": "CWops Test (CWT)",
     "organizer": "CWops",
     "kind": "weekly event",
@@ -14,6 +14,7 @@
     "cabrillo_contest": "CW-OPS",
 	"adif_contest_id": "CWOPS-CWT",
 	"cabrillo_layout": "cw_rst_exchange",
+    "scoring": {"points_per_qso": 1, "multiplier": "unique_call"},
     "rules_url": "https://cwops.org/cwops-tests/",
     "score_submission_url": "https://www.3830scores.com/",
     "sessions": [

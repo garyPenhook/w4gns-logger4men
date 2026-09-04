@@ -154,12 +154,12 @@ func TestAnalysisPanelNewMultFlag(t *testing.T) {
 }
 
 // TestAnalysisPanelNoMultFlagWithoutScoringRules confirms the panel doesn't
-// assert a multiplier claim for an event with no configured Scoring — CWT
-// has none (see events/cwops.json) — rather than guessing.
+// assert a multiplier claim for an event with no configured Scoring — TNQP
+// has none (see events/tnqp.json) — rather than guessing.
 func TestAnalysisPanelNoMultFlagWithoutScoringRules(t *testing.T) {
 	m := analysisTestModel(t)
-	cwt := m.events[eventIndex(t, m.events, "CWT")]
-	m.selectEvent(cwt, cwt.Sessions[0])
+	tnqp := m.events[eventIndex(t, m.events, "TNQP")]
+	m.selectEvent(tnqp, tnqp.Sessions[0])
 	m.screen = qsoEntryScreen
 	m.fields[fieldCall].SetValue("W1AW")
 
