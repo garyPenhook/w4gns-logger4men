@@ -341,9 +341,10 @@ type model struct {
 	// Analysis panel and (eventually) scoring read so they can't disagree.
 	// nil when no contest is active. Kept live by rebuildContestIndex and its
 	// call sites; see that function's doc comment for the sync rules.
-	contestIndex   *contestState
-	contestIndexID string
-	// continentBandFocus pages the Worked/Needed by Continent screen (Ctrl+W)
+	contestIndex      *contestState
+	contestIndexID    string
+	contestIndexError string
+	// continentBandFocus pages the Continents Worked screen (Ctrl+W)
 	// one band at a time through the active event's allowed bands (SD's
 	// "F1/F2 across bands" for the live worked/needed grids, roadmap
 	// Appendix D — bound here to Left/Right instead, since F1 is already the
@@ -1631,7 +1632,7 @@ func (m *model) openQSOContest() {
 	focusTextFields(m.contestFields, m.contestFocusIdx)
 }
 
-// openContinentPanel opens the Worked/Needed by Continent screen (Ctrl+W)
+// openContinentPanel opens the Continents Worked screen (Ctrl+W)
 // for the active contest. continentBandFocus starts on the currently
 // selected QSO Entry band so the operator lands on the band they're running.
 func (m *model) openContinentPanel() {
@@ -1654,7 +1655,7 @@ func (m *model) openHelpPanel() {
 	m.screen = helpScreen
 }
 
-// continentPanelBands returns the bands the Worked/Needed by Continent
+// continentPanelBands returns the bands the Continents Worked
 // screen pages through: the active event's allowed bands when one is
 // selected (narrower and more relevant), else every supported amateur band.
 func (m model) continentPanelBands() []string {
@@ -2875,7 +2876,7 @@ func (m model) updateEventCatalog(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// updateContinentPanel drives the Worked/Needed by Continent screen
+// updateContinentPanel drives the Continents Worked screen
 // (roadmap §3 Phase 2, Appendix B.9): Left/Right page one band at a time
 // through continentPanelBands. F1 is deliberately left bound to its
 // app-wide "QSO Entry" meaning (screenHotkeys' line1 advertises it on every
@@ -2906,7 +2907,7 @@ func (m model) updateContinentPanel(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// continentPanelView renders the Worked/Needed by Continent grid for the
+// continentPanelView renders the Continents Worked grid for the
 // currently paged-to band: each continent marked worked (with a QSO count)
 // or needed. Falls back to a "no active contest" notice when there's
 // nothing to index, matching the other contest-scoped screens.
@@ -2914,18 +2915,32 @@ func (m model) continentPanelView() string {
 	var b strings.Builder
 	b.WriteString(screenHotkeys(continentScreen))
 	b.WriteString("\n")
-	b.WriteString(headerStyle.Render("Worked/Needed by Continent"))
+	b.WriteString(headerStyle.Render("Continents Worked"))
 	b.WriteString("\n\n")
 
 	event, ok := m.eventForContestID()
-	if !ok || m.contestIndex == nil {
+	if !ok {
 		b.WriteString(helpStyle.Render("no active contest — set one on the Events (F7) screen first"))
+		b.WriteString("\n\n")
+		b.WriteString(helpStyle.Render("Esc/Ctrl+W: QSO Entry"))
+		return b.String()
+	}
+	if m.contestIndex == nil {
+		message := "contest analysis unavailable"
+		if m.contestIndexError != "" {
+			message += " — " + m.contestIndexError
+		}
+		b.WriteString(dupeStyle.Render(message))
 		b.WriteString("\n\n")
 		b.WriteString(helpStyle.Render("Esc/Ctrl+W: QSO Entry"))
 		return b.String()
 	}
 	b.WriteString(statusBarStyle.Render(event.Name))
 	b.WriteString("\n\n")
+	if m.contestIndexError != "" {
+		b.WriteString(dupeStyle.Render("CONTEST ANALYSIS STALE — " + m.contestIndexError))
+		b.WriteString("\n\n")
+	}
 
 	bands := m.continentPanelBands()
 	if len(bands) == 0 {
@@ -3010,7 +3025,7 @@ func (m model) helpPanelView() string {
 		"F7  Events (contest catalog)",
 		"F8  Backup to Google Drive",
 		"F9  Browse/Edit Recent QSOs (↑/↓ select, Enter view/edit, d delete, Esc/F9 done)",
-		"Ctrl+W  Worked/Needed by Continent",
+		"Ctrl+W  Continents Worked",
 		"Ctrl+P  Toggle POST (after-contest) entry mode",
 		"Ctrl+G  This help screen",
 		"Esc  Context-dependent: quit QSO Entry, cancel an edit, or back up one screen",
@@ -3069,7 +3084,7 @@ func screenName(s screen) string {
 	case qsoContestScreen:
 		return "QSO Contest"
 	case continentScreen:
-		return "Worked/Needed by Continent"
+		return "Continents Worked"
 	default:
 		return "QSO Entry"
 	}
@@ -3319,6 +3334,10 @@ func (m model) View() string {
 	b.WriteString("\n")
 	b.WriteString(solarStyle.Render(m.solarLine()))
 	b.WriteString("\n\n")
+	if m.contestIndexError != "" {
+		b.WriteString(dupeStyle.Render("CONTEST ANALYSIS STALE — " + m.contestIndexError))
+		b.WriteString("\n\n")
+	}
 
 	slots := m.entrySlots()
 	fieldViews := make([]string, len(slots))
@@ -3693,7 +3712,7 @@ func screenHotkeys(current screen) string {
 		escape = "Esc: Back"
 	}
 	line1 := "W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF"
-	line2 := "F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo  •  Ctrl+R: Export CSV  •  Ctrl+W: Worked/Needed  •  Ctrl+P: POST mode  •  Ctrl+G: Help  •  " + escape
+	line2 := "F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo  •  Ctrl+R: Export CSV  •  Ctrl+W: Continents Worked  •  Ctrl+P: POST mode  •  Ctrl+G: Help  •  " + escape
 	return hotkeyStyle.Render(line1) + "\n" + hotkeyStyle.Render(line2)
 }
 

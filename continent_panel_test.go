@@ -8,7 +8,7 @@ import (
 )
 
 // TestContinentPanelOpenBuildsIndexAndShowsWorkedContinent exercises the
-// Worked/Needed by Continent screen (roadmap §3 Phase 2, Appendix B.9)
+// Continents Worked screen (roadmap §3 Phase 2, Appendix B.9)
 // end to end: opening it with an active contest lands on QSO Entry's
 // current band, and a call logged in that contest/band shows its continent
 // as worked while an unworked continent shows needed.

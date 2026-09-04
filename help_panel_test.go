@@ -57,7 +57,7 @@ func TestHelpPanelViewListsKeyCommands(t *testing.T) {
 
 	view := m.helpPanelView()
 	for _, want := range []string{
-		"Ctrl+W", "Worked/Needed by Continent",
+		"Ctrl+W", "Continents Worked",
 		"Ctrl+G",
 		"Ctrl+X", "Cabrillo",
 		"Ctrl+R", "CSV",

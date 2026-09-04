@@ -33,6 +33,9 @@ func (m model) analysisPanel(width int) string {
 
 	var lines []string
 	lines = append(lines, helpStyle.Render(truncateToWidth("Analysis: "+event.Name, width)))
+	if m.contestIndexError != "" {
+		lines = append(lines, truncateToWidth(dupeStyle.Render("STALE — "+m.contestIndexError), width))
+	}
 
 	var entity dxccEntity
 	var entityFound bool

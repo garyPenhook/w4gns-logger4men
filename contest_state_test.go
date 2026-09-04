@@ -468,6 +468,81 @@ func TestContestIndexBuildsOnSelectAndUpdatesIncrementallyOnLog(t *testing.T) {
 	}
 }
 
+// TestContestIndexRebuildFailureKeepsSameContestIndexVisible verifies the
+// index cannot silently disappear after a read failure. The retained index is
+// explicitly marked stale, so the operator can keep seeing the last known
+// state without mistaking it for a fresh database recomputation.
+func TestContestIndexRebuildFailureKeepsSameContestIndexVisible(t *testing.T) {
+	st, err := openStore(t.TempDir() + "/logger.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+
+	m := initialModel(st)
+	cwopen := m.events[eventIndex(t, m.events, "CW-OPEN")]
+	m.selectEvent(cwopen, cwopen.Sessions[0])
+	original := m.contestIndex
+	contestID := m.contestIndexID
+	if original == nil {
+		t.Fatal("expected initial contest index")
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	m.rebuildContestIndex()
+	if m.contestIndex != original {
+		t.Fatal("same-contest rebuild failure discarded the last known-good index")
+	}
+	if m.contestIndexID != contestID {
+		t.Fatalf("contestIndexID = %q, want %q", m.contestIndexID, contestID)
+	}
+	if m.contestIndexError == "" {
+		t.Fatal("rebuild failure did not mark contest analysis stale")
+	}
+	if !strings.Contains(m.continentPanelView(), "CONTEST ANALYSIS STALE") {
+		t.Fatal("continent panel does not expose a stale contest index")
+	}
+}
+
+// TestContestIndexRebuildFailureOnSwitchDoesNotReuseOldContest confirms a
+// failed event switch clears the former event's index rather than presenting
+// its dupe/multiplier state under the newly selected contest.
+func TestContestIndexRebuildFailureOnSwitchDoesNotReuseOldContest(t *testing.T) {
+	st, err := openStore(t.TempDir() + "/logger.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+
+	m := initialModel(st)
+	cwt := m.events[eventIndex(t, m.events, "CWT")]
+	m.selectEvent(cwt, cwt.Sessions[0])
+	if m.contestIndex == nil {
+		t.Fatal("expected initial contest index")
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+	cwopen := m.events[eventIndex(t, m.events, "CW-OPEN")]
+	m.selectEvent(cwopen, cwopen.Sessions[0])
+	selectedContestID := m.contestFields[contestName].Value()
+
+	if m.contestIndex != nil {
+		t.Fatal("failed contest switch retained the previous contest index")
+	}
+	if got, want := m.contestIndexID, selectedContestID; got != want {
+		t.Fatalf("contestIndexID = %q, want selected contest %q", got, want)
+	}
+	if m.contestIndexError == "" {
+		t.Fatal("failed contest switch did not expose an analysis error")
+	}
+	if !strings.Contains(m.continentPanelView(), "contest analysis unavailable") {
+		t.Fatal("continent panel does not expose unavailable analysis after failed contest switch")
+	}
+}
+
 // TestContestIndexFullRecomputeOnEditWithinSameContest is Appendix E's
 // hardest case applied to the live model: editing a QSO's band while the
 // contest it belongs to stays active the whole time doesn't change

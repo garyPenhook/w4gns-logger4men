@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -37,7 +38,7 @@ type contestState struct {
 	// "Rate meter (Q/hr L10/L100/overall, Q/Mult)").
 	times []time.Time
 	// continentBand counts QSOs worked per continent per band — the roadmap's
-	// "Worked/Needed by continent" panel (Appendix B.9). Keyed by the
+	// "Continents Worked" panel (Appendix B.9). Keyed by the
 	// two-letter continent code cty.dat/dxcc.go uses (NA, SA, EU, AF, AS, OC).
 	continentBand map[string]map[string]int
 	// dxccByBand/cqZoneByBand/ituZoneByBand hold the distinct DXCC entity
@@ -215,7 +216,7 @@ func recordMultiplierValue(byBand map[string]map[int]struct{}, all map[int]struc
 }
 
 // continents lists the standard continent codes cty.dat/dxcc.go use, in the
-// fixed display order the Worked/Needed by Continent panel renders them —
+// fixed display order the Continents Worked panel renders them —
 // stable regardless of which continents happen to be worked yet.
 var continents = []string{"NA", "SA", "EU", "AF", "AS", "OC"}
 
@@ -414,22 +415,31 @@ func (c *contestState) wouldBeNewMultiplier(rules *scoringRules, call, band stri
 // agreeing with the database: callers that change which contest is active
 // (checkDupe, when contestIndexID no longer matches) or that mutate a QSO
 // that could belong to the active contest (edit save, delete) call this
-// directly. A blank contestID (no known contest) clears the index; a store
-// error is treated as best-effort "no index," matching how sharedDXCCTable
-// enrichment failures are already treated elsewhere.
+// directly. A blank contestID (no known contest) clears the index. If a
+// rebuild of the *same* contest fails, its last known-good index stays in
+// place and contestIndexError marks every consumer as stale. If a switch to a
+// different contest fails, the old index is discarded: showing one contest's
+// dupes/multipliers as another's would be worse than showing no index.
 func (m *model) rebuildContestIndex() {
 	contestID, _, _ := m.dupeCheckScope()
-	m.contestIndexID = contestID
 	if contestID == "" {
 		m.contestIndex = nil
+		m.contestIndexID = ""
+		m.contestIndexError = ""
 		return
 	}
 	state, err := buildContestState(context.Background(), m.activeStation.ID, m.activeStation.Callsign, contestID, m.store)
 	if err != nil {
-		m.contestIndex = nil
+		m.contestIndexError = fmt.Sprintf("contest analysis unavailable: %v", err)
+		if m.contestIndexID != contestID {
+			m.contestIndex = nil
+			m.contestIndexID = contestID
+		}
 		return
 	}
 	m.contestIndex = state
+	m.contestIndexID = contestID
+	m.contestIndexError = ""
 }
 
 // buildContestState scans every QSO logged under contestID for profileID and

@@ -100,18 +100,20 @@ the log, submitted contest results, or external services.
   analysis panel uses a valid entered/QRZ-filled grid before falling back to
   DXCC coordinates; a regression test verifies the bearing changes accordingly.
 
-- ⏳ **Rename or implement the promised Countries Worked/Needed view.** The
+- ✅ **The continent-level panel is accurately named `Continents Worked`.** The
   current `continentBand` index counts QSOs per continent and the panel reports
-  only six continent-level worked/not-worked booleans. It does not calculate
-  countries worked or wanted within each continent, so the ✅ tracker item and
-  `Ctrl+W` label overstate what exists. Either implement entity-level totals and
-  denominators or describe the current screen as `Continents Worked`.
+  only six continent-level worked/not-worked states, not countries worked or
+  wanted within each continent. The screen title, Help entry, and hotkey label
+  now say `Continents Worked`; entity-level totals/denominators remain future
+  feature work rather than an implied capability.
 
-- ⏳ **Do not silently discard contest-index rebuild failures.**
-  `rebuildContestIndex` converts any database error into a nil index without a
-  status/error signal. That can make scoring and analysis disappear while the
-  operator continues logging. Preserve the last known-good index as stale or
-  expose a blocking error, and cover the failure path.
+- ✅ **Contest-index rebuild failures preserve known-good state and are visible.**
+  `rebuildContestIndex` retains the prior index only when the failed rebuild is
+  for that same contest, marks it stale in the QSO Entry analysis and
+  Continents panel, and clears it on a failed switch to a different contest so
+  one event's dupes/multipliers can never appear under another. Regression
+  coverage closes the database after a successful build and verifies both the
+  retained state and visible stale warning.
 
 - 🔧 **Increase integration coverage around risky asynchronous and file paths.**
   This pass adds deterministic coverage for atomic initial enqueueing,
@@ -268,7 +270,7 @@ every panel *and* scoring so they always agree.
   prefix/suffix mode toggle (`.`/`,`) and ↑-to-pull-into-field are deferred —
   substring match covers the common case display-only.
 - ⏳ **Super Check Partial** highlight (known-good calls).
-- ✅ **Worked/Needed by continent** panel; per-band paging.
+- ✅ **Continents Worked** panel; per-band paging.
   `contestState.continentBand` (`contest_state.go`) tallies each logged QSO's
   continent (resolved via `sharedDXCCTable` at `record()` time, the same
   lookup the Analysis panel already uses) per band; `continentSummary`
