@@ -14,20 +14,74 @@ var eventConfigFiles embed.FS
 // eventDefinition is deliberately data-only so new events and contests can be
 // added without changing the application. IDs are persisted in ADIF CONTEST_ID.
 type eventDefinition struct {
-	ID                      string           `json:"id"`
-	Name                    string           `json:"name"`
-	Organizer               string           `json:"organizer"`
-	Kind                    string           `json:"kind"`
-	Schedule                string           `json:"schedule"`
-	Bands                   []string         `json:"bands"`
-	SentSerial              bool             `json:"sent_serial"`
-	SentExchangeHint        string           `json:"sent_exchange_hint"`
-	RcvdExchangeHint        string           `json:"received_exchange_hint"`
-	DupeScope               string           `json:"dupe_scope"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	// CabrilloContest overrides the Cabrillo CONTEST: token when the event's own
+	// ID isn't the sponsor's identifier — e.g. a contest with distinct "home"
+	// and "DX" side entries (different exchanges) that both submit under one
+	// Cabrillo contest name. Blank means "use ID", preserving existing events.
+	CabrilloContest  string   `json:"cabrillo_contest"`
+	Organizer        string   `json:"organizer"`
+	Kind             string   `json:"kind"`
+	Schedule         string   `json:"schedule"`
+	Bands            []string `json:"bands"`
+	SentSerial       bool     `json:"sent_serial"`
+	SentExchangeHint string   `json:"sent_exchange_hint"`
+	RcvdExchangeHint string   `json:"received_exchange_hint"`
+	DupeScope        string   `json:"dupe_scope"`
+	// CabrilloOmitRST drops the RST columns from the Cabrillo QSO: line for
+	// contests whose exchange carries no signal report — e.g. CW Open, whose
+	// exchange is a serial number plus the operator's name. The default (false)
+	// keeps the RST-bearing generic layout every other contest here uses.
+	CabrilloOmitRST         bool             `json:"cabrillo_omit_rst"`
 	RulesURL                string           `json:"rules_url"`
 	ScoreSubmissionURL      string           `json:"score_submission_url"`
 	Sessions                []eventSession   `json:"sessions"`
 	ReceivedExchangeOptions []exchangeOption `json:"received_exchange_options"`
+	// Scoring, when present, lets the exporter compute a claimed score for the
+	// contest instead of the informational 0 it emits for events with no rules
+	// configured. Cabrillo export is per-session, so the computed score is one
+	// session's score; the sponsor's robot recomputes the authoritative total.
+	Scoring *scoringRules `json:"scoring"`
+}
+
+// scoringRules is a deliberately small, data-driven model of a contest's score
+// formula: score = (sum of per-QSO points) × multipliers. It covers the
+// "N points per non-duplicate QSO, one multiplier per unique callsign" shape
+// used by CWops events; contests needing a different formula get their own
+// multiplier kind rather than this being hardcoded per contest.
+type scoringRules struct {
+	// PointsPerQSO is awarded once per unique (callsign, band) worked in the
+	// session; a same-band duplicate scores zero, matching CW Open's "once per
+	// band, per session" rule.
+	PointsPerQSO int `json:"points_per_qso"`
+	// Multiplier selects how multipliers are counted. "unique_call" counts each
+	// distinct callsign worked in the session once, regardless of band.
+	Multiplier string `json:"multiplier"`
+}
+
+// validScoringMultiplier reports whether kind is a multiplier rule the scorer
+// (see computeContestScore) understands, so a config typo fails loudly at
+// startup instead of silently scoring zero multipliers.
+func validScoringMultiplier(kind string) bool {
+	switch strings.TrimSpace(kind) {
+	case "unique_call":
+		return true
+	default:
+		return false
+	}
+}
+
+// cabrilloToken returns the effective Cabrillo CONTEST: token for the event:
+// CabrilloContest when set, otherwise the event's own ID. Shared by the
+// exporter (the actual header value) and the catalog loader's curated-vs-
+// generated de-dup (two events sharing a token are the same real-world
+// contest, however differently they're keyed in this catalog).
+func (e eventDefinition) cabrilloToken() string {
+	if token := strings.TrimSpace(e.CabrilloContest); token != "" {
+		return token
+	}
+	return e.ID
 }
 
 type exchangeOption struct {
@@ -54,10 +108,50 @@ func validDupeScope(scope string) bool {
 	}
 }
 
+// generatedEventCatalogFile is the SD-template-derived catalog (see
+// docs/ROADMAP.md "Contest catalog from SD templates"): every other file
+// under events/ is hand-curated with a real rules URL and hand-checked
+// exchange format. The SD generator runs independently of this app and has
+// no way to know what's already hand-curated here, so loadEventCatalog drops
+// a generated entry that's a straight duplicate of a curated one — same
+// cabrilloToken, exactly one entry on each side — rather than showing the
+// operator the same real-world contest twice (roadmap: "curated vs generated
+// duplicates", prefer curated). A token shared by *two or more* generated
+// entries and one curated entry is left alone: that's the SD catalog
+// splitting a contest's "home"/"DX" sides (distinct exchanges) that the
+// curated entry only covers generically, which is additional fidelity worth
+// keeping, not a duplicate.
+const generatedEventCatalogFile = "sd_contests.json"
+
 func loadEventCatalog() ([]eventDefinition, error) {
 	entries, err := eventConfigFiles.ReadDir("events")
 	if err != nil {
 		return nil, fmt.Errorf("read event configs: %w", err)
+	}
+	// Token counts are collected in a pass over every file before any event
+	// is considered for the catalog, so the de-dup below doesn't depend on
+	// directory read order.
+	curatedTokenCount := make(map[string]int)
+	generatedTokenCount := make(map[string]int)
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		data, err := eventConfigFiles.ReadFile("events/" + entry.Name())
+		if err != nil {
+			return nil, fmt.Errorf("read event config %s: %w", entry.Name(), err)
+		}
+		var configured []eventDefinition
+		if err := json.Unmarshal(data, &configured); err != nil {
+			return nil, fmt.Errorf("parse event config %s: %w", entry.Name(), err)
+		}
+		counts := curatedTokenCount
+		if entry.Name() == generatedEventCatalogFile {
+			counts = generatedTokenCount
+		}
+		for _, event := range configured {
+			counts[strings.ToUpper(event.cabrilloToken())]++
+		}
 	}
 	var events []eventDefinition
 	ids := make(map[string]struct{})
@@ -79,6 +173,12 @@ func loadEventCatalog() ([]eventDefinition, error) {
 			if event.ID == "" || event.Name == "" {
 				return nil, fmt.Errorf("event config %s has an event without id or name", entry.Name())
 			}
+			if entry.Name() == generatedEventCatalogFile {
+				token := strings.ToUpper(event.cabrilloToken())
+				if curatedTokenCount[token] == 1 && generatedTokenCount[token] == 1 {
+					continue
+				}
+			}
 			if len(event.Sessions) == 0 {
 				return nil, fmt.Errorf("event config %s has no sessions for %q", entry.Name(), event.ID)
 			}
@@ -87,6 +187,14 @@ func loadEventCatalog() ([]eventDefinition, error) {
 			}
 			if !validDupeScope(event.DupeScope) {
 				return nil, fmt.Errorf("event %q has unsupported dupe_scope %q", event.ID, event.DupeScope)
+			}
+			if event.Scoring != nil {
+				if event.Scoring.PointsPerQSO < 0 {
+					return nil, fmt.Errorf("event %q has negative points_per_qso %d", event.ID, event.Scoring.PointsPerQSO)
+				}
+				if !validScoringMultiplier(event.Scoring.Multiplier) {
+					return nil, fmt.Errorf("event %q has unsupported scoring multiplier %q", event.ID, event.Scoring.Multiplier)
+				}
 			}
 			for _, band := range event.Bands {
 				if bandIndex(band) < 0 {

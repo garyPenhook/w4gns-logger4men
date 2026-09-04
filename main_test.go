@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -117,6 +118,61 @@ func TestEnterLeavingCallStartsQSOTimer(t *testing.T) {
 	got := updated.(model)
 	if got.qsoStartedAt.IsZero() {
 		t.Fatal("Enter leaving Call did not start QSO timer")
+	}
+}
+
+// TestEnterAfterCallFastPathsPastAutoFilledFieldsDuringContest guards the
+// ergonomic entry order: with a contest active, Enter leaving Call should
+// jump straight to the received exchange, skipping RST/Band/Freq (which are
+// auto-filled and rarely need touching mid-QSO). Tab must still visit every
+// field for the rare correction.
+func TestEnterAfterCallFastPathsPastAutoFilledFieldsDuringContest(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	cwopen := m.events[eventIndex(t, m.events, "CW-OPEN")]
+	m.selectEvent(cwopen, cwopen.Sessions[0])
+	m.screen = qsoEntryScreen
+	m.focusField(fieldCall)
+
+	m.fields[fieldCall].SetValue("W1AW")
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	got := updated.(model)
+
+	slots := got.entrySlots()
+	if want := fieldCount; got.focusIdx != want || !slots[got.focusIdx].contest {
+		t.Fatalf("Enter after Call with a contest active focused slot %d (%+v), want the first received-exchange slot at %d", got.focusIdx, slots[got.focusIdx], want)
+	}
+
+	// Tab still moves one field at a time, unaffected by the fast path.
+	got.focusField(fieldCall)
+	updated, _ = got.Update(tea.KeyMsg{Type: tea.KeyTab})
+	got = updated.(model)
+	if got.focusIdx != fieldRSTSent {
+		t.Fatalf("Tab after Call focused slot %d, want %d (RST Sent)", got.focusIdx, fieldRSTSent)
+	}
+}
+
+// TestEnterAfterCallAdvancesOneFieldOutsideContest guards against the fast
+// path firing when no contest is active — there is no received exchange to
+// jump to, so Enter must keep its normal one-field-at-a-time advance.
+func TestEnterAfterCallAdvancesOneFieldOutsideContest(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.fields[fieldCall].SetValue("W1AW")
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	got := updated.(model)
+	if got.focusIdx != fieldRSTSent {
+		t.Fatalf("Enter after Call outside a contest focused slot %d, want %d (RST Sent)", got.focusIdx, fieldRSTSent)
 	}
 }
 
@@ -314,6 +370,188 @@ func TestF9TogglesTableFocusAndCursorSurvivesEmptyToNonEmptyTransition(t *testin
 // F9 -> Enter -> edit -> save cycle through Update, the way a real
 // keystroke sequence would, and confirms the existing row is updated in
 // place (not duplicated) with its original timestamp preserved.
+// TestSerialSentAutoIncrementsAcrossContestQSOs guards the running serial: a
+// serial-exchange contest (CW Open) must show 001 on selection, advance to the
+// next number after each logged QSO, keep the operator "in the event" (contest
+// name and their own sent exchange survive the between-QSO reset), and carry a
+// manual correction to the Sent Serial field forward.
+func TestSerialSentAutoIncrementsAcrossContestQSOs(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	cwopen := m.events[eventIndex(t, m.events, "CW-OPEN")]
+	m.selectEvent(cwopen, cwopen.Sessions[0])
+	contestID := m.contestFields[contestName].Value()
+
+	if got := m.contestFields[contestSerialSent].Value(); got != "001" {
+		t.Fatalf("initial Sent Serial = %q, want 001", got)
+	}
+
+	m.contestFields[contestExchangeSent].SetValue("Gary") // the operator's own name, constant all session
+	m.fields[fieldCall].SetValue("W1AW")
+	m.fields[fieldBand].SetValue("20M")
+	m.fields[fieldFrequency].SetValue("14.025")
+	m.contestFields[contestSerialRcvd].SetValue("045")
+	m, _ = m.logCurrentQSO()
+	if !strings.Contains(m.statusMsg, "logged") {
+		t.Fatalf("first QSO not logged: %q", m.statusMsg)
+	}
+	if got := m.contestFields[contestSerialSent].Value(); got != "002" {
+		t.Fatalf("Sent Serial after 1st QSO = %q, want 002", got)
+	}
+	if got := m.contestFields[contestName].Value(); got != contestID {
+		t.Fatalf("contest name cleared between QSOs: %q, want %q", got, contestID)
+	}
+	if got := m.contestFields[contestExchangeSent].Value(); got != "Gary" {
+		t.Fatalf("sent exchange (name) cleared between QSOs: %q, want Gary", got)
+	}
+	if got := m.contestFields[contestSerialRcvd].Value(); got != "" {
+		t.Fatalf("received serial not cleared between QSOs: %q", got)
+	}
+
+	m.fields[fieldCall].SetValue("K1ABC")
+	m, _ = m.logCurrentQSO()
+	if got := m.contestFields[contestSerialSent].Value(); got != "003" {
+		t.Fatalf("Sent Serial after 2nd QSO = %q, want 003", got)
+	}
+
+	// A manual correction to the Sent Serial field must carry forward: the next
+	// serial follows the number actually sent, not an internal blind counter.
+	m.contestFields[contestSerialSent].SetValue("010")
+	m.fields[fieldCall].SetValue("K2XYZ")
+	m, _ = m.logCurrentQSO()
+	if got := m.contestFields[contestSerialSent].Value(); got != "011" {
+		t.Fatalf("Sent Serial after manual correction to 010 = %q, want 011", got)
+	}
+
+	// The serials actually stored on the QSOs must match what was displayed.
+	wantSerials := map[string]string{"W1AW": "001", "K1ABC": "002", "K2XYZ": "010"}
+	err = st.forEachQSOForContest(context.Background(), m.activeStation.ID, contestID, func(q qso) error {
+		if want, ok := wantSerials[q.call]; ok && q.stx != want {
+			t.Errorf("stored serial for %s = %q, want %q", q.call, q.stx, want)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("forEachQSOForContest: %v", err)
+	}
+}
+
+// TestQSOEntryHeaderShowsSendingSerial guards the mirror of the running serial
+// onto the main QSO Entry screen: a serial contest must surface the number the
+// operator will send next there (not only on Contest Entry/F7), and it must
+// track the advance after a QSO is logged.
+func TestQSOEntryHeaderShowsSendingSerial(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	cwopen := m.events[eventIndex(t, m.events, "CW-OPEN")]
+	m.selectEvent(cwopen, cwopen.Sessions[0])
+	m.screen = qsoEntryScreen // selectEvent opens Contest Entry; go look at QSO Entry
+
+	if view := m.View(); !strings.Contains(view, "Sending # 001") {
+		t.Fatalf("QSO Entry view missing 'Sending # 001', got:\n%s", view)
+	}
+
+	m.fields[fieldCall].SetValue("W1AW")
+	m.fields[fieldBand].SetValue("20M")
+	m.fields[fieldFrequency].SetValue("14.025")
+	m, _ = m.logCurrentQSO()
+	if view := m.View(); !strings.Contains(view, "Sending # 002") {
+		t.Fatalf("QSO Entry view after 1st QSO missing 'Sending # 002', got:\n%s", view)
+	}
+}
+
+// TestQSOEntryHeaderOmitsSendingSerialOutsideSerialContest guards the gate: a
+// non-serial context must not show a "Sending #" label.
+func TestQSOEntryHeaderOmitsSendingSerialOutsideSerialContest(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	if view := m.View(); strings.Contains(view, "Sending #") {
+		t.Fatalf("QSO Entry view showed a serial with no serial contest active:\n%s", view)
+	}
+}
+
+// TestContestReceivedExchangeLoggedInlineOnEntryScreen guards the core contest
+// workflow: while a contest is active, the worked station's received exchange
+// (serial + name for CW Open) is captured on the main QSO Entry screen and
+// logged in one place — no switching to Contest Entry (F7). It verifies the
+// inline fields appear, keystrokes route to them, and the values reach the QSO.
+func TestContestReceivedExchangeLoggedInlineOnEntryScreen(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	cwopen := m.events[eventIndex(t, m.events, "CW-OPEN")]
+	m.selectEvent(cwopen, cwopen.Sessions[0])
+	contestID := m.contestFields[contestName].Value()
+	m.screen = qsoEntryScreen
+	m.focusField(fieldCall)
+
+	// The entry row now carries the received exchange inline (Rcv # + Rcv Exch),
+	// and the last field is the exchange so a final Enter logs from it.
+	slots := m.entrySlots()
+	if len(slots) != fieldCount+2 {
+		t.Fatalf("entrySlots len = %d, want %d (base fields + Rcv#/RcvExch)", len(slots), fieldCount+2)
+	}
+	if !slots[len(slots)-1].contest {
+		t.Fatalf("last entry slot should be the received exchange, got %+v", slots[len(slots)-1])
+	}
+	if view := m.View(); !strings.Contains(view, "Rcv #") || !strings.Contains(view, "Rcv Exch") {
+		t.Fatalf("QSO Entry view missing inline received-exchange fields:\n%s", view)
+	}
+
+	// Focus the received-exchange field and type: keystrokes must route to the
+	// contest field, not a base field.
+	m.focusField(len(slots) - 1)
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("Joe")})
+	m = updated.(model)
+	if got := m.contestFields[contestExchangeRcvd].Value(); got != "Joe" {
+		t.Fatalf("typing into the inline exchange field set %q, want Joe", got)
+	}
+
+	// Fill call + received serial and log — without ever opening F7.
+	m.fields[fieldCall].SetValue("W1AW")
+	m.fields[fieldBand].SetValue("20M")
+	m.fields[fieldFrequency].SetValue("14.025")
+	m.contestFields[contestSerialRcvd].SetValue("042")
+	m, _ = m.logCurrentQSO()
+	if !strings.Contains(m.statusMsg, "logged") {
+		t.Fatalf("QSO not logged: %q", m.statusMsg)
+	}
+
+	var got qso
+	found := false
+	if err := st.forEachQSOForContest(context.Background(), m.activeStation.ID, contestID, func(q qso) error {
+		got, found = q, true
+		return nil
+	}); err != nil {
+		t.Fatalf("forEachQSOForContest: %v", err)
+	}
+	if !found {
+		t.Fatal("logged QSO not found for contest")
+	}
+	if got.call != "W1AW" || got.srx != "042" || got.srxString != "Joe" {
+		t.Fatalf("stored QSO = %s rcv %q/%q, want W1AW 042/Joe", got.call, got.srx, got.srxString)
+	}
+}
+
 func TestEditQSOFlowSavesChangesWithoutInsertingANewRow(t *testing.T) {
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {
@@ -416,6 +654,67 @@ func TestEditQSOFlowSavesCountyEmailAndParkName(t *testing.T) {
 	}
 	if got.parkName != "Fake State Park" {
 		t.Errorf("parkName = %q, want Fake State Park", got.parkName)
+	}
+}
+
+// TestEditQSOFromDifferentContestRestoresActiveContestOnSave guards against a
+// real regression: beginEditQSO loads the edited row's own contest fields
+// (contestID/stx/stxString) into m.contestFields so they're editable, but a
+// QSO logged before the operator selected today's contest has no contestID —
+// editing it must not leave the active contest session blanked out for every
+// QSO logged afterward, mis-tagging them for dupe checks and Cabrillo export.
+func TestEditQSOFromDifferentContestRestoresActiveContestOnSave(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	// Log a QSO with no contest active.
+	m.fields[fieldCall].SetValue("W1AW")
+	m, _ = m.logCurrentQSO()
+	original, err := st.qsoByID(m.activeStation.ID, m.recentQSOs[0].id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Now select a contest — this is the active session for every QSO logged
+	// from here on.
+	cwt := m.events[eventIndex(t, m.events, "CWT")]
+	m.selectEvent(cwt, cwt.Sessions[0])
+	m.screen = qsoEntryScreen
+	activeContest := m.contestFields[contestName].Value()
+	if activeContest == "" {
+		t.Fatal("selectEvent did not set an active contest selection")
+	}
+
+	// Edit the earlier, no-contest QSO and save.
+	m.beginEditQSO(original)
+	if got := m.contestFields[contestName].Value(); got != "" {
+		t.Fatalf("contestFields[contestName] while editing = %q, want blank (the edited QSO's own, contest-less value)", got)
+	}
+	m.fields[fieldRSTSent].SetValue("579")
+	m, _ = m.logCurrentQSO()
+
+	if got := m.contestFields[contestName].Value(); got != activeContest {
+		t.Fatalf("contestFields[contestName] after saving an edit = %q, want the active contest %q restored", got, activeContest)
+	}
+
+	// The next QSO logged must be tagged with the active contest, not blank.
+	m.fields[fieldCall].SetValue("K1ABC")
+	m, _ = m.logCurrentQSO()
+	var next qso
+	if err := st.forEachQSOForContest(context.Background(), m.activeStation.ID, activeContest, func(q qso) error {
+		if q.call == "K1ABC" {
+			next = q
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("forEachQSOForContest: %v", err)
+	}
+	if next.call != "K1ABC" {
+		t.Fatal("QSO logged after the edit was not tagged with the active contest")
 	}
 }
 

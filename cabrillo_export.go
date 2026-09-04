@@ -77,21 +77,21 @@ func cabrilloCategoryBand(bands []string) string {
 // CONTEST: token is a fixed vocabulary defined by each contest sponsor, so
 // this is a best-effort default the operator may need to edit before
 // uploading if it doesn't match the sponsor's exact expected value.
-func cabrilloHeaderLines(profile stationProfile, event eventDefinition) []string {
+func cabrilloHeaderLines(profile stationProfile, event eventDefinition, claimedScore int) []string {
 	return []string{
 		"START-OF-LOG: " + cabrilloVersion,
-		"CONTEST: " + cabrilloHeaderValue(event.ID),
+		"CONTEST: " + cabrilloHeaderValue(event.cabrilloToken()),
 		"CALLSIGN: " + cabrilloHeaderValue(profile.Callsign),
 		"CATEGORY-OPERATOR: " + cabrilloHeaderValue(cabrilloOrDefault(profile.CategoryOperator, "SINGLE-OP")),
 		"CATEGORY-ASSISTED: " + cabrilloHeaderValue(cabrilloOrDefault(profile.CategoryAssisted, "NON-ASSISTED")),
 		"CATEGORY-BAND: " + cabrilloCategoryBand(event.Bands),
 		"CATEGORY-POWER: " + cabrilloHeaderValue(cabrilloOrDefault(profile.CategoryPower, "LOW")),
 		"CATEGORY-MODE: CW",
-		// 0 rather than a computed total: contest robots recompute the score
-		// from the QSO lines themselves and treat this as informational, so
-		// an admittedly-approximate claim isn't worth the risk of a wrong
-		// one appearing more authoritative than it is.
-		"CLAIMED-SCORE: 0",
+		// The sponsor's robot recomputes the authoritative score from the QSO
+		// lines and treats this as an informational claim. Events with a
+		// scoring rule get a real computed total here; events without one keep
+		// 0 rather than have a wrong claim look more authoritative than it is.
+		"CLAIMED-SCORE: " + strconv.Itoa(claimedScore),
 		"CLUB: " + cabrilloHeaderValue(profile.Club),
 		"NAME: " + cabrilloHeaderValue(profile.OperatorName),
 		"ADDRESS: " + cabrilloHeaderValue(profile.Address),
@@ -169,10 +169,15 @@ func cabrilloText(value string, width int) string {
 	return cleaned
 }
 
-// cabrilloQSOLine renders one Cabrillo QSO: line. callsign falls back to the
-// profile's callsign when the QSO's own station-identity snapshot is blank
-// (e.g. a QSO logged before Station Setup was filled in).
-func cabrilloQSOLine(q qso, profile stationProfile) (string, error) {
+// cabrilloQSOLine renders one Cabrillo QSO: line for the given event. callsign
+// falls back to the profile's callsign when the QSO's own station-identity
+// snapshot is blank (e.g. a QSO logged before Station Setup was filled in).
+// When event.CabrilloOmitRST is set the RST columns are dropped, matching
+// contests (e.g. CW Open) whose exchange is a serial number plus name and
+// carries no signal report — emitting a spurious "599" there would add an
+// extra field the sponsor's log checker doesn't expect and misalign the
+// exchange it parses by position.
+func cabrilloQSOLine(q qso, profile stationProfile, event eventDefinition) (string, error) {
 	freqKHz, err := cabrilloFrequencyKHz(q)
 	if err != nil {
 		return "", err
@@ -185,28 +190,91 @@ func cabrilloQSOLine(q qso, profile stationProfile) (string, error) {
 	// with that separator rather than each line carrying its own. Every
 	// field is passed through cabrilloText to strip line-breaking/control
 	// characters and enforce the column width the format string assumes.
+	sentCall := cabrilloText(callSent, 13)
+	sentExch := cabrilloText(cabrilloExchange(q.stx, q.stxString), 13)
+	rcvdCall := cabrilloText(q.call, 13)
+	rcvdExch := cabrilloText(cabrilloExchange(q.srx, q.srxString), 13)
+	if event.CabrilloOmitRST {
+		return fmt.Sprintf("QSO: %5d CW %s %s %-13s %-13s %-13s %-13s",
+			freqKHz,
+			q.time.UTC().Format("2006-01-02"),
+			q.time.UTC().Format("1504"),
+			sentCall, sentExch,
+			rcvdCall, rcvdExch,
+		), nil
+	}
 	return fmt.Sprintf("QSO: %5d CW %s %s %-13s %-3s %-13s %-13s %-3s %-13s",
 		freqKHz,
 		q.time.UTC().Format("2006-01-02"),
 		q.time.UTC().Format("1504"),
-		cabrilloText(callSent, 13), cabrilloText(q.rstSent, 3), cabrilloText(cabrilloExchange(q.stx, q.stxString), 13),
-		cabrilloText(q.call, 13), cabrilloText(q.rstRcvd, 3), cabrilloText(cabrilloExchange(q.srx, q.srxString), 13),
+		sentCall, cabrilloText(q.rstSent, 3), sentExch,
+		rcvdCall, cabrilloText(q.rstRcvd, 3), rcvdExch,
 	), nil
+}
+
+// contestScore is one session's claimed score: PointsPerQSO awarded per unique
+// (callsign, band) QSO, multiplied by the number of unique callsigns worked.
+type contestScore struct {
+	qsoPoints   int
+	multipliers int
+}
+
+func (c contestScore) total() int { return c.qsoPoints * c.multipliers }
+
+// computeContestScore tallies the claimed score for one contest session from
+// the QSOs tagged with contestID, applying event.Scoring. It returns a zero
+// score when the event has no scoring rule, which the header renders as the
+// informational "CLAIMED-SCORE: 0". A same-band duplicate is counted once for
+// points (matching CW Open's "once per band, per session") but its callsign
+// still counts as a multiplier, since a dupe is still a callsign worked.
+func computeContestScore(ctx context.Context, profile stationProfile, event eventDefinition, contestID string, st *store) (contestScore, error) {
+	if event.Scoring == nil {
+		return contestScore{}, nil
+	}
+	scoredQSOs := make(map[string]struct{}) // dedup key: CALL|BAND
+	uniqueCalls := make(map[string]struct{})
+	var score contestScore
+	err := st.forEachQSOForContest(ctx, profile.ID, contestID, func(q qso) error {
+		call := strings.ToUpper(strings.TrimSpace(q.call))
+		if call == "" {
+			return nil
+		}
+		qsoKey := call + "|" + strings.ToUpper(strings.TrimSpace(q.band))
+		if _, seen := scoredQSOs[qsoKey]; !seen {
+			scoredQSOs[qsoKey] = struct{}{}
+			score.qsoPoints += event.Scoring.PointsPerQSO
+		}
+		uniqueCalls[call] = struct{}{}
+		return nil
+	})
+	if err != nil {
+		return contestScore{}, err
+	}
+	if event.Scoring.Multiplier == "unique_call" {
+		score.multipliers = len(uniqueCalls)
+	}
+	return score, nil
 }
 
 // exportCabrillo writes a Cabrillo v3 submission for every QSO tagged with
 // contestID under the active station profile, streaming one row at a time
-// from the database like exportADIF does.
-func exportCabrillo(ctx context.Context, writer io.Writer, profile stationProfile, event eventDefinition, contestID string, st *store) (int, error) {
+// from the database like exportADIF does. It makes a first pass to compute the
+// claimed score for the header (contest logs are a few hundred QSOs at most,
+// so the extra scan is cheap) before streaming the QSO lines.
+func exportCabrillo(ctx context.Context, writer io.Writer, profile stationProfile, event eventDefinition, contestID string, st *store) (int, contestScore, error) {
+	score, err := computeContestScore(ctx, profile, event, contestID, st)
+	if err != nil {
+		return 0, contestScore{}, err
+	}
 	crlf := "\r\n"
-	for _, line := range cabrilloHeaderLines(profile, event) {
+	for _, line := range cabrilloHeaderLines(profile, event, score.total()) {
 		if _, err := io.WriteString(writer, line+crlf); err != nil {
-			return 0, fmt.Errorf("write Cabrillo header: %w", err)
+			return 0, contestScore{}, fmt.Errorf("write Cabrillo header: %w", err)
 		}
 	}
 	count := 0
-	err := st.forEachQSOForContest(ctx, profile.ID, contestID, func(q qso) error {
-		line, err := cabrilloQSOLine(q, profile)
+	err = st.forEachQSOForContest(ctx, profile.ID, contestID, func(q qso) error {
+		line, err := cabrilloQSOLine(q, profile, event)
 		if err != nil {
 			return err
 		}
@@ -217,12 +285,12 @@ func exportCabrillo(ctx context.Context, writer io.Writer, profile stationProfil
 		return nil
 	})
 	if err != nil {
-		return 0, err
+		return 0, contestScore{}, err
 	}
 	if _, err := io.WriteString(writer, "END-OF-LOG:"+crlf); err != nil {
-		return 0, fmt.Errorf("write Cabrillo footer: %w", err)
+		return 0, contestScore{}, fmt.Errorf("write Cabrillo footer: %w", err)
 	}
-	return count, nil
+	return count, score, nil
 }
 
 // writeCabrilloAtomic writes the contest submission to a temporary file in
@@ -231,34 +299,34 @@ func exportCabrillo(ctx context.Context, writer io.Writer, profile stationProfil
 // submission immediately, so a mid-export failure — a DB read error, an
 // unexportable QSO, the process being killed — would destroy the previous,
 // valid submission and leave nothing usable behind. Mirrors writeADIFAtomic.
-func writeCabrilloAtomic(ctx context.Context, dir, path string, profile stationProfile, event eventDefinition, contestID string, st *store) (int, error) {
+func writeCabrilloAtomic(ctx context.Context, dir, path string, profile stationProfile, event eventDefinition, contestID string, st *store) (int, contestScore, error) {
 	tempFile, err := os.CreateTemp(dir, ".w4gns-cabrillo-*.cbr.tmp")
 	if err != nil {
-		return 0, fmt.Errorf("create temporary Cabrillo file: %w", err)
+		return 0, contestScore{}, fmt.Errorf("create temporary Cabrillo file: %w", err)
 	}
 	tempPath := tempFile.Name()
 	cleanup := func() { os.Remove(tempPath) }
 
-	count, err := exportCabrillo(ctx, tempFile, profile, event, contestID, st)
+	count, score, err := exportCabrillo(ctx, tempFile, profile, event, contestID, st)
 	if err != nil {
 		tempFile.Close()
 		cleanup()
-		return 0, err
+		return 0, contestScore{}, err
 	}
 	if err := tempFile.Sync(); err != nil {
 		tempFile.Close()
 		cleanup()
-		return 0, fmt.Errorf("sync Cabrillo file: %w", err)
+		return 0, contestScore{}, fmt.Errorf("sync Cabrillo file: %w", err)
 	}
 	if err := tempFile.Close(); err != nil {
 		cleanup()
-		return 0, fmt.Errorf("close Cabrillo file: %w", err)
+		return 0, contestScore{}, fmt.Errorf("close Cabrillo file: %w", err)
 	}
 	if err := os.Rename(tempPath, path); err != nil {
 		cleanup()
-		return 0, fmt.Errorf("finalize Cabrillo export: %w", err)
+		return 0, contestScore{}, fmt.Errorf("finalize Cabrillo export: %w", err)
 	}
-	return count, nil
+	return count, score, nil
 }
 
 // forEachQSOForContest streams every QSO tagged with contestID for one

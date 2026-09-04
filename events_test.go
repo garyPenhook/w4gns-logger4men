@@ -47,6 +47,87 @@ func TestLoadEventCatalogIncludesCWopsDefinitions(t *testing.T) {
 	}
 }
 
+// TestSDContestCatalogLoadsWithDistinctSideVariants guards the imported SD
+// template catalog: the many contests load alongside the curated events with
+// unique IDs, and side-variant entries that submit under one Cabrillo contest
+// name (e.g. ARRL DX CW "home" and "DX" sides) keep distinct IDs while sharing
+// a cabrillo_contest token — the reason eventDefinition separates the two.
+func TestSDContestCatalogLoadsWithDistinctSideVariants(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	if len(events) < 250 {
+		t.Fatalf("event count = %d, want at least 250 after importing SD templates", len(events))
+	}
+	dx := events[eventIndex(t, events, "SD-ARDXDXC")]
+	home := events[eventIndex(t, events, "SD-ARDXWVC")]
+	if dx.ID == home.ID {
+		t.Fatal("side variants must have distinct IDs")
+	}
+	if dx.CabrilloContest != "ARRL-DX-CW" || home.CabrilloContest != "ARRL-DX-CW" {
+		t.Fatalf("both ARRL DX CW sides must map to CONTEST ARRL-DX-CW, got %q / %q",
+			dx.CabrilloContest, home.CabrilloContest)
+	}
+}
+
+// TestLoadEventCatalogPrefersCuratedOverGeneratedDuplicate guards the
+// curated-vs-generated de-dup (docs/ROADMAP.md "curated vs generated
+// duplicates"): CW-OPEN is both a hand-curated event (events/cwops.json) and
+// an SD-generated one (events/sd_contests.json, cabrillo_contest "CW-OPEN")
+// with no side-variant split — a straight 1:1 duplicate. The generator can't
+// know what this app already curates, so the loader is the one place that
+// can catch it; the curated copy must win and the generated one must not
+// appear in the catalog at all.
+func TestLoadEventCatalogPrefersCuratedOverGeneratedDuplicate(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	for _, event := range events {
+		if event.ID == "SD-CWOPEN" {
+			t.Fatal("SD-generated CW-OPEN duplicate should be dropped in favor of the curated CW-OPEN event")
+		}
+	}
+	cwOpen := events[eventIndex(t, events, "CW-OPEN")]
+	if !cwOpen.CabrilloOmitRST {
+		t.Fatal("the surviving CW-OPEN event should be the curated one (cabrillo_omit_rst set)")
+	}
+}
+
+// TestLoadEventCatalogKeepsGeneratedSideVariantsDespiteCuratedOverlap guards
+// against the de-dup being too aggressive: ARRL DX CW has one generic curated
+// entry (events/contestcalendar.json, ID "ARRL-DX-CW") but the SD catalog
+// splits it into "home"/"DX" sides with distinct exchanges sharing that same
+// cabrillo_contest token. That's added fidelity, not a duplicate, so both
+// generated sides must survive alongside the curated entry.
+func TestLoadEventCatalogKeepsGeneratedSideVariantsDespiteCuratedOverlap(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	for _, id := range []string{"ARRL-DX-CW", "SD-ARDXDXC", "SD-ARDXWVC"} {
+		eventIndex(t, events, id) // fatals if missing
+	}
+}
+
+// TestCabrilloHeaderUsesCabrilloContestOverride guards that the Cabrillo
+// CONTEST: line follows cabrillo_contest when set (so an SD side-variant with
+// ID "SD-ARDXDXC" still submits under "ARRL-DX-CW"), and falls back to ID when
+// the override is blank (every curated event's existing behavior).
+func TestCabrilloHeaderUsesCabrilloContestOverride(t *testing.T) {
+	withOverride := eventDefinition{ID: "SD-ARDXDXC", CabrilloContest: "ARRL-DX-CW", Bands: []string{"20M"}}
+	lines := cabrilloHeaderLines(testStationProfile(), withOverride, 0)
+	if !strings.Contains(strings.Join(lines, "\n"), "CONTEST: ARRL-DX-CW") {
+		t.Fatalf("header should use cabrillo_contest override, got:\n%s", strings.Join(lines, "\n"))
+	}
+	noOverride := eventDefinition{ID: "CW-OPEN", Bands: []string{"20M"}}
+	lines = cabrilloHeaderLines(testStationProfile(), noOverride, 0)
+	if !strings.Contains(strings.Join(lines, "\n"), "CONTEST: CW-OPEN") {
+		t.Fatalf("header should fall back to ID when override blank, got:\n%s", strings.Join(lines, "\n"))
+	}
+}
+
 // TestEventSelectionIDsFitContestField guards against silently truncating
 // "event.ID-session.ID" (see selectEvent) in the Contest Name field: every
 // catalog entry's longest generated value must fit maxEventSelectionLength.

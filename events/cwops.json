@@ -30,6 +30,8 @@
     "sent_exchange_hint": "Given name",
     "received_exchange_hint": "Given name",
     "dupe_scope": "call+band+session",
+    "cabrillo_omit_rst": true,
+    "scoring": {"points_per_qso": 1, "multiplier": "unique_call"},
     "rules_url": "https://cwops.org/cwops-tests/cw-open/",
     "score_submission_url": "https://cwops.contesting.com/",
     "sessions": [

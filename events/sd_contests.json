@@ -1,0 +1,6507 @@
+[
+  {
+    "id": "SD-1010",
+    "name": "10-10 QSO Party",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "10-10-QSO-PARTY",
+    "cabrillo_omit_rst": true,
+    "sent_exchange_hint": "Name # QTH",
+    "received_exchange_hint": "Call & Exchange"
+  },
+  {
+    "id": "SD-7DEINE",
+    "name": "7DEINE QSO Parties",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "7DEINE",
+    "sent_exchange_hint": "State/Cty or DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-7QPDX",
+    "name": "7QP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "7QP",
+    "sent_exchange_hint": "Own State or DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-7QP7",
+    "name": "7QP - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "7QP",
+    "sent_exchange_hint": "Exchange Sent",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-9ADX9A",
+    "name": "9A DX - 9A Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "9A-DX",
+    "sent_exchange_hint": "Your Lience Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-9ADXDX",
+    "name": "9A DX - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "9A-DX",
+    "sent_exchange_hint": "Your ITU Zone",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-AFRICA",
+    "name": "Africa DX Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ALL-AFRICA",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-AASIADX",
+    "name": "All Asian DX - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "AADX",
+    "sent_exchange_hint": "Enter Your Age",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-AASIAAS",
+    "name": "All Asian DX - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "AADX",
+    "sent_exchange_hint": "Enter Your Age",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-AUSTRIA",
+    "name": "All Austrian 160m Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ALL-AUSTRIA-160",
+    "sent_exchange_hint": "District Code",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-ALQPDX",
+    "name": "ALQP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "AL-QSO-PARTY",
+    "sent_exchange_hint": "State or Prefix",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ALQP",
+    "name": "ALQP - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "AL-QSO-PARTY",
+    "sent_exchange_hint": "Your County Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ARI4080",
+    "name": "ARI 40/80 Contest - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ARI-40/80",
+    "sent_exchange_hint": "Your Province",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ARIDX",
+    "name": "ARI Contest - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ARI-DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ARI",
+    "name": "ARI Contest - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ARI-DX",
+    "sent_exchange_hint": "Your Province",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ARISEZ",
+    "name": "ARI Contest delle Sezioni",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ARI-SEZIONI",
+    "sent_exchange_hint": "La tua Sezione",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ARQPDX",
+    "name": "ARQP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "AR-QSO-PARTY",
+    "sent_exchange_hint": "State or DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ARQP",
+    "name": "ARQP - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "AR-QSO-PARTY",
+    "sent_exchange_hint": "Your County",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ARRL10X",
+    "name": "ARRL 10m Contest - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ARRL-10",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ARRL10W",
+    "name": "ARRL 10m Contest - W/VE/XE",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ARRL-10",
+    "sent_exchange_hint": "Your State",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ARRL16X",
+    "name": "ARRL 160m Contest - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ARRL-160",
+    "sent_exchange_hint": "Enter DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ARRL16W",
+    "name": "ARRL 160m Contest - W/VE",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ARRL-160",
+    "sent_exchange_hint": "Your Section",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ARDXDXC",
+    "name": "ARRL DX CW - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ARRL-DX-CW",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ARDXWVC",
+    "name": "ARRL DX CW - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ARRL-DX-CW",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ARRLFD",
+    "name": "ARRL Field Day",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ARRL-FD",
+    "sent_exchange_hint": "Class & Section",
+    "received_exchange_hint": "Class & Section"
+  },
+  {
+    "id": "SD-ARRLSSC",
+    "name": "ARRL SS CW",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ARRL-SS-CW",
+    "cabrillo_omit_rst": true,
+    "sent_exchange_hint": "Prec Check Section",
+    "received_exchange_hint": "Exchange"
+  },
+  {
+    "id": "SD-HIMDX",
+    "name": "ARSI Himalayan - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ARSI-HIMALAYAN",
+    "sent_exchange_hint": "Enter Your Power",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-HIMVU",
+    "name": "ARSI Himalayan - VU Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ARSI-HIMALAYAN",
+    "sent_exchange_hint": "Enter Your State",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-APSPRNT",
+    "name": "Asia Pacific Sprint",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "AP-SPRINT",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-BALKAN",
+    "name": "Balkan HF Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "BALKAN-HF",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-BALTIC",
+    "name": "Baltic Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "BALTIC-CONTEST",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-BCQPDX",
+    "name": "BCQP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "BC-QSO-PARTY",
+    "sent_exchange_hint": "State Province DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-BCQPBC",
+    "name": "BCQP - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "BC-QSO-PARTY",
+    "sent_exchange_hint": "Electoral District",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-BSCC",
+    "name": "BSCC - Black Sea Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "BSCC",
+    "sent_exchange_hint": "Exchange Sent",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-BUCH",
+    "name": "Bucharest DX Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "BUCHAREST-DX",
+    "sent_exchange_hint": "District Sent",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-CISDX",
+    "name": "CIS Contest - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "CIS-DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-BERU",
+    "name": "Commonwealth Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RSGB-COMMONWEALTH",
+    "sent_exchange_hint": "Enter HQ if HQ Stn",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-COVID",
+    "name": "Covid-19",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "STAYHOME",
+    "sent_exchange_hint": "Enter Your Age",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-CQ160C",
+    "name": "CQ 160m - CW",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "CQ-160-CW",
+    "sent_exchange_hint": "State or Zone (DX)",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-CQWPXC",
+    "name": "CQ WPX - CW",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "CQ-WPX-CW",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-CQM",
+    "name": "CQ-M Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "CQ-M",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-CQIR",
+    "name": "CQIR - Ireland Calling",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "CQIR-IRELAND-CALLING",
+    "sent_exchange_hint": "Your County",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-CQMM",
+    "name": "CQMM DX Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "CQMMDX",
+    "sent_exchange_hint": "Exchange",
+    "received_exchange_hint": "RST & Exchange"
+  },
+  {
+    "id": "SD-CQPDX",
+    "name": "CQP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "CA-QSO-PARTY",
+    "cabrillo_omit_rst": true,
+    "sent_exchange_hint": "Your State, or DX",
+    "received_exchange_hint": "Serial"
+  },
+  {
+    "id": "SD-CQP",
+    "name": "CQP - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "CA-QSO-PARTY",
+    "cabrillo_omit_rst": true,
+    "sent_exchange_hint": "Your County",
+    "received_exchange_hint": "Serial"
+  },
+  {
+    "id": "SD-CQWWC",
+    "name": "CQWW CW Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "CQ-WW-CW",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-CVADX",
+    "name": "CVA DX Contest - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "CVA-DX",
+    "sent_exchange_hint": "Your Exchange Sent",
+    "received_exchange_hint": "Exchange"
+  },
+  {
+    "id": "SD-CVAPY",
+    "name": "CVA DX Contest - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "CVA-DX",
+    "sent_exchange_hint": "Your Exchange Sent",
+    "received_exchange_hint": "RST & Exchange"
+  },
+  {
+    "id": "SD-CWOPEN",
+    "name": "CW OPEN",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "CW-OPEN",
+    "cabrillo_omit_rst": true,
+    "sent_exchange_hint": "Your Name",
+    "received_exchange_hint": "Serial & Name"
+  },
+  {
+    "id": "SD-CWOPS",
+    "name": "CWOPS Mini-CWT",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "CW-OPS",
+    "sent_exchange_hint": "Name Number",
+    "received_exchange_hint": "Name & Number"
+  },
+  {
+    "id": "SD-DARC10",
+    "name": "DARC 10m Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "DARC-10",
+    "sent_exchange_hint": "DOK or NM",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-DARFDC",
+    "name": "DARC CW Field Day",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "DARC-FD-CW",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-DARCDX",
+    "name": "DARC XMAS - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "XMAS",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-DARCX",
+    "name": "DARC XMAS - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "XMAS",
+    "sent_exchange_hint": "DOK or NM",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-DELDX",
+    "name": "DEQP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "DE-QSO-PARTY",
+    "sent_exchange_hint": "State or DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-DELDE",
+    "name": "DEQP - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "DE-QSO-PARTY",
+    "sent_exchange_hint": "County Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-DIGQP",
+    "name": "DIG QSO Party",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "DIG-QSO-PARTY",
+    "sent_exchange_hint": "Your DIG Number",
+    "received_exchange_hint": "Exchange"
+  },
+  {
+    "id": "SD-DIGPA",
+    "name": "DIG-PA Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "DIG-PA",
+    "sent_exchange_hint": "Your DIG Number",
+    "received_exchange_hint": "Exchange"
+  },
+  {
+    "id": "SD-DK",
+    "name": "Dutch Kingdom",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "DUTCH-KINGDOM",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-HKDX",
+    "name": "DXColombia - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "DXCOLOMBIA",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-DXPED",
+    "name": "DXpedition & Special Event",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "DXpedition & Special Event",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ESOPEN",
+    "name": "ES Open HF - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ES-OPEN",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-EUHFC",
+    "name": "EU HF Championship",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "EUHFC",
+    "sent_exchange_hint": "Licence Year",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-EUDX",
+    "name": "EUDX Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "EUDX",
+    "sent_exchange_hint": "EU Code / ITU Zone",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-EURASIA",
+    "name": "Eurasia Championship",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "EURASIA-CHAMP",
+    "sent_exchange_hint": "Your Locator",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-FIRAC",
+    "name": "FIRAC Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "FIRAC",
+    "sent_exchange_hint": "Enter F if member",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-FLSP",
+    "name": "Florida State Parks",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "FLSPOTA",
+    "sent_exchange_hint": "Park, State or DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-FOCMAR",
+    "name": "FOC Marathon",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "FOC-MARATHON",
+    "sent_exchange_hint": "Your FOC Number",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-WINDLE",
+    "name": "FOC QSO Party",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "FOC-QSO-PARTY",
+    "sent_exchange_hint": "Your Name & Number",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-FQPDX",
+    "name": "FQP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "FCG-FQP",
+    "sent_exchange_hint": "State or DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-FQP",
+    "name": "FQP - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "FCG-FQP",
+    "sent_exchange_hint": "County Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-WWSA",
+    "name": "GACW WWSA Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "GACW-WWSA",
+    "sent_exchange_hint": "CQ Zone",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-GENERAL",
+    "name": "General Purpose",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "EDIT-THIS-NAME",
+    "sent_exchange_hint": "Exchange Sent"
+  },
+  {
+    "id": "SD-GQPDX",
+    "name": "GQP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "GA-QSO-PARTY",
+    "sent_exchange_hint": "State or DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-GQP",
+    "name": "GQP - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "GA-QSO-PARTY",
+    "sent_exchange_hint": "County Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-HARRY",
+    "name": "Harry Angel",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "HARRY-ANGEL",
+    "received_exchange_hint": "Serial"
+  },
+  {
+    "id": "SD-ALOHADX",
+    "name": "Hawaii QP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "HI-QSO-PARTY",
+    "sent_exchange_hint": "State Province DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ALOHAHI",
+    "name": "Hawaii QP - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "HI-QSO-PARTY",
+    "sent_exchange_hint": "Own QTH ID",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-USKFDC",
+    "name": "HB9/USKA CW Field Day",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "USKA-FD-CW",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-HELVDX",
+    "name": "Helvetia Contest - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "HELVETIA",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-HELVHB9",
+    "name": "Helvetia Contest - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "HELVETIA",
+    "sent_exchange_hint": "Your Canton",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-HOLPOH",
+    "name": "Holicky pohar - OK/OM only",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "HOLICKY-POHAR",
+    "sent_exchange_hint": "Okresni znak",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-HOLYDX",
+    "name": "Holyland Contest - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "HOLYLAND",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-HOLY4X",
+    "name": "Holyland Contest - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "HOLYLAND",
+    "sent_exchange_hint": "Area Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-HSC",
+    "name": "HSC Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "HSC-CONTEST",
+    "sent_exchange_hint": "Number or NM",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-HSKC",
+    "name": "HSKC - Straight Key",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "HSKC",
+    "sent_exchange_hint": "Enter A or B",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-HADXDX",
+    "name": "Hungarian DX - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "HA-DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-HADXHA",
+    "name": "Hungarian DX - HA side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "HA-DX",
+    "sent_exchange_hint": "Your County Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-IARUHF",
+    "name": "IARU HF Championship",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "IARU-HF",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-IDAHODX",
+    "name": "Idaho QP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ID-QSO-PARTY",
+    "sent_exchange_hint": "Exchange Sent",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-IDAHOID",
+    "name": "Idaho QP - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ID-QSO-PARTY",
+    "sent_exchange_hint": "Own County Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ILQPDX",
+    "name": "ILQP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "IL-QSO-PARTY",
+    "sent_exchange_hint": "State or DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ILQP",
+    "name": "ILQP - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "IL-QSO-PARTY",
+    "sent_exchange_hint": "County Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-INORC",
+    "name": "INORC",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "INORC",
+    "sent_exchange_hint": "Exchange",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-INQPDX",
+    "name": "INQP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "IN-QSO-PARTY",
+    "sent_exchange_hint": "State/Prov or DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-INQP",
+    "name": "INQP - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "IN-QSO-PARTY",
+    "sent_exchange_hint": "County Code Sent",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-NAVAL",
+    "name": "International Naval - Member",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "INTERNATIONAL-NAVAL",
+    "sent_exchange_hint": "Club & No.",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-NAVALN",
+    "name": "International Naval - Non Member",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "INTERNATIONAL-NAVAL",
+    "received_exchange_hint": "Exchange"
+  },
+  {
+    "id": "SD-IOTA",
+    "name": "IOTA Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RSGB-IOTA",
+    "sent_exchange_hint": "Own IOTA Ref",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-IRTS4DX",
+    "name": "IRTS 40m County - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "40M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "IRTS-40M-COUNTIES",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-IRTS4",
+    "name": "IRTS 40m County - EI/GI",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "40M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "IRTS-40M-COUNTIES",
+    "sent_exchange_hint": "County Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-IRTSDX",
+    "name": "IRTS 80m County - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "IRTS-80M-COUNTIES",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-IRTS",
+    "name": "IRTS 80m County - EI/GI",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "IRTS-80M-COUNTIES",
+    "sent_exchange_hint": "County Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-IRTSFDC",
+    "name": "IRTS CW Field Day",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "IRTS-CW-FIELD-DAY",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-JIDXDX",
+    "name": "JIDX Contest - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "JIDX",
+    "sent_exchange_hint": "Enter your CQ Zone",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-JIDXJA",
+    "name": "JIDX contest - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "JIDX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-JTDXDX",
+    "name": "JT DX Contest - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "JT-DX",
+    "sent_exchange_hint": "CQ Zone"
+  },
+  {
+    "id": "SD-KSQPDX",
+    "name": "Kansas QP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "KS-QSO-PARTY",
+    "sent_exchange_hint": "State or DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-KCJDX",
+    "name": "KCJ DX Contest - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "KCJ",
+    "sent_exchange_hint": "CQ Zone",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-KCJJA",
+    "name": "KCJ DX Contest - JA side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "KCJ",
+    "sent_exchange_hint": "Prefecture",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-KOS",
+    "name": "King Of Spain - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "KING-OF-SPAIN",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-KOSEA",
+    "name": "King Of Spain - EA Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "KING-OF-SPAIN",
+    "sent_exchange_hint": "Province",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-KPC",
+    "name": "KPC Contest - CW-only",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "KPC",
+    "sent_exchange_hint": "Exchange",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-KSQP",
+    "name": "KSQP - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "KS-QSO-PARTY",
+    "sent_exchange_hint": "County Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-LATVIA",
+    "name": "Latvia Independence Day",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "LATVIA",
+    "sent_exchange_hint": "Exchange"
+  },
+  {
+    "id": "SD-LAQPLA",
+    "name": "Louisiana QP - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "LA-QSO-PARTY",
+    "sent_exchange_hint": "Own Parish",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-LAQPDX",
+    "name": "Lousisiana QP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "LA-QSO-PARTY",
+    "sent_exchange_hint": "State Province DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-LZDX",
+    "name": "LZ DX Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "LZ-DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-LZOPEN",
+    "name": "LZ Open Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "LZ-OPEN",
+    "cabrillo_omit_rst": true
+  },
+  {
+    "id": "SD-MEQP",
+    "name": "Maine QSO Party - MEQP",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ME-QSO-PARTY",
+    "sent_exchange_hint": "County/State/DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-MARCONI",
+    "name": "Marconi Memorial Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "MMC-HF-CW",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-MCD",
+    "name": "MCD - Members",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "MCD",
+    "sent_exchange_hint": "MC + Number (as MC123)",
+    "received_exchange_hint": "Serial & Name"
+  },
+  {
+    "id": "SD-MCDN",
+    "name": "MCD - Non Members",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "MCD",
+    "received_exchange_hint": "Serial & Name"
+  },
+  {
+    "id": "SD-MDCQPDX",
+    "name": "MD-DC QSO Party - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "MDC-QSO-PARTY",
+    "cabrillo_omit_rst": true,
+    "sent_exchange_hint": "Category & State",
+    "received_exchange_hint": "Category & State"
+  },
+  {
+    "id": "SD-MDCQP",
+    "name": "MD-DC QSO Party - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "MDC-QSO-PARTY",
+    "cabrillo_omit_rst": true,
+    "sent_exchange_hint": "Category & County",
+    "received_exchange_hint": "Category & State"
+  },
+  {
+    "id": "SD-MST",
+    "name": "Medium Speed Test",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "MST",
+    "cabrillo_omit_rst": true,
+    "sent_exchange_hint": "Your Name",
+    "received_exchange_hint": "Serial & Name"
+  },
+  {
+    "id": "SD-MIQPDX",
+    "name": "MIQP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "MI-QSO-PARTY",
+    "cabrillo_omit_rst": true,
+    "sent_exchange_hint": "State or DX",
+    "received_exchange_hint": "Serial"
+  },
+  {
+    "id": "SD-MIQP",
+    "name": "MIQP - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "MI-QSO-PARTY",
+    "cabrillo_omit_rst": true,
+    "sent_exchange_hint": "County Code",
+    "received_exchange_hint": "Serial"
+  },
+  {
+    "id": "SD-MNQP",
+    "name": "MNQP - Minnesota Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "MN-QSO-PARTY",
+    "cabrillo_omit_rst": true,
+    "sent_exchange_hint": "Name & County",
+    "received_exchange_hint": "Name"
+  },
+  {
+    "id": "SD-MOQPDX",
+    "name": "MOQP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "MO-QSO-PARTY",
+    "sent_exchange_hint": "State/Province/DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-MSQPDX",
+    "name": "MSQP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "MS-QSO-PARTY",
+    "sent_exchange_hint": "State/Province/DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-MWC",
+    "name": "MWC Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "MWC-CONTEST",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-NASPRCW",
+    "name": "NA Sprint - CW",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "NA-SPRINT-CW",
+    "cabrillo_omit_rst": true
+  },
+  {
+    "id": "SD-NAQPC",
+    "name": "NAQP - CW",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "NAQP-CW",
+    "cabrillo_omit_rst": true,
+    "sent_exchange_hint": "Name & State",
+    "received_exchange_hint": "Name & State"
+  },
+  {
+    "id": "SD-NAURYZ",
+    "name": "NAURYZ DX",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "NAURYZ-DX",
+    "sent_exchange_hint": "Oblast or ITU Zone",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-NCQPDX",
+    "name": "NCQP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "NC-QSO-PARTY",
+    "sent_exchange_hint": "State or DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-NCQP",
+    "name": "NCQP - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "NCQP",
+    "sent_exchange_hint": "County Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-NQP",
+    "name": "Nebraska QP - NE Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "NE-QSO-PARTY",
+    "sent_exchange_hint": "County Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-NEQPDX",
+    "name": "New England QP - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "NEQP",
+    "sent_exchange_hint": "State or DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-NEQP",
+    "name": "New England QP - NE side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "NEQP",
+    "sent_exchange_hint": "Exchange Sent",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-NJQPDX",
+    "name": "New Jersey QP - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "NJ-QSO-PARTY",
+    "sent_exchange_hint": "State or DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-NYQPDX",
+    "name": "New York QP - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "NY-QSO-PARTY",
+    "sent_exchange_hint": "State or DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-NYQP",
+    "name": "New York QP - NY side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "NY-QSO-PARTY",
+    "sent_exchange_hint": "County",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-NJQP",
+    "name": "NJQP - New Jersey side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "NJ-QSO-PARTY",
+    "sent_exchange_hint": "County Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-NQPDX",
+    "name": "NQP - Nebraska QP - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "NE-QSO-PARTY",
+    "sent_exchange_hint": "State or DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-NRAU",
+    "name": "NRAU-Baltic Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "NRAU-BALTIC",
+    "sent_exchange_hint": "District Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-FYLKES",
+    "name": "NRRL Fylkestest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "NRRL-FYLKESTEST",
+    "sent_exchange_hint": "Your Fylke (A B JW etc)"
+  },
+  {
+    "id": "SD-MTCW",
+    "name": "NRRL MT CW",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "NRRL-MT-CW",
+    "sent_exchange_hint": "County",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-VINTER",
+    "name": "NRRL Vintertest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "NRRL-VINTERTEST",
+    "sent_exchange_hint": "L",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-OCEANIA",
+    "name": "Oceania Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "OCEANIA-DX",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-OHIODX",
+    "name": "OHQP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "MRRC-OHQP",
+    "sent_exchange_hint": "State or DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-OHIO",
+    "name": "OHQP - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "MRRC-OHQP",
+    "sent_exchange_hint": "County Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-OKOMCDX",
+    "name": "OK-OM DX CW - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "OK-OM-DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-OKOMC",
+    "name": "OK-OM DX CW - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "OK-OM-DX",
+    "sent_exchange_hint": "Your District",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-OKQPX",
+    "name": "Oklahoma QSO Party - DX",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "OK-QSO-PARTY",
+    "sent_exchange_hint": "State or DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-OKQP",
+    "name": "OKQP - Oklahoma Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "OK-QSO-PARTY",
+    "sent_exchange_hint": "Your County Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ON10DX",
+    "name": "ON 10m Contest - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ON-10M-CONTEST",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ON10ON",
+    "name": "ON 10m Contest - ON side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ON-10M-CONTEST",
+    "sent_exchange_hint": "District Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ON80DX",
+    "name": "ON 80m Contest - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ON-80-CONTEST",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ON80ON",
+    "name": "ON 80m Contest - ON side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ON-80M-CONTEST",
+    "sent_exchange_hint": "District Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ONTQPDX",
+    "name": "Ontario QP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ON-QSO-PARTY",
+    "sent_exchange_hint": "State or DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-ONTQP",
+    "name": "Ontario QP - VE3 Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "ON-QSO-PARTY",
+    "sent_exchange_hint": "County Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-PABEKER",
+    "name": "PA BEKER Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "PA-BEKER",
+    "sent_exchange_hint": "District Code",
+    "received_exchange_hint": "District"
+  },
+  {
+    "id": "SD-PACC",
+    "name": "PACC - PA side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "PACC",
+    "sent_exchange_hint": "District Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-PACCDX",
+    "name": "PACC Contest - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "PACC",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-PAQPDX",
+    "name": "PAQP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "PA-QSO-PARTY",
+    "sent_exchange_hint": "State or DX",
+    "received_exchange_hint": "Serial"
+  },
+  {
+    "id": "SD-PAQP",
+    "name": "PAQP - PA Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "PA-QSO-PARTY",
+    "sent_exchange_hint": "County Code",
+    "received_exchange_hint": "Exchange"
+  },
+  {
+    "id": "SD-PGA",
+    "name": "PGA-TEST",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "EDIT-THIS-NAME",
+    "sent_exchange_hint": "Gmina",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-PORTCT",
+    "name": "Portugal Day Contest - CT Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "PORTUGAL-DAY",
+    "sent_exchange_hint": "District Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-PORTDX",
+    "name": "Portugal Day Contest - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "PORTUGAL-DAY",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-QCQPDX",
+    "name": "QCQP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "QCQP",
+    "sent_exchange_hint": "State Province DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-RACDAYX",
+    "name": "RAC Canada Day - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "CANADA-DAY",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-RACDAY",
+    "name": "RAC Canada Day - VE Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "CANADA-DAY",
+    "sent_exchange_hint": "Province",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-RACWINX",
+    "name": "RAC Winter Day - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "CANADA-WINTER",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-RACWIN",
+    "name": "RAC Winter Day - VE Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "CANADA-WINTER",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-RAEM",
+    "name": "RAEM Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RAEM",
+    "cabrillo_omit_rst": true,
+    "sent_exchange_hint": "Your Co-ords N/S O/W",
+    "received_exchange_hint": "Serial"
+  },
+  {
+    "id": "SD-RANDOM3",
+    "name": "Random Serials - 3 Digits",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RANDOM-3-DIGITS",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-RANDOM4",
+    "name": "Random Serials - 4 Digits",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RANDOM-4-DIGITS",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-RDADX",
+    "name": "RDA Contest - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RDA",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-RDARU",
+    "name": "RDA Contest - UA Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RDA",
+    "sent_exchange_hint": "District Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-RUSSIAX",
+    "name": "RDXC - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RDXC",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-RUSSIAU",
+    "name": "RDXC - Russian Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RDXC",
+    "sent_exchange_hint": "Oblast",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-REF160",
+    "name": "Ref 160m, France",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RSGB-160",
+    "sent_exchange_hint": "D\u0082partement",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-REFDX",
+    "name": "REF Contest - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "REF",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-REFF",
+    "name": "REF Contest - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "REF",
+    "sent_exchange_hint": "Departement",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-RS18",
+    "name": "RSGB 1.8 MHz",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RSGB-160",
+    "sent_exchange_hint": "UK District Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-RSGCC",
+    "name": "RSGB 80m Contests",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RSGB-80M",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-RSGBSPR",
+    "name": "RSGB 80m Sprint",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RSGB-SPRINT",
+    "cabrillo_omit_rst": true,
+    "received_exchange_hint": "Serial"
+  },
+  {
+    "id": "SD-RSGAFS",
+    "name": "RSGB AFS CW",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RSGB-AFS-CW",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-RSGCLUB",
+    "name": "RSGB Club Calls",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RSGB-CLUB-CALLS",
+    "cabrillo_omit_rst": true,
+    "sent_exchange_hint": "Club Abbreviation"
+  },
+  {
+    "id": "SD-RSGHOPE",
+    "name": "RSGB Hope QSO Party",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RSGB-HOPE-QP",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-RSGLPFD",
+    "name": "RSGB International LP Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RSGB-LOW-POWER",
+    "sent_exchange_hint": "Power Sent",
+    "received_exchange_hint": "RST + Serial + Power"
+  },
+  {
+    "id": "SD-ESPRINT",
+    "name": "RSGB International Sprint",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RSGB-SPRINT",
+    "received_exchange_hint": "Serial"
+  },
+  {
+    "id": "SD-RSGFDC",
+    "name": "RSGB NFD - CW",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RSGB-NFD",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-RSJUB",
+    "name": "RSGB Platinum Jubilee",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RSGB-JUBILEE",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-RSGROLC",
+    "name": "RSGB Rolo - CW",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RSGB-ROLO"
+  },
+  {
+    "id": "SD-RUS160",
+    "name": "Russian 160m",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RUSSIA-160",
+    "sent_exchange_hint": "Your Grid Square",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-RUMIN40",
+    "name": "Russian Mini Test, 40m",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "40M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RUSSIAN-MINI-40",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-RUMIN80",
+    "name": "Russian Mini Test, 80m",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RUSSIAN-MINI-80",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-RUWWDX",
+    "name": "Russian WW - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RUS-WW-MM",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-RUWW",
+    "name": "Russian WW - UA Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "RUS-WW-MM",
+    "sent_exchange_hint": "Oblast",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-SASPRNT",
+    "name": "SA Sprint",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "SA-SPRINT",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-SACSCAN",
+    "name": "SAC - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "SAC",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-SACDX",
+    "name": "SAC Contest - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "SAC",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-SACEU",
+    "name": "SAC Contest - EU side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "SAC",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-SALMOND",
+    "name": "Salmon Run - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "SALMON-RUN",
+    "sent_exchange_hint": "State or Country",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-SALMONW",
+    "name": "Salmon Run - WA side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "SALMON-RUN",
+    "sent_exchange_hint": "County Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-SARLHFC",
+    "name": "SARL HF CW",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "SARL-HF-CW",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-SCAG",
+    "name": "SCAG Sprint",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "SCAG-SPRINT",
+    "received_exchange_hint": "Number & Name"
+  },
+  {
+    "id": "SD-SCDX",
+    "name": "SCQP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "SC-QSO-PARTY",
+    "sent_exchange_hint": "State or DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-SC",
+    "name": "SCQP - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "SC-QSO-PARTY",
+    "sent_exchange_hint": "County Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-SEADX",
+    "name": "Seanet - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "SEANET",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-SEAHOME",
+    "name": "Seanet - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "SEANET",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-SKMC",
+    "name": "SK Memorial Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "SILENT-KEY-MEMORIAL",
+    "sent_exchange_hint": "SK Call",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-SST",
+    "name": "Slow Speed Test",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "SLOW-SPEED-TEST",
+    "cabrillo_omit_rst": true,
+    "sent_exchange_hint": "Name & State/Ctry",
+    "received_exchange_hint": "Exchange"
+  },
+  {
+    "id": "SD-SA10",
+    "name": "South America 10m",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "SA10M",
+    "sent_exchange_hint": "Your CQ Zone",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-SPDXDX",
+    "name": "SPDX - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "SPDX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-SPDXSP",
+    "name": "SPDX - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "SPDX",
+    "sent_exchange_hint": "Voivodeship",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-SMXMAS",
+    "name": "SSA Jultest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "SSA-JULTEST"
+  },
+  {
+    "id": "SD-SSATEST",
+    "name": "SSA Manadstest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "SSA-MANADSTEST",
+    "sent_exchange_hint": "Own Locator",
+    "received_exchange_hint": "RST & Serail & Locator"
+  },
+  {
+    "id": "SD-STEW",
+    "name": "Stew Perry Topband",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "STEW-PERRY",
+    "sent_exchange_hint": "Your Grid Square",
+    "received_exchange_hint": "RST & Grid"
+  },
+  {
+    "id": "SD-SYLRA",
+    "name": "SYLRA Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "SYLRA",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-TNQPDX",
+    "name": "Tennessee QP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "TN-QSO-PARTY",
+    "sent_exchange_hint": "State Province DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-TNQP",
+    "name": "Tennessee QP - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "TN-QSO-PARTY",
+    "sent_exchange_hint": "Own County",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-TESLA",
+    "name": "Tesla Memorial",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "TESLA-HF",
+    "sent_exchange_hint": "Own Locator",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-TISZA",
+    "name": "Tisza Cup",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "TISZA-CUP",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-TOEC",
+    "name": "TOEC",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "TOEC-WW-GRID",
+    "sent_exchange_hint": "Grid Field",
+    "received_exchange_hint": "RST & Grid"
+  },
+  {
+    "id": "SD-WWTRCM",
+    "name": "TRC DX - Member",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "WWTRC",
+    "sent_exchange_hint": "Enter TRC",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-WWTRC",
+    "name": "TRC DX - Non-member",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "WWTRC",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-TRIMIX",
+    "name": "Triathlon - CW & SSB",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "TRIATHLON-DX",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-TRICW",
+    "name": "Triathlon CW",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "TRIATHLON-DX",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-UA2DX",
+    "name": "UA2 QSO Party",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "BALTIC-CONTEST",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-UBA80",
+    "name": "UBA 80m Spring - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "UBA-SPRING-CONTEST",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-UBA80ON",
+    "name": "UBA 80m Spring - ON Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "UBA-SPRING",
+    "sent_exchange_hint": "District Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-UBAFDC",
+    "name": "UBA CW Field Day",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "UBA-FD-CW",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-UBACONX",
+    "name": "UBA DX Contest - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "UBA-DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-UBACON",
+    "name": "UBA DX Contest - ON Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "UBA-DX",
+    "sent_exchange_hint": "Province",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-UBAONDX",
+    "name": "UBA ON Contest - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "UBA-ON",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-UBAONON",
+    "name": "UBA ON Contest - ON side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "UBA-ON",
+    "sent_exchange_hint": "District Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-UBAWON",
+    "name": "UBA Winter - ON Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "UBA-WINTER",
+    "sent_exchange_hint": "District Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-UBAWDX",
+    "name": "UBA Winter Contest - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "UBA-WINTER",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-UKEIDXC",
+    "name": "UK/EI DX Contest CW",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "UKEI-DX",
+    "sent_exchange_hint": "UK/EI District Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-UK80C",
+    "name": "UKEICC 80M CW",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "80M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "UKEICC-80M",
+    "sent_exchange_hint": "Your Grid Square",
+    "received_exchange_hint": "RST & Grid"
+  },
+  {
+    "id": "SD-UKRDX",
+    "name": "Ukranian DX - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "UKRAINIAN-DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-UKRUKR",
+    "name": "Ukranian DX - Ukraine side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "UKRAINIAN-DX",
+    "sent_exchange_hint": "District Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-UNDX",
+    "name": "UN DX - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "UN-DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-UN",
+    "name": "UN DX - UN Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "UN-DX",
+    "sent_exchange_hint": "District Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-USCTYS",
+    "name": "US Counties QSO Party",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "US-COUNTY-QSO-PARTY",
+    "sent_exchange_hint": "State County",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-VAQPDX",
+    "name": "VAQP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "VA-QSO-PARTY",
+    "sent_exchange_hint": "State, Province, DX",
+    "received_exchange_hint": "Serial"
+  },
+  {
+    "id": "SD-VAQP",
+    "name": "VAQP - VA Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "VA-QSO-PARTY",
+    "sent_exchange_hint": "County Code",
+    "received_exchange_hint": "Exchange"
+  },
+  {
+    "id": "SD-YVIND",
+    "name": "Venezuela Ind. Day",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "VENEZUELA-INDEPENDENCE-DAY",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-VTQPDX",
+    "name": "Vermont QP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "VT-QSO-PARTY",
+    "sent_exchange_hint": "State or DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-VTQP",
+    "name": "Vermont QP - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "VT-QSO-PARTY",
+    "sent_exchange_hint": "County Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-VKSHDX",
+    "name": "VK Shires - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "VKSHIRES",
+    "sent_exchange_hint": "CQ Zone",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-VKSH",
+    "name": "VK Shires - VK Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "VKSHIRES",
+    "sent_exchange_hint": "District Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-VUDXDX",
+    "name": "VU DX - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "VU-DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-VUDX",
+    "name": "VU DX - Home Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "VU-DX",
+    "sent_exchange_hint": "Your State",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-WAEDX",
+    "name": "WAE DX Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "DARC-WAEDC",
+    "received_exchange_hint": "RST & Serial"
+  },
+  {
+    "id": "SD-WAGDL",
+    "name": "WAG Contest - DL side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "WAG",
+    "sent_exchange_hint": "Your DOK",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-WAGDX",
+    "name": "WAG Contest - DX side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "WAG",
+    "received_exchange_hint": "RST & DOK"
+  },
+  {
+    "id": "SD-WAPC",
+    "name": "WAPC - China Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "WAPC-DX",
+    "sent_exchange_hint": "Province",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-WAPCDX",
+    "name": "WAPC - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "WAPC-DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-WIAFD",
+    "name": "WIA Field Day",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "WIA-FIELD-DAY"
+  },
+  {
+    "id": "SD-REMDAY",
+    "name": "WIA Remembrance Day",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "REMEMBRANCE-DAY",
+    "sent_exchange_hint": "Years Licensed",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-WIQPDX",
+    "name": "WISCONSIN QP - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "WISCONSIN-QSO-PARTY",
+    "sent_exchange_hint": "Exchange Sent",
+    "received_exchange_hint": "Exchange"
+  },
+  {
+    "id": "SD-WWPMC",
+    "name": "WWPMC",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "WW-PMC",
+    "sent_exchange_hint": "PMC or CQ Zone",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-YODXDX",
+    "name": "YO DX Contest - DX Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "YO-DX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-YODX",
+    "name": "YO DX Contest - YO Side",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "YO-DX",
+    "sent_exchange_hint": "District Code",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-YOTA",
+    "name": "YOTA Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "YOTA",
+    "sent_exchange_hint": "Your Age",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-YUDX",
+    "name": "YU DX Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": true,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "YUDX",
+    "received_exchange_hint": "RST"
+  },
+  {
+    "id": "SD-GAGARIN",
+    "name": "Yuri Gagarin DX Contest",
+    "organizer": "",
+    "kind": "contest",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "dupe_scope": "call+band",
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "Full period"
+      }
+    ],
+    "cabrillo_contest": "GC",
+    "sent_exchange_hint": "ITU Zone",
+    "received_exchange_hint": "RST"
+  }
+]

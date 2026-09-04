@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -209,6 +210,17 @@ type model struct {
 	// overwrites what the operator actually changed on screen.
 	editingQSOID    int64
 	editingOriginal qso
+	// preEditContestName/SerialSent/ExchangeSent snapshot the contest-selection
+	// fields beginEditQSO is about to overwrite with the edited QSO's own
+	// values (which may belong to a different contest, or none). Restored by
+	// restorePreEditContestSelection when the edit finishes (save or cancel)
+	// so the operator's active contest session survives editing a QSO from a
+	// different one — otherwise every QSO logged after the edit would be
+	// silently mis-tagged with the edited row's contest instead of the active
+	// one.
+	preEditContestName         string
+	preEditContestSerialSent   string
+	preEditContestExchangeSent string
 
 	// qrzPending maps a normalized callsign to a FIFO queue of logged QSO ids
 	// still awaiting QRZ enrichment. A QRZ callsign lookup fires while the
@@ -283,16 +295,29 @@ type model struct {
 	// live clusterFilters.Bands, so Esc discards band changes and only Enter
 	// (saveClusterFilters) commits them — matching how the DX/DE text fields
 	// are only read back into clusterFilters on Enter.
-	editClusterBands    map[string]bool
-	adifPathField       textinput.Model
-	detailFields        []textinput.Model
-	detailFocusIdx      int
-	contestFields       []textinput.Model
-	contestFocusIdx     int
+	editClusterBands map[string]bool
+	adifPathField    textinput.Model
+	detailFields     []textinput.Model
+	detailFocusIdx   int
+	contestFields    []textinput.Model
+	contestFocusIdx  int
+	// nextSerial is the serial number the operator will send on the next QSO in
+	// a serial-exchange contest (e.g. CW Open). It is 0 when no serial contest
+	// is active. Selecting a serial event sets it to 1; each logged QSO advances
+	// it past the serial actually sent, so a manual correction to the Sent
+	// Serial field carries forward. clearQSOForm re-displays it in the Sent
+	// Serial field so it survives the between-QSO reset.
+	nextSerial          int
 	events              []eventDefinition
 	eventFocus          int
 	eventSessionFocus   int
 	exchangeChoiceFocus int
+}
+
+// formatSerial renders a running serial number the way contest exchanges are
+// sent: zero-padded to at least three digits (001, 002, … 999, 1000).
+func formatSerial(n int) string {
+	return fmt.Sprintf("%03d", n)
 }
 
 var (
@@ -682,6 +707,7 @@ func (m model) runBackupCmd() tea.Cmd {
 type cabrilloExportedMsg struct {
 	path  string
 	count int
+	score contestScore
 	err   error
 }
 
@@ -729,11 +755,11 @@ func (m model) cabrilloExportCmd(contestID string) tea.Cmd {
 		path := filepath.Join(downloads, filename)
 		ctx, cancel := context.WithTimeout(bgCtx, backupTimeout)
 		defer cancel()
-		count, err := writeCabrilloAtomic(ctx, downloads, path, profile, event, contestID, st)
+		count, score, err := writeCabrilloAtomic(ctx, downloads, path, profile, event, contestID, st)
 		if err != nil {
 			return cabrilloExportedMsg{err: err}
 		}
-		return cabrilloExportedMsg{path: path, count: count}
+		return cabrilloExportedMsg{path: path, count: count, score: score}
 	}
 }
 
@@ -1031,6 +1057,15 @@ func (m *model) beginEditQSO(q qso) {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
 		return
 	}
+	if m.editingQSOID == 0 {
+		// Only capture on the first beginEditQSO of an edit session: switching
+		// to edit a second row before saving/cancelling the first must not
+		// clobber this snapshot with the first row's (already-substituted)
+		// contest values — that would make the active contest unrecoverable.
+		m.preEditContestName = m.contestFields[contestName].Value()
+		m.preEditContestSerialSent = m.contestFields[contestSerialSent].Value()
+		m.preEditContestExchangeSent = m.contestFields[contestExchangeSent].Value()
+	}
 	m.editingQSOID = full.id
 	m.editingOriginal = full
 
@@ -1068,7 +1103,21 @@ func (m *model) cancelEditQSO() {
 	m.editingQSOID = 0
 	m.editingOriginal = qso{}
 	m.clearQSOForm()
+	m.restorePreEditContestSelection()
 	m.statusMsg = "cancelled editing " + call
+}
+
+// restorePreEditContestSelection puts the contest-selection fields back to
+// what they were before beginEditQSO overwrote them with the edited QSO's
+// own values. Called after an edit finishes (save or cancel) so the
+// operator's active contest keeps logging correctly for the next QSO.
+func (m *model) restorePreEditContestSelection() {
+	m.contestFields[contestName].SetValue(m.preEditContestName)
+	m.contestFields[contestExchangeSent].SetValue(m.preEditContestExchangeSent)
+	if m.nextSerial == 0 {
+		m.contestFields[contestSerialSent].SetValue(m.preEditContestSerialSent)
+	}
+	m.preEditContestName, m.preEditContestSerialSent, m.preEditContestExchangeSent = "", "", ""
 }
 
 // dupeCheckScope resolves the contest_id/event/dupe_scope to check against
@@ -1161,13 +1210,66 @@ func (m *model) showWorkedCall(call string) {
 	m.workedCall = call
 }
 
+// entrySlot identifies one focusable input in the QSO Entry field row: a base
+// field (m.fields[idx]) or, while a contest is active, a received-exchange
+// field captured inline (m.contestFields[idx]) so the worked station's
+// exchange is logged without leaving the screen for Contest Entry (F7). Base
+// slots always occupy positions 0..fieldCount-1 in the returned order, so the
+// existing focusIdx==fieldCall/fieldBand checks keep working unchanged.
+type entrySlot struct {
+	contest bool
+	idx     int
+	label   string
+}
+
+// entrySlots returns the ordered focusable inputs for the QSO Entry screen: the
+// base fields, followed (when a contest is active) by the worked station's
+// received exchange. A serial-exchange contest (e.g. CW Open) receives a serial
+// plus an exchange; other contests receive just the exchange (zone, state, …).
+func (m model) entrySlots() []entrySlot {
+	slots := make([]entrySlot, 0, fieldCount+2)
+	for i := 0; i < fieldCount; i++ {
+		slots = append(slots, entrySlot{idx: i, label: fieldLabels[i]})
+	}
+	if event, ok := m.eventForContestID(); ok {
+		if event.SentSerial {
+			slots = append(slots, entrySlot{contest: true, idx: contestSerialRcvd, label: "Rcv #"})
+		}
+		slots = append(slots, entrySlot{contest: true, idx: contestExchangeRcvd, label: "Rcv Exch"})
+	}
+	return slots
+}
+
+// focusedInput returns a pointer to the textinput backing the focused slot, so
+// the Update loop can route keystrokes and edits to the right input whether it
+// is a base field or an inline received-exchange field.
+func (m *model) focusedInput() *textinput.Model {
+	slots := m.entrySlots()
+	if m.focusIdx < 0 || m.focusIdx >= len(slots) {
+		return nil
+	}
+	if s := slots[m.focusIdx]; s.contest {
+		return &m.contestFields[s.idx]
+	} else {
+		return &m.fields[s.idx]
+	}
+}
+
 func (m *model) focusField(i int) {
 	for idx := range m.fields {
-		if idx == i {
-			m.fields[idx].Focus()
-		} else {
-			m.fields[idx].Blur()
-		}
+		m.fields[idx].Blur()
+	}
+	for idx := range m.contestFields {
+		m.contestFields[idx].Blur()
+	}
+	slots := m.entrySlots()
+	if i < 0 || i >= len(slots) {
+		i = 0
+	}
+	if s := slots[i]; s.contest {
+		m.contestFields[s.idx].Focus()
+	} else {
+		m.fields[s.idx].Focus()
 	}
 	m.focusIdx = i
 }
@@ -1206,7 +1308,10 @@ func (m *model) selectEvent(event eventDefinition, session eventSession) {
 	}
 	m.contestFields[contestName].SetValue(event.ID + "-" + session.ID)
 	if event.SentSerial {
-		m.contestFields[contestSerialSent].SetValue("001")
+		m.nextSerial = 1
+		m.contestFields[contestSerialSent].SetValue(formatSerial(m.nextSerial))
+	} else {
+		m.nextSerial = 0
 	}
 	m.contestFields[contestExchangeSent].Placeholder = event.SentExchangeHint
 	m.contestFields[contestExchangeRcvd].Placeholder = event.RcvdExchangeHint
@@ -1520,6 +1625,7 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		m.editingQSOID = 0
 		m.editingOriginal = qso{}
 		m.clearQSOForm()
+		m.restorePreEditContestSelection()
 		m.statusMsg = "updated " + call
 		m.refreshTableRows()
 		return m, nil
@@ -1549,6 +1655,17 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		return m, nil
 	}
 	m.statusMsg = fmt.Sprintf("logged %s (%s)", call, endedAt.Sub(startedAt).Round(time.Second))
+	// Advance the running serial past the one just sent so the next QSO shows
+	// the next number. Deriving it from the value actually logged (rather than
+	// a blind ++) carries forward any manual correction the operator made to
+	// the Sent Serial field.
+	if m.nextSerial > 0 {
+		if sent, err := strconv.Atoi(logged.stx); err == nil {
+			m.nextSerial = sent + 1
+		} else {
+			m.nextSerial++
+		}
+	}
 	m.qsoStartedAt = time.Time{}
 	m.workedCall = ""
 	m.enqueuePendingQRZ(call, id)
@@ -1638,15 +1755,21 @@ func (m *model) drainOutbox() []tea.Cmd {
 // clearQSOForm resets the fields that should go blank between QSOs. Band,
 // Frequency, and RST Sent are intentionally left as-is: an operator
 // typically stays on the same band/frequency for consecutive contacts, and
-// 599 is the default sent report.
+// 599 is the default sent report. The contest name/session and the operator's
+// own sent exchange are likewise kept so an operator stays "in the event"
+// across contacts; only the other station's received exchange is cleared. The
+// Sent Serial field is re-displayed with the next running serial (see
+// nextSerial) so the operator always sees the number they will send next.
 func (m *model) clearQSOForm() {
 	m.fields[fieldCall].SetValue("")
 	m.fields[fieldRSTRcvd].SetValue("")
 	for index := range m.detailFields {
 		m.detailFields[index].SetValue("")
 	}
-	for index := range m.contestFields {
-		m.contestFields[index].SetValue("")
+	m.contestFields[contestSerialRcvd].SetValue("")
+	m.contestFields[contestExchangeRcvd].SetValue("")
+	if m.nextSerial > 0 {
+		m.contestFields[contestSerialSent].SetValue(formatSerial(m.nextSerial))
 	}
 	m.focusField(fieldCall)
 }
@@ -1790,6 +1913,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.cabrilloExportInProgress = false
 		if message.err != nil {
 			m.statusMsg = fmt.Sprintf("Cabrillo export failed: %v", message.err)
+		} else if message.score.total() > 0 {
+			m.statusMsg = fmt.Sprintf("Cabrillo exported: %d QSOs, claimed score %d (%d pts x %d mults) -> %s",
+				message.count, message.score.total(), message.score.qsoPoints, message.score.multipliers, message.path)
 		} else {
 			m.statusMsg = fmt.Sprintf("Cabrillo exported: %d QSOs -> %s", message.count, message.path)
 		}
@@ -1963,9 +2089,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, tea.Quit
 		case "tab":
+			slotCount := len(m.entrySlots())
 			leavingCall := m.focusIdx == fieldCall
 			m.startQSOClockIfLeavingCall()
-			nextFocus := (m.focusIdx + 1) % len(m.fields)
+			nextFocus := (m.focusIdx + 1) % slotCount
 			m.resetQSOClockIfReturningToCall(nextFocus)
 			m.focusField(nextFocus)
 			if leavingCall {
@@ -1973,19 +2100,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "shift+tab":
-			nextFocus := (m.focusIdx - 1 + len(m.fields)) % len(m.fields)
+			slotCount := len(m.entrySlots())
+			nextFocus := (m.focusIdx - 1 + slotCount) % slotCount
 			m.resetQSOClockIfReturningToCall(nextFocus)
 			m.focusField(nextFocus)
 			return m, nil
 		case "enter":
-			if m.focusIdx == len(m.fields)-1 {
+			if m.focusIdx == len(m.entrySlots())-1 {
 				var cmd tea.Cmd
 				m, cmd = m.logCurrentQSO()
 				return m, cmd
 			}
 			leavingCall := m.focusIdx == fieldCall
 			m.startQSOClockIfLeavingCall()
-			m.focusField(m.focusIdx + 1)
+			nextFocus := m.focusIdx + 1
+			if slots := m.entrySlots(); leavingCall && len(slots) > fieldCount {
+				// A contest is active: RST/Band/Freq are auto-filled (599 default,
+				// event/cluster-selected band, typed freq) and rarely need touching
+				// mid-QSO, so Enter fast-paths straight to the worked station's
+				// received exchange. Tab still visits every field for the rare
+				// correction, per the roadmap's "keep Tab for full field-by-field".
+				nextFocus = fieldCount
+			}
+			m.focusField(nextFocus)
 			if leavingCall {
 				return m, tea.Batch(m.autoFillPOTAReference(), m.autoFillFromQRZ())
 			}
@@ -2047,7 +2184,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
-	m.fields[m.focusIdx], cmd = m.fields[m.focusIdx].Update(msg)
+	if input := m.focusedInput(); input != nil {
+		*input, cmd = input.Update(msg)
+	}
 	if m.focusIdx == fieldCall {
 		m.checkDupe()
 	}
@@ -2326,12 +2465,19 @@ func (m model) updateStationSetup(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m model) renderField(idx int) string {
+// renderSlot renders one QSO Entry field box for the slot at position pos in
+// the entrySlots order, highlighting it when focused. Both base and inline
+// received-exchange fields render the same way.
+func (m model) renderSlot(pos int, s entrySlot) string {
 	box := fieldBoxStyle
-	if idx == m.focusIdx {
+	if pos == m.focusIdx {
 		box = focusedFieldBoxStyle
 	}
-	content := labelStyle.Render(fieldLabels[idx]) + m.fields[idx].View()
+	input := m.fields[s.idx]
+	if s.contest {
+		input = m.contestFields[s.idx]
+	}
+	content := labelStyle.Render(s.label) + input.View()
 	return box.Render(content)
 }
 
@@ -2379,14 +2525,26 @@ func (m model) View() string {
 		localNow.Format("15:04:05 -07:00"),
 		localNow.Location(),
 	)
+	// In a serial-exchange contest, mirror the serial the operator will send
+	// next right on QSO Entry so they don't have to switch to Contest Entry
+	// (F7) to read it. The field value is authoritative (it reflects a manual
+	// correction typed there); nextSerial is the fallback when it's blank.
+	if m.nextSerial > 0 {
+		serial := strings.TrimSpace(m.contestFields[contestSerialSent].Value())
+		if serial == "" {
+			serial = formatSerial(m.nextSerial)
+		}
+		header += "  |  Sending # " + serial
+	}
 	b.WriteString(headerStyle.Render(header))
 	b.WriteString("\n")
 	b.WriteString(solarStyle.Render(m.solarLine()))
 	b.WriteString("\n\n")
 
-	fieldViews := make([]string, fieldCount)
-	for i := range fieldViews {
-		fieldViews[i] = m.renderField(i)
+	slots := m.entrySlots()
+	fieldViews := make([]string, len(slots))
+	for i, s := range slots {
+		fieldViews[i] = m.renderSlot(i, s)
 	}
 	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, fieldViews...))
 	b.WriteString("\n")
