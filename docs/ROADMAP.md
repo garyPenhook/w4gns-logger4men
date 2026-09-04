@@ -58,10 +58,10 @@ the log, submitted contest results, or external services.
 - 🔧 **Audit and implement scoring per contest before presenting the catalog as
   correct.** Every one of the 429 event records now declares and is validated
   against an explicit `capability`: 9 intentionally generic templates are
-  `selection-only`, 406 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
+  `selection-only`, 405 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
   `CQ-160-CW`, `ARRL-DX-CW`, `CQ-WPX-CW`, `TNQP`, `SAC-CW`, `NAQP-CW`,
-  `ARRL-SS-CW`, `IARU-HF`, `NA-SPRINT-CW`, `DARC-WAEDC-CW`, and `HELVETIA`
-  are `scoring-ready`. **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
+  `ARRL-SS-CW`, `IARU-HF`, `NA-SPRINT-CW`, `DARC-WAEDC-CW`, `HELVETIA`, and
+  `RDXC` are `scoring-ready`. **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
   side-asymmetric around a fixed "Scandinavian" country group — Norway,
   Finland, Sweden, Iceland, Denmark, and the territories the rules list by
   their own prefix block (Svalbard, Jan Mayen, Åland Islands, Market Reef,
@@ -918,6 +918,86 @@ every panel *and* scoring so they always agree.
   `TestContestStateScoreCantonMultiplierFromReceivedExchange`,
   `TestContestStateWouldBeNewMultiplierCanton`), `events_test.go`
   (`TestLoadEventCatalogHelvetiaHasRealScoringRules`).
+- ✅ **Real per-contest wiring: Russian DX Contest's actual QSO points and
+  multiplier rules**, side-asymmetric like ARRL-DX-CW/WAE/SAC-CW but the
+  first contest wired here where the side-asymmetric split is a flat
+  entity-group bonus (like Helvetia's `CountryGroup`) layered on top of an
+  otherwise-uniform points formula shared by both sides, rather than either
+  side needing its own distinct tier values or its own distinct multiplier
+  kind. Sourced from rdxc.org/rules_eng (Sections 6, 7, 9) — the oblast code
+  table itself (Section 6.3/9's "attached list") is not embedded in the
+  rules page's own HTML (it renders as a client-side table WebFetch can't
+  extract) and was supplied directly by the operator rather than guessed.
+  Section 7: a Russian entrant scores 2/3/5 points for
+  same-country/same-continent/other-continent; a non-Russian entrant (this
+  app's own station profile) scores the same 2/3/5 tiers, *except* a QSO
+  with any Russian-flagged station scores a flat 10 regardless of tier
+  (§7.2 "QSO with Russian station – 10 points"). Section 7.3 ("Kaliningrad,
+  Franz Josef Land, and Russian Antarctic stations each count as a separate
+  DXCC entity") turns out to need no special-casing on the Russian-entrant
+  side at all: this app's cty.dat already carries European Russia, Asiatic
+  Russia, Kaliningrad, and Franz Josef Land as four distinct DXCC entities
+  with the first two on different continents, so the existing
+  country/continent classification alone reproduces every 7.1 case exactly
+  (e.g. a European Russia operator working an Asiatic Russia station
+  classifies as different-country-different-continent, landing on the
+  existing `OtherContinent` value, which already equals the rule's own
+  Russia-to-Russia-cross-continent figure). The non-Russian entrant's flat
+  10-point bonus reuses the existing `pointsRule.CountryGroup`/`GroupPoints`
+  schema (SAC-CW/Helvetia's mechanism) with
+  `CountryGroup: ["European Russia", "Asiatic Russia", "Kaliningrad", "Franz
+  Josef Land"]` — deliberately *not* including the generic cty.dat
+  `Antarctica` entity, since that one DXCC entity is shared by every
+  nation's Antarctic base, not just Russia's; a non-Russian entrant working
+  a Russian Antarctic station therefore doesn't get the 10-point bonus under
+  this config, a documented, narrow, out-of-scope gap rather than crediting
+  every country's Antarctic operation. Section 9's two multipliers, both
+  counted once per band: **new `oblast` multiplier kind**
+  (`rdxc_oblast.go`, `rdxcOblastCode`) resolves the Russian side's own
+  2-letter oblast code from the worked station's received-exchange text —
+  the same exchange-is-authoritative, whole-text-match shape as
+  `canton.go`/`tn_county.go` — against the contest's own 91-code table
+  (deduplicated from the operator-supplied official list, which partitions
+  some oblasts by prefix-number/suffix-letter range under the same code);
+  Kaliningrad/Franz Josef Land/Antarctic stations are already ordinary rows
+  in that table (`KA`/`FJ`/`AN`), not a separate special case, matching
+  §7.3's "separate Oblast (double multiplier)" language. **New
+  `dxcc_or_wae` multiplier kind** (`contest_state.go`
+  `countryOrWAEByBand`/`countryOrWAEAll`) implements "DXCC entity list + WAE
+  multipliers list" (§9) — a union wider than the existing `dxcc` kind,
+  which skips any cty.dat entity with no assigned DXCC number
+  (`recordMultiplierValue`); this app's own ARRL DXCC table
+  (`loadARRLDXCCNumbers`) leaves a handful of WAE-listed entities (e.g.
+  European Turkey) at zero, so the new kind reuses `wae_country.go`'s
+  existing `isWAECountry` to still count them, keyed by country name
+  (string) like `prefix`/`exchange_area` since not every qualifying entity
+  has a DXCC number to key on. Curated `RDXC`
+  (`events/contestcalendar.json`) carries the real `scoring`/`dx_scoring`
+  blocks plus `domestic_countries` (the same four Russian-flagged entities
+  as `CountryGroup`), `adif_contest_id: RDXC` (confirmed against the ADIF
+  Contest ID Enumeration), and `cabrillo_layout: cw_rst_exchange` (RST +
+  one free-text exchange field — oblast or serial number — the same shape
+  CQ WW/CQ 160/ARRL DX/WPX/IARU HF/WAE/Helvetia already use), promoting
+  `capability` to `scoring-ready`; the two generated `SD-*` entries sharing
+  the curated entry's `RDXC` Cabrillo token (home/DX side splits, the same
+  shape Helvetia's own generated duplicates take) survive de-dup unchanged
+  under the existing "token shared by two-or-more generated entries and one
+  curated entry is added fidelity" rule (§2). **Deliberately out of scope,
+  documented limitations, not rules gaps:** §7.4's maritime-mobile ("/MM")
+  flat-5-points/no-multiplier rule is unimplemented — this app already
+  strips `/MM` as a non-DXCC-affecting portable suffix
+  (`dxcc.go`'s `portableCallSuffixes`) before resolving the worked entity,
+  so an `/MM` contact currently scores under the normal tiered rules and
+  can count as a multiplier, the same class of gap as CQ 160/ARRL-DX-CW's
+  own-country `dxcc`-multiplier exclusion noted above. Tests:
+  `rdxc_oblast_test.go` (`TestRDXCOblastCode`,
+  `TestRDXCOblastCodesHas91Values`), `contest_state_test.go`
+  (`TestContestStateScorePointsRuleRDXCCountryGroup`,
+  `TestContestStateScoreOblastMultiplierFromReceivedExchange`,
+  `TestContestStateWouldBeNewMultiplierOblast`,
+  `TestContestStateScoreDXCCOrWAEMultiplier`,
+  `TestContestStateWouldBeNewMultiplierDXCCOrWAE`), `events_test.go`
+  (`TestLoadEventCatalogRDXCHasRealScoringRules`).
 - ✅ **CSV export** (`Ctrl+R`). `csv_export.go` (`exportCSV`, `writeCSVAtomic`,
   `csvField`/`csvRow` — RFC 4180 quoting, CRLF rows) streams the active
   contest's QSOs (same `contest_id` scoping as Cabrillo/ADIF export) to

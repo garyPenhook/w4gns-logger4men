@@ -1262,3 +1262,153 @@ func TestContestStateWouldBeNewMultiplierCanton(t *testing.T) {
 		t.Fatalf("unrecognized exchange text = newMult=%v workedBefore=%v, want false/false", newMult, workedBefore)
 	}
 }
+
+// TestContestStateScorePointsRuleRDXCCountryGroup exercises the Russian DX
+// Contest's non-Russian-entrant points formula (rdxc.org rules, §7.2): a
+// worked Russian station — European Russia, Asiatic Russia, Kaliningrad, or
+// Franz Josef Land, each its own cty.dat DXCC entity per §7.3 — scores the
+// flat 10-point group value regardless of which of the four it resolves to,
+// while a same-country/same-continent/other-continent contact still falls
+// through to the ordinary tiers. W1AW is the operator (USA, NA); K2AA is
+// same-country, VE3ABC is same-continent (Canada, NA), JA1ABC is
+// other-continent (Japan, AS).
+func TestContestStateScorePointsRuleRDXCCountryGroup(t *testing.T) {
+	state := newContestState()
+	state.setStation("W1AW")
+	state.record(qso{call: "RA3AA", band: "20M"})  // European Russia
+	state.record(qso{call: "RA9AA", band: "20M"})  // Asiatic Russia
+	state.record(qso{call: "UA2FF", band: "20M"})  // Kaliningrad
+	state.record(qso{call: "RI1FJ", band: "20M"})  // Franz Josef Land
+	state.record(qso{call: "K2AA", band: "20M"})   // same country
+	state.record(qso{call: "VE3ABC", band: "20M"}) // same continent
+	state.record(qso{call: "JA1ABC", band: "20M"}) // other continent
+
+	rules := &scoringRules{
+		Points: &pointsRule{
+			CountryGroup:   []string{"European Russia", "Asiatic Russia", "Kaliningrad", "Franz Josef Land"},
+			GroupPoints:    10,
+			SameCountry:    2,
+			SameContinent:  3,
+			OtherContinent: 5,
+		},
+	}
+	if score := state.score(rules); score.qsoPoints != 50 {
+		t.Fatalf("qsoPoints = %d, want 50 (4x10 Russian + 2 same-country + 3 same-continent + 5 other-continent)", score.qsoPoints)
+	}
+}
+
+// TestContestStateScoreOblastMultiplierFromReceivedExchange exercises the
+// "oblast" multiplier: a Russian oblast code parsed from the worked
+// station's received exchange text, counted per band (rdxc.org rules, §9).
+// A repeated oblast on the same band doesn't add another; the same oblast on
+// a different band does; a non-Russian station's own sent serial number
+// contributes nothing.
+func TestContestStateScoreOblastMultiplierFromReceivedExchange(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "RA3AA", band: "20M", srxString: "MA"}) // new: MA/20M
+	state.record(qso{call: "RA3BB", band: "20M", srxString: "ma"}) // same oblast+band, case-insensitive
+	state.record(qso{call: "RA3CC", band: "40M", srxString: "MA"}) // same oblast, new band
+	state.record(qso{call: "RA3DD", band: "20M", srxString: "SP"}) // new: SP/20M
+	state.record(qso{call: "W1AW", band: "20M", srxString: "042"}) // not an oblast code
+
+	rules := &scoringRules{
+		PointsPerQSO: 1,
+		Multipliers:  []multiplierRule{{Kind: "oblast", Per: "band"}},
+	}
+	score := state.score(rules)
+	if score.multipliers != 3 {
+		t.Fatalf("multipliers = %d, want 3 (MA/20M + MA/40M + SP/20M)", score.multipliers)
+	}
+}
+
+// TestContestStateWouldBeNewMultiplierOblast exercises the as-you-type "NEW
+// MULT" flag for the oblast kind, which — like canton — has no
+// callsign-derived fallback and reads only the operator's in-progress
+// received-exchange field text.
+func TestContestStateWouldBeNewMultiplierOblast(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "RA3AA", band: "20M", srxString: "MA"})
+
+	rules := &scoringRules{
+		Multipliers: []multiplierRule{{Kind: "oblast", Per: "band"}},
+	}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "RA3BB", "20M", "MA", dxccEntity{}, false); newMult || !workedBefore {
+		t.Fatalf("MA/20M (already worked) = newMult=%v workedBefore=%v, want false/true", newMult, workedBefore)
+	}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "RA3CC", "40M", "MA", dxccEntity{}, false); !newMult || workedBefore {
+		t.Fatalf("MA/40M (new band) = newMult=%v workedBefore=%v, want true/false", newMult, workedBefore)
+	}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "W1AW", "20M", "042", dxccEntity{}, false); newMult || workedBefore {
+		t.Fatalf("unrecognized exchange text = newMult=%v workedBefore=%v, want false/false", newMult, workedBefore)
+	}
+}
+
+// TestContestStateScoreDXCCOrWAEMultiplier exercises the "dxcc_or_wae"
+// multiplier: RDXC's country multiplier is "DXCC entity list + WAE
+// multipliers list" (rdxc.org rules, §9), a union wider than the plain
+// "dxcc" kind, which skips any cty.dat entity with no assigned DXCC number
+// (recordMultiplierValue). RA3AA (European Russia) has a real DXCC number;
+// European Turkey has none in this app's ARRL DXCC table (loadARRLDXCCNumbers)
+// but is on the WAE Country List, so it still counts here — unlike the plain
+// "dxcc" kind, which scores zero multipliers for it.
+func TestContestStateScoreDXCCOrWAEMultiplier(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "RA3AA", band: "20M"})  // European Russia: real DXCC number
+	state.record(qso{call: "TA1ABC", band: "20M"}) // European Turkey: no DXCC number, on the WAE list
+	state.record(qso{call: "TB1DEF", band: "20M"}) // same WAE entity, same band: no new mult
+
+	rules := &scoringRules{
+		PointsPerQSO: 1,
+		Multipliers:  []multiplierRule{{Kind: "dxcc_or_wae", Per: "band"}},
+	}
+	score := state.score(rules)
+	if score.multipliers != 2 {
+		t.Fatalf("multipliers = %d, want 2 (European Russia + European Turkey)", score.multipliers)
+	}
+
+	plainDXCC := &scoringRules{
+		PointsPerQSO: 1,
+		Multipliers:  []multiplierRule{{Kind: "dxcc", Per: "band"}},
+	}
+	if score := state.score(plainDXCC); score.multipliers != 1 {
+		t.Fatalf("plain dxcc multipliers = %d, want 1 (European Turkey has no DXCC number to count)", score.multipliers)
+	}
+}
+
+// TestContestStateWouldBeNewMultiplierDXCCOrWAE exercises the as-you-type
+// "NEW MULT" flag for the dxcc_or_wae kind, both for a real-DXCC entity and
+// a WAE-only pseudo-entity with no DXCC number.
+func TestContestStateWouldBeNewMultiplierDXCCOrWAE(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "RA3AA", band: "20M"})
+	state.record(qso{call: "TA1ABC", band: "20M"})
+
+	rules := &scoringRules{
+		Multipliers: []multiplierRule{{Kind: "dxcc_or_wae", Per: "band"}},
+	}
+	table, err := sharedDXCCTable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	europeanRussia, found := table.lookup("RA3BB")
+	if !found {
+		t.Fatal("RA3BB did not resolve")
+	}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "RA3BB", "20M", "", europeanRussia, true); newMult || !workedBefore {
+		t.Fatalf("European Russia (already worked) = newMult=%v workedBefore=%v, want false/true", newMult, workedBefore)
+	}
+	europeanTurkey, found := table.lookup("TC1GHI")
+	if !found {
+		t.Fatal("TC1GHI did not resolve")
+	}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "TC1GHI", "20M", "", europeanTurkey, true); newMult || !workedBefore {
+		t.Fatalf("European Turkey (already worked) = newMult=%v workedBefore=%v, want false/true", newMult, workedBefore)
+	}
+	japan, found := table.lookup("JA1ABC")
+	if !found {
+		t.Fatal("JA1ABC did not resolve")
+	}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "JA1ABC", "20M", "", japan, true); !newMult || workedBefore {
+		t.Fatalf("Japan (new mult) = newMult=%v workedBefore=%v, want true/false", newMult, workedBefore)
+	}
+}

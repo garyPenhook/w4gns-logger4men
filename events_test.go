@@ -1146,3 +1146,68 @@ func TestLoadEventCatalogHelvetiaHasRealScoringRules(t *testing.T) {
 		t.Fatal("HELVETIA scoring is side-symmetric and must not have a DXScoring block")
 	}
 }
+
+// TestLoadEventCatalogRDXCHasRealScoringRules closes out the Russian DX
+// Contest catalog entry (rdxc.org rules, Sections 6/7/9): a side-asymmetric
+// points formula (2/3/5 same-country/same-continent/other-continent on both
+// sides, plus a non-Russian entrant's flat 10-point bonus for any of the four
+// Russian-flagged DXCC entities per §7.3) and two per-band multipliers
+// (oblast, and the DXCC+WAE country union). This app's own station is
+// non-Russian, so DXScoring (matching effectiveScoring's selection for a
+// station outside DomesticCountries) is the side that actually applies here.
+func TestLoadEventCatalogRDXCHasRealScoringRules(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	rdxc := events[eventIndex(t, events, "RDXC")]
+	if rdxc.Capability != catalogCapabilityScoringReady {
+		t.Fatalf("RDXC capability = %q, want %q", rdxc.Capability, catalogCapabilityScoringReady)
+	}
+	if !rdxc.cabrilloReady() {
+		t.Fatal("RDXC must have a checked Cabrillo layout")
+	}
+	if rdxc.ADIFContestID != "RDXC" {
+		t.Fatalf("RDXC adif_contest_id = %q, want RDXC", rdxc.ADIFContestID)
+	}
+	for _, country := range []string{"European Russia", "Asiatic Russia", "Kaliningrad", "Franz Josef Land"} {
+		if !countryInList(rdxc.DomesticCountries, country) {
+			t.Fatalf("RDXC domestic_countries = %v, want it to include %q", rdxc.DomesticCountries, country)
+		}
+	}
+	if rdxc.Scoring == nil || rdxc.Scoring.Points == nil {
+		t.Fatal("RDXC must have a Points-based Scoring rule (the Russian-entrant side)")
+	}
+	if p := rdxc.Scoring.Points; p.SameCountry != 2 || p.SameContinent != 3 || p.OtherContinent != 5 {
+		t.Fatalf("RDXC scoring.points = %+v, want same-country 2 / same-continent 3 / other-continent 5", p)
+	}
+	if rdxc.DXScoring == nil || rdxc.DXScoring.Points == nil {
+		t.Fatal("RDXC must have a Points-based DXScoring rule (the non-Russian-entrant side, this app's own profile)")
+	}
+	dxPoints := rdxc.DXScoring.Points
+	if dxPoints.SameCountry != 2 || dxPoints.SameContinent != 3 || dxPoints.OtherContinent != 5 || dxPoints.GroupPoints != 10 {
+		t.Fatalf("RDXC dx_scoring.points = %+v, want same-country 2 / same-continent 3 / other-continent 5 / group 10", dxPoints)
+	}
+	for _, country := range []string{"European Russia", "Asiatic Russia", "Kaliningrad", "Franz Josef Land"} {
+		if !countryInList(dxPoints.CountryGroup, country) {
+			t.Fatalf("RDXC dx_scoring.points.country_group = %v, want it to include %q", dxPoints.CountryGroup, country)
+		}
+	}
+	for _, rules := range []*scoringRules{rdxc.Scoring, rdxc.DXScoring} {
+		mults := rules.effectiveMultipliers()
+		if len(mults) != 2 {
+			t.Fatalf("RDXC multiplier count = %d, want 2 (oblast + dxcc_or_wae)", len(mults))
+		}
+		for _, kind := range []string{"oblast", "dxcc_or_wae"} {
+			found := false
+			for _, rule := range mults {
+				if rule.Kind == kind && rule.Per == "band" {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("RDXC missing %q multiplier per band", kind)
+			}
+		}
+	}
+}

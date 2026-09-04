@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.26.0
+
+- Wired the Russian DX Contest's real scoring rules: same-country/same-continent/other-continent points (2/3/5) for every entrant, except a non-Russian entrant scores a flat 10 for any Russian-flagged contact (European Russia, Asiatic Russia, Kaliningrad, or Franz Josef Land), times an oblast multiplier (the contest's own 91-code table) and a "DXCC + WAE" country multiplier, both counted per band — sourced from rdxc.org's official rules.
+
 ### v1.25.0
 
 - Wired the Helvetia Contest's real scoring rules: a Switzerland contact scores 10 points regardless of the operator's own location, a same-continent contact 1, and a different-continent contact 3, times a DXCC-country and Swiss-canton multiplier both counted per band — sourced from uska.ch's official rules (issued March 2026). Unlike SAC/WAE/ARRL DX CW, this contest's formula is the same for every entrant, so no side-asymmetric DX-side rules were needed.

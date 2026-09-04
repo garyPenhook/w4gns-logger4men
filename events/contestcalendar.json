@@ -4876,7 +4876,7 @@
   },
   {
     "id": "RDXC",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "Russian DX Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -4893,6 +4893,8 @@
     "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: Ru: RS(T) + 2-character oblast non-Ru: RS(T) + Serial No.",
     "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: Ru: RS(T) + 2-character oblast non-Ru: RS(T) + Serial No.",
     "dupe_scope": "call+band",
+    "adif_contest_id": "RDXC",
+    "cabrillo_layout": "cw_rst_exchange",
     "rules_url": "https://www.rdxc.org/rules_eng",
     "score_submission_url": "",
     "sessions": [
@@ -4901,7 +4903,34 @@
         "label": "Russian DX Contest",
         "schedule": "1200Z, Mar 21 to 1200Z, Mar 22"
       }
-    ]
+    ],
+    "domestic_countries": [
+      "European Russia", "Asiatic Russia", "Kaliningrad", "Franz Josef Land"
+    ],
+    "scoring": {
+      "points": {
+        "same_country": 2,
+        "same_continent": 3,
+        "other_continent": 5
+      },
+      "multipliers": [
+        {"kind": "oblast", "per": "band"},
+        {"kind": "dxcc_or_wae", "per": "band"}
+      ]
+    },
+    "dx_scoring": {
+      "points": {
+        "same_country": 2,
+        "same_continent": 3,
+        "other_continent": 5,
+        "country_group": ["European Russia", "Asiatic Russia", "Kaliningrad", "Franz Josef Land"],
+        "group_points": 10
+      },
+      "multipliers": [
+        {"kind": "oblast", "per": "band"},
+        {"kind": "dxcc_or_wae", "per": "band"}
+      ]
+    }
   },
   {
     "id": "RUSSIAN-RADIO-TEAM-CHAMPIONSHIP",

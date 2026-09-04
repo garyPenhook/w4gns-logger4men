@@ -127,6 +127,25 @@ type contestState struct {
 	// Contest's per-band multiplier alongside dxcc (uska.ch rules §2.7).
 	cantonByBand map[string]map[string]struct{}
 	cantonAll    map[string]struct{}
+	// oblastByBand/oblastAll mirror cantonByBand/cantonAll for the "oblast"
+	// multiplier kind (rdxc_oblast.go's rdxcOblastCode): the Russian oblast
+	// code parsed from the worked station's received exchange text, the
+	// Russian DX Contest's own per-band multiplier alongside dxcc_or_wae
+	// (rdxc.org rules, Section 9).
+	oblastByBand map[string]map[string]struct{}
+	oblastAll    map[string]struct{}
+	// countryOrWAEByBand/countryOrWAEAll mirror waeCountryByBand/waeCountryAll
+	// for the "dxcc_or_wae" multiplier kind: the Russian DX Contest's country
+	// multiplier ("one multiplier for each different country (DXCC entity
+	// list + WAE multipliers list) contacted on each band", Section 9) is a
+	// union wider than the plain "dxcc" kind, which skips any cty.dat entity
+	// with no assigned DXCC number (recordMultiplierValue) — this app's own
+	// ARRL DXCC table (loadARRLDXCCNumbers) leaves a handful of WAE-listed
+	// entities (e.g. European Turkey) at zero.
+	// Keyed by country name (string), like prefix/exchange_area, since not
+	// every qualifying entity has a DXCC number to key on.
+	countryOrWAEByBand map[string]map[string]struct{}
+	countryOrWAEAll    map[string]struct{}
 	// pointCategoryCountry records the worked entity's cty.dat country name
 	// for every scored "CALL|BAND" key, independent of whether the operator's
 	// own station resolved — a pointsRule.CountryGroup check (e.g. SAC's
@@ -226,6 +245,10 @@ func newContestState() *contestState {
 		dxccNonWAEAll:          make(map[int]struct{}),
 		cantonByBand:           make(map[string]map[string]struct{}),
 		cantonAll:              make(map[string]struct{}),
+		oblastByBand:           make(map[string]map[string]struct{}),
+		oblastAll:              make(map[string]struct{}),
+		countryOrWAEByBand:     make(map[string]map[string]struct{}),
+		countryOrWAEAll:        make(map[string]struct{}),
 		pointCategory:          make(map[string]qsoPointCategory),
 		pointCategoryContinent: make(map[string]string),
 		pointCategoryCountry:   make(map[string]string),
@@ -299,6 +322,7 @@ func (c *contestState) record(q qso) {
 		recordMultiplierStringValue(c.exchangeAreaByBand, c.exchangeAreaAll, band, exchangeAreaCode(q.srxString))
 		recordMultiplierStringValue(c.tnCountyByBand, c.tnCountyAll, band, tnCountyCode(q.srxString))
 		recordMultiplierStringValue(c.cantonByBand, c.cantonAll, band, cantonCode(q.srxString))
+		recordMultiplierStringValue(c.oblastByBand, c.oblastAll, band, rdxcOblastCode(q.srxString))
 		recordMultiplierStringValue(c.naqpAreaByBand, c.naqpAreaAll, band, naqpAreaCode(q.srxString))
 		recordMultiplierStringValue(c.arrlSectionByBand, c.arrlSectionAll, band, arrlSectionCode(q.srxString))
 		if special := iaruExchangeSpecial(q.srxString); special != "" {
@@ -329,6 +353,9 @@ func (c *contestState) record(q qso) {
 					recordMultiplierStringValue(c.waeCountryByBand, c.waeCountryAll, band, entity.Country)
 				} else {
 					recordMultiplierValue(c.dxccNonWAEByBand, c.dxccNonWAEAll, band, entity.DXCCNumber)
+				}
+				if entity.Country != "" && (entity.DXCCNumber != 0 || isWAECountry(entity.Country)) {
+					recordMultiplierStringValue(c.countryOrWAEByBand, c.countryOrWAEAll, band, entity.Country)
 				}
 				if entity.Country != "" {
 					c.pointCategoryCountry[key] = entity.Country
@@ -682,6 +709,24 @@ func (c *contestState) multiplierCount(rule multiplierRule) int {
 			return total
 		}
 		return len(c.cantonAll)
+	case "oblast":
+		if strings.TrimSpace(rule.Per) == "band" {
+			total := 0
+			for _, set := range c.oblastByBand {
+				total += len(set)
+			}
+			return total
+		}
+		return len(c.oblastAll)
+	case "dxcc_or_wae":
+		if strings.TrimSpace(rule.Per) == "band" {
+			total := 0
+			for _, set := range c.countryOrWAEByBand {
+				total += len(set)
+			}
+			return total
+		}
+		return len(c.countryOrWAEAll)
 	}
 	var byBand map[string]map[int]struct{}
 	var all map[int]struct{}
@@ -799,6 +844,22 @@ func (c *contestState) wouldBeNewMultiplier(rules *scoringRules, call, band, exc
 				_, already = c.cantonByBand[band][canton]
 			} else {
 				_, already = c.cantonAll[canton]
+			}
+			if already {
+				workedBefore = true
+			} else {
+				newMult = true
+			}
+		case "oblast":
+			oblast := rdxcOblastCode(exchangeText)
+			if oblast == "" {
+				continue
+			}
+			var already bool
+			if strings.TrimSpace(rule.Per) == "band" {
+				_, already = c.oblastByBand[band][oblast]
+			} else {
+				_, already = c.oblastAll[oblast]
 			}
 			if already {
 				workedBefore = true
@@ -931,6 +992,21 @@ func (c *contestState) wouldBeNewMultiplier(rules *scoringRules, call, band, exc
 				_, already = c.waeCountryAll[entity.Country]
 			} else {
 				_, already = c.waeCountryByBand[band][entity.Country]
+			}
+			if already {
+				workedBefore = true
+			} else {
+				newMult = true
+			}
+		case "dxcc_or_wae":
+			if !entityFound || entity.Country == "" || (entity.DXCCNumber == 0 && !isWAECountry(entity.Country)) {
+				continue
+			}
+			var already bool
+			if strings.TrimSpace(rule.Per) == "contest" {
+				_, already = c.countryOrWAEAll[entity.Country]
+			} else {
+				_, already = c.countryOrWAEByBand[band][entity.Country]
 			}
 			if already {
 				workedBefore = true
