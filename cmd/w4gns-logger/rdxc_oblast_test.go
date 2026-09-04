@@ -12,7 +12,7 @@ func TestRDXCOblastCode(t *testing.T) {
 		text string
 		want string
 	}{
-		{"MA", "MA"},   // Moscow city
+		{"MA", "MA"}, // Moscow city
 		{"ma", "MA"},
 		{"  SP  ", "SP"}, // Saint Petersburg
 		{"KA", "KA"},     // Kaliningrad (rule 7.3's "double multiplier" entity)

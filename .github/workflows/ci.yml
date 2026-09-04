@@ -33,5 +33,5 @@ jobs:
       # algorithm on 100k rows under race instrumentation (~20x slower)
       # tests nothing about concurrency that a smaller input wouldn't.
       - run: go test -race -short ./...
-      - run: go build -buildvcs=false -o bin/w4gns-logger .
+      - run: go build -buildvcs=false -o bin/w4gns-logger ./cmd/w4gns-logger
       - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...

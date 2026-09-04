@@ -27,7 +27,7 @@ jobs:
       - name: Verify tag matches appVersion
         run: |
           tag="${GITHUB_REF_NAME#v}"
-          appVersion="$(sed -n 's/^const appVersion = "\(.*\)"/\1/p' main.go)"
+          appVersion="$(sed -n 's/^const appVersion = "\(.*\)"/\1/p' cmd/w4gns-logger/main.go)"
           if [ -z "$appVersion" ]; then
             echo "could not read appVersion from main.go" >&2
             exit 1
@@ -69,7 +69,7 @@ jobs:
         run: |
           ext=""
           if [ "$GOOS" = "windows" ]; then ext=".exe"; fi
-          go build -trimpath -ldflags="-s -w" -o "w4gns-logger$ext" .
+          go build -trimpath -ldflags="-s -w" -o "w4gns-logger$ext" ./cmd/w4gns-logger
 
       - name: Package
         run: |

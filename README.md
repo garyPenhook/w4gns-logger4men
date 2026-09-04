@@ -445,6 +445,10 @@ Press `F8` at any time to back up immediately, and every shutdown backs up autom
 - Requires an `rclone` binary in `PATH` with a working `gdrive` remote already configured (`rclone config`). If rclone or the remote is unavailable, the status bar (or terminal output on shutdown) reports the failure and logging continues unaffected — a failed backup never blocks or loses QSO data.
 - Backups are serialized: pressing `F8` again while one is already running is ignored (the status bar shows "backup already in progress…"), and the mandatory backup-on-exit waits for any backup still in flight instead of racing it. This avoids two backups writing to the same second-resolution filenames or running `VACUUM INTO` concurrently.
 
+## Project layout
+
+All source is one `package main` under `cmd/w4gns-logger/` (Go's standard location for a single binary's `main` package), alongside the two `go:embed`-ed data directories it reads at compile time: `data/` (the ARRL/AD1C DXCC country files) and `events/` (the contest catalog JSON). `docs/ROADMAP.md` tracks contest-feature design and status; everything else at the repository root is standard project metadata (README, LICENSE, CHANGELOG, `go.mod`/`go.sum`, `Makefile`, `.github/`).
+
 ## License
 
 Copyright © 2026 Gary Penhook. W4GNS Logger 4 Men is licensed under the GNU General Public License, version 3 or any later version (GPL-3.0-or-later). See [LICENSE](LICENSE).
