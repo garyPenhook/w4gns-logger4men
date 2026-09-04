@@ -54,6 +54,7 @@ const (
 	eventCatalogScreen
 	qsoDetailsScreen
 	qsoContestScreen
+	continentScreen
 )
 
 const (
@@ -319,6 +320,12 @@ type model struct {
 	// call sites; see that function's doc comment for the sync rules.
 	contestIndex   *contestState
 	contestIndexID string
+	// continentBandFocus pages the Worked/Needed by Continent screen (Ctrl+W)
+	// one band at a time through the active event's allowed bands (SD's
+	// "F1/F2 across bands" for the live worked/needed grids, roadmap
+	// Appendix D — bound here to Left/Right instead, since F1 is already the
+	// app-wide "QSO Entry" hotkey on every screen).
+	continentBandFocus int
 	// contestExchangeRcvdEdited is true once the operator has typed into (or
 	// picked a suggested value for) contestExchangeRcvd this QSO, so
 	// autofillReceivedExchange stops overwriting it — the same
@@ -1387,6 +1394,36 @@ func (m *model) openQSOContest() {
 	focusTextFields(m.contestFields, m.contestFocusIdx)
 }
 
+// openContinentPanel opens the Worked/Needed by Continent screen (Ctrl+W)
+// for the active contest. continentBandFocus starts on the currently
+// selected QSO Entry band so the operator lands on the band they're running.
+func (m *model) openContinentPanel() {
+	m.screen = continentScreen
+	bands := m.continentPanelBands()
+	m.continentBandFocus = 0
+	current := strings.ToUpper(strings.TrimSpace(m.qsoBand()))
+	for index, band := range bands {
+		if band == current {
+			m.continentBandFocus = index
+			break
+		}
+	}
+}
+
+// continentPanelBands returns the bands the Worked/Needed by Continent
+// screen pages through: the active event's allowed bands when one is
+// selected (narrower and more relevant), else every supported amateur band.
+func (m model) continentPanelBands() []string {
+	if event, ok := m.eventForContestID(); ok && len(event.Bands) > 0 {
+		return event.Bands
+	}
+	bands := make([]string, len(amateurBands))
+	for i, b := range amateurBands {
+		bands[i] = b.Name
+	}
+	return bands
+}
+
 func (m *model) openEventCatalog() {
 	m.screen = eventCatalogScreen
 	m.eventFocus = 0
@@ -2128,6 +2165,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.statusMsg = "backing up to Google Drive…"
 		return m, m.runBackupCmd()
 	}
+	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "ctrl+w" && m.screen != continentScreen {
+		m.openContinentPanel()
+		return m, nil
+	}
 	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "ctrl+x" {
 		if m.cabrilloExportInProgress {
 			m.statusMsg = "Cabrillo export already in progress…"
@@ -2171,6 +2212,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	if m.screen == qsoContestScreen {
 		return m.updateQSOContest(msg)
+	}
+	if m.screen == continentScreen {
+		return m.updateContinentPanel(msg)
 	}
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -2434,6 +2478,87 @@ func (m model) updateEventCatalog(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// updateContinentPanel drives the Worked/Needed by Continent screen
+// (roadmap §3 Phase 2, Appendix B.9): Left/Right page one band at a time
+// through continentPanelBands. F1 is deliberately left bound to its
+// app-wide "QSO Entry" meaning (screenHotkeys' line1 advertises it on every
+// screen) rather than reused for band paging as in SD, to avoid a hotkey
+// that silently means different things depending which screen is up.
+func (m model) updateContinentPanel(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if key, ok := msg.(tea.KeyMsg); ok {
+		bands := m.continentPanelBands()
+		switch key.String() {
+		case "ctrl+c":
+			return m, tea.Quit
+		case "esc", "f1", "ctrl+w":
+			m.screen = qsoEntryScreen
+			m.focusField(fieldCall)
+			return m, nil
+		case "left", "h":
+			if len(bands) > 0 {
+				m.continentBandFocus = (m.continentBandFocus - 1 + len(bands)) % len(bands)
+			}
+			return m, nil
+		case "right", "l":
+			if len(bands) > 0 {
+				m.continentBandFocus = (m.continentBandFocus + 1) % len(bands)
+			}
+			return m, nil
+		}
+	}
+	return m, nil
+}
+
+// continentPanelView renders the Worked/Needed by Continent grid for the
+// currently paged-to band: each continent marked worked (with a QSO count)
+// or needed. Falls back to a "no active contest" notice when there's
+// nothing to index, matching the other contest-scoped screens.
+func (m model) continentPanelView() string {
+	var b strings.Builder
+	b.WriteString(screenHotkeys(continentScreen))
+	b.WriteString("\n")
+	b.WriteString(headerStyle.Render("Worked/Needed by Continent"))
+	b.WriteString("\n\n")
+
+	event, ok := m.eventForContestID()
+	if !ok || m.contestIndex == nil {
+		b.WriteString(helpStyle.Render("no active contest — set one on the Events (F7) screen first"))
+		b.WriteString("\n\n")
+		b.WriteString(helpStyle.Render("Esc/Ctrl+W: QSO Entry"))
+		return b.String()
+	}
+	b.WriteString(statusBarStyle.Render(event.Name))
+	b.WriteString("\n\n")
+
+	bands := m.continentPanelBands()
+	if len(bands) == 0 {
+		b.WriteString(helpStyle.Render("event defines no bands"))
+		return b.String()
+	}
+	focus := m.continentBandFocus
+	if focus >= len(bands) {
+		focus = 0
+	}
+	band := bands[focus]
+	b.WriteString(focusedFieldBoxStyle.Render(band))
+	b.WriteString("\n\n")
+
+	for _, continent := range continents {
+		worked, count := m.contestIndex.continentSummary(continent, band)
+		var line string
+		if worked {
+			line = newMultStyle.Render(fmt.Sprintf("%s  worked (%d)", continent, count))
+		} else {
+			line = helpStyle.Render(fmt.Sprintf("%s  needed", continent))
+		}
+		b.WriteString(line + "\n")
+	}
+
+	b.WriteString("\n")
+	b.WriteString(helpStyle.Render("Left/Right: band  •  Esc/Ctrl+W: QSO Entry"))
+	return b.String()
+}
+
 func (m model) updateCluster(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch message := msg.(type) {
 	case tea.KeyMsg:
@@ -2627,6 +2752,9 @@ func (m model) View() string {
 	}
 	if m.screen == eventCatalogScreen {
 		return m.eventCatalogView()
+	}
+	if m.screen == continentScreen {
+		return m.continentPanelView()
 	}
 	var b strings.Builder
 	b.WriteString(screenHotkeys(qsoEntryScreen))
@@ -3029,11 +3157,11 @@ func screenHotkeys(current screen) string {
 		escape = "Esc: Cluster"
 	} else if current == adifImportScreen {
 		escape = "Esc: QSO Entry"
-	} else if current == qsoDetailsScreen || current == qsoContestScreen || current == eventCatalogScreen {
+	} else if current == qsoDetailsScreen || current == qsoContestScreen || current == eventCatalogScreen || current == continentScreen {
 		escape = "Esc: QSO Entry"
 	}
 	line1 := "W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF"
-	line2 := "F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo  •  " + escape
+	line2 := "F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo  •  Ctrl+W: Worked/Needed  •  " + escape
 	return hotkeyStyle.Render(line1) + "\n" + hotkeyStyle.Render(line2)
 }
 

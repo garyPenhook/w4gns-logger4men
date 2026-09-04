@@ -29,6 +29,10 @@ type contestState struct {
 	// order they were recorded — the rate meter's only input (Appendix B/D
 	// "Rate meter (Q/hr L10/L100/overall, Q/Mult)").
 	times []time.Time
+	// continentBand counts QSOs worked per continent per band — the roadmap's
+	// "Worked/Needed by continent" panel (Appendix B.9). Keyed by the
+	// two-letter continent code cty.dat/dxcc.go uses (NA, SA, EU, AF, AS, OC).
+	continentBand map[string]map[string]int
 }
 
 // newContestState returns an empty index, ready for QSOs to be recorded.
@@ -37,6 +41,7 @@ func newContestState() *contestState {
 		byCall:         make(map[string][]qso),
 		workedCallBand: make(map[string]struct{}),
 		uniqueCalls:    make(map[string]struct{}),
+		continentBand:  make(map[string]map[string]int),
 	}
 }
 
@@ -55,6 +60,33 @@ func (c *contestState) record(q qso) {
 	if !q.time.IsZero() {
 		c.times = append(c.times, q.time)
 	}
+	if table, err := sharedDXCCTable(); err == nil {
+		if entity, found := table.lookup(call); found && entity.Continent != "" {
+			if c.continentBand[entity.Continent] == nil {
+				c.continentBand[entity.Continent] = make(map[string]int)
+			}
+			c.continentBand[entity.Continent][band]++
+		}
+	}
+}
+
+// continents lists the standard continent codes cty.dat/dxcc.go use, in the
+// fixed display order the Worked/Needed by Continent panel renders them —
+// stable regardless of which continents happen to be worked yet.
+var continents = []string{"NA", "SA", "EU", "AF", "AS", "OC"}
+
+// continentSummary reports, for one continent on one band, whether it has
+// been worked (and how many times) — the "needed" complement is simply
+// !worked. Bands with a zero count are still "needed": the operator hasn't
+// logged that continent there yet.
+func (c *contestState) continentSummary(continent, band string) (worked bool, count int) {
+	band = strings.ToUpper(strings.TrimSpace(band))
+	byBand := c.continentBand[continent]
+	if byBand == nil {
+		return false, 0
+	}
+	count = byBand[band]
+	return count > 0, count
 }
 
 // isWorkedOnBand reports whether call has already been logged on band —

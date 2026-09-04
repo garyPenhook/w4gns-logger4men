@@ -161,6 +161,30 @@ func TestContestStateScoreNilRulesIsZero(t *testing.T) {
 	}
 }
 
+// TestContestStateContinentSummary exercises the Worked/Needed by Continent
+// index (roadmap Appendix B.9): a call resolves to its DXCC entity's
+// continent, tallied per band, and an un-worked continent/band combination
+// reports needed with a zero count.
+func TestContestStateContinentSummary(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "W1AW", band: "20M"})   // USA — NA
+	state.record(qso{call: "DL1ABC", band: "20M"}) // Germany — EU
+	state.record(qso{call: "W2XYZ", band: "20M"})  // USA — NA, same continent/band again
+
+	if worked, count := state.continentSummary("NA", "20M"); !worked || count != 2 {
+		t.Fatalf("NA/20M summary = worked=%v count=%d, want worked=true count=2", worked, count)
+	}
+	if worked, count := state.continentSummary("EU", "20M"); !worked || count != 1 {
+		t.Fatalf("EU/20M summary = worked=%v count=%d, want worked=true count=1", worked, count)
+	}
+	if worked, count := state.continentSummary("NA", "40M"); worked || count != 0 {
+		t.Fatalf("NA/40M summary = worked=%v count=%d, want worked=false count=0 (not logged on that band)", worked, count)
+	}
+	if worked, count := state.continentSummary("OC", "20M"); worked || count != 0 {
+		t.Fatalf("OC/20M summary = worked=%v count=%d, want worked=false count=0 (never worked)", worked, count)
+	}
+}
+
 // TestContestIndexBuildsOnSelectAndUpdatesIncrementallyOnLog exercises the
 // live model.contestIndex end to end: selecting a contest builds an (empty)
 // index, and logging a QSO updates it incrementally, without a fresh

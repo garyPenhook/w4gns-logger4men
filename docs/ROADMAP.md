@@ -137,7 +137,17 @@ every panel *and* scoring so they always agree.
   prefix/suffix mode toggle (`.`/`,`) and ↑-to-pull-into-field are deferred —
   substring match covers the common case display-only.
 - ⏳ **Super Check Partial** highlight (known-good calls).
-- ⏳ **Worked/Needed by continent** panel; per-band paging.
+- ✅ **Worked/Needed by continent** panel; per-band paging.
+  `contestState.continentBand` (`contest_state.go`) tallies each logged QSO's
+  continent (resolved via `sharedDXCCTable` at `record()` time, the same
+  lookup the Analysis panel already uses) per band; `continentSummary`
+  exposes worked/needed + count for a continent/band pair. New full-screen
+  `continentScreen` (`Ctrl+W`, `main.go` `openContinentPanel`,
+  `updateContinentPanel`, `continentPanelView`) lists the six standard
+  continents against the currently paged-to band — Left/Right page through
+  the active event's allowed bands, or every supported band with no event
+  selected (SD binds this to F1/F2, but F1 is already this app's own
+  "QSO Entry" hotkey everywhere else, so it stays bound to its usual meaning).
 - ✅ **Rate meter** (Q/hr last-10 / last-100 / overall, Q/Mult).
   `contestState.times`/`.rate()` (`rate_meter.go`) extend the index with each
   logged QSO's timestamp (rebuild and incremental-on-log paths both feed it
