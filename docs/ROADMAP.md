@@ -248,11 +248,25 @@ every panel *and* scoring so they always agree.
   `TestContestStateUnscoredQSOExcludedFromMultiplierCount`,
   `TestContestStateWouldBeNewMultiplier`), `events_test.go`
   (`TestScoringRulesEffectiveMultipliers`, `TestValidMultiplierKindAndPer`).
-- ⏳ Area-mult `.mlt` tables + continent/country-tiered **points schema**
-  (`POINTSAREA`, `MAXBAND/MINBAND`, `TIMES`, …) — the multiplier half of this
-  bullet is done above; points still need a `station's own
-  country/continent` input threaded through `score()`/`rate()`, plus
-  `.mlt` data blocked on decision #2.
+- ✅ **Continent/country-tiered points schema.** `events.go` (`pointsRule`,
+  `scoringRules.Points` — set, it replaces `PointsPerQSO` entirely, mirroring
+  `Multipliers`-over-`Multiplier` precedence) lets an event score a QSO by its
+  relationship to the operator's own station instead of a flat per-QSO value
+  (CQ WW-style: 0 same country, 1 same continent, 3 other continent).
+  `contest_state.go` adds `contestState.setStation` (resolves the operator's
+  callsign to its own DXCC country/continent via cty.dat) and classifies each
+  scored QSO into `pointCategory` (`record()`, scored QSOs only, same `/X`
+  exclusion as the multiplier sets); `score()` sums `pointsTotal()` when
+  `Points` is set. An unresolved station (or worked entity) contributes 0
+  rather than guessing a tier. `buildContestState`/`computeContestScore`/
+  `rebuildContestIndex` thread the station's callsign through. Real
+  per-contest wiring (e.g. giving CQ WW's curated event an actual `Points`
+  rule) and the `.mlt` area-mult tables remain deferred/blocked on data
+  licensing (decision #2) — this closes the schema gap only. Tests:
+  `contest_state_test.go`
+  (`TestContestStateScorePointsRuleTiersByCountryAndContinent`,
+  `TestContestStateScorePointsRuleUnresolvedStationScoresZero`,
+  `TestContestStateScorePointsRuleTakesPrecedenceOverPointsPerQSO`).
 - ✅ **CSV export** (`Ctrl+R`). `csv_export.go` (`exportCSV`, `writeCSVAtomic`,
   `csvField`/`csvRow` — RFC 4180 quoting, CRLF rows) streams the active
   contest's QSOs (same `contest_id` scoping as Cabrillo/ADIF export) to

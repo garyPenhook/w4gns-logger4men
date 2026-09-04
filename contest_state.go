@@ -54,7 +54,36 @@ type contestState struct {
 	cqZoneAll     map[int]struct{}
 	ituZoneByBand map[string]map[int]struct{}
 	ituZoneAll    map[int]struct{}
+	// stationDXCCNumber/stationContinent identify the operator's own station
+	// (resolved from its callsign via cty.dat), the input a continent/country-
+	// tiered points rule (pointsRule) needs to classify each worked QSO as
+	// same-country/same-continent/other-continent. stationResolved is false
+	// when setStation wasn't called or the callsign didn't resolve, in which
+	// case pointCategory is never populated and a pointsRule scores 0 for every
+	// QSO rather than guessing.
+	stationDXCCNumber int
+	stationContinent  string
+	stationResolved   bool
+	// pointCategory holds, per "CALL|BAND" key (mirrors scoredCallBand), which
+	// bucket of a pointsRule the QSO falls into — populated by record() only
+	// when both the worked entity and the station resolved, scored QSOs only
+	// (same /X exclusion as scoredCallBand).
+	pointCategory map[string]qsoPointCategory
 }
+
+// qsoPointCategory classifies a worked station relative to the operator's own
+// station for a continent/country-tiered points rule (pointsRule).
+type qsoPointCategory int
+
+// pointCategorySameCountry deliberately does not start at 0: a missing
+// pointCategory map entry (unresolved station or worked entity) must read as
+// "no category" rather than silently matching the zero value.
+const (
+	pointCategoryUnknown qsoPointCategory = iota
+	pointCategorySameCountry
+	pointCategorySameContinent
+	pointCategoryOtherContinent
+)
 
 // newContestState returns an empty index, ready for QSOs to be recorded.
 func newContestState() *contestState {
@@ -71,7 +100,27 @@ func newContestState() *contestState {
 		cqZoneAll:         make(map[int]struct{}),
 		ituZoneByBand:     make(map[string]map[int]struct{}),
 		ituZoneAll:        make(map[int]struct{}),
+		pointCategory:     make(map[string]qsoPointCategory),
 	}
+}
+
+// setStation resolves callsign's DXCC entity and records its country/
+// continent as the operator's own station, the input record() needs to
+// classify worked QSOs for a continent/country-tiered pointsRule. A blank or
+// unresolvable callsign leaves stationResolved false, so score() falls back
+// to awarding 0 points under a pointsRule rather than guessing.
+func (c *contestState) setStation(callsign string) {
+	table, err := sharedDXCCTable()
+	if err != nil {
+		return
+	}
+	entity, found := table.lookup(strings.ToUpper(strings.TrimSpace(callsign)))
+	if !found || entity.DXCCNumber == 0 {
+		return
+	}
+	c.stationDXCCNumber = entity.DXCCNumber
+	c.stationContinent = entity.Continent
+	c.stationResolved = true
 }
 
 // record adds one QSO to the index. Safe to call repeatedly in chronological
@@ -106,6 +155,16 @@ func (c *contestState) record(q qso) {
 				recordMultiplierValue(c.dxccByBand, c.dxccAll, band, entity.DXCCNumber)
 				recordMultiplierValue(c.cqZoneByBand, c.cqZoneAll, band, entity.CQZone)
 				recordMultiplierValue(c.ituZoneByBand, c.ituZoneAll, band, entity.ITUZone)
+				if c.stationResolved {
+					switch {
+					case entity.DXCCNumber != 0 && entity.DXCCNumber == c.stationDXCCNumber:
+						c.pointCategory[key] = pointCategorySameCountry
+					case entity.Continent != "" && entity.Continent == c.stationContinent:
+						c.pointCategory[key] = pointCategorySameContinent
+					default:
+						c.pointCategory[key] = pointCategoryOtherContinent
+					}
+				}
 			}
 		}
 	}
@@ -191,11 +250,34 @@ func (c *contestState) score(rules *scoringRules) contestScore {
 		return contestScore{}
 	}
 	var out contestScore
-	out.qsoPoints = len(c.scoredCallBand) * rules.PointsPerQSO
+	if rules.Points != nil {
+		out.qsoPoints = c.pointsTotal(rules.Points)
+	} else {
+		out.qsoPoints = len(c.scoredCallBand) * rules.PointsPerQSO
+	}
 	for _, rule := range rules.effectiveMultipliers() {
 		out.multipliers += c.multiplierCount(rule)
 	}
 	return out
+}
+
+// pointsTotal sums a continent/country-tiered pointsRule over every scored
+// (call, band) QSO. A QSO with no recorded category (station or worked
+// entity didn't resolve — see setStation/record) contributes 0 rather than
+// guessing a tier.
+func (c *contestState) pointsTotal(rule *pointsRule) int {
+	total := 0
+	for key := range c.scoredCallBand {
+		switch c.pointCategory[key] {
+		case pointCategorySameCountry:
+			total += rule.SameCountry
+		case pointCategorySameContinent:
+			total += rule.SameContinent
+		case pointCategoryOtherContinent:
+			total += rule.OtherContinent
+		}
+	}
+	return total
 }
 
 // multiplierCount returns how many multipliers rule contributes: the size of
@@ -296,7 +378,7 @@ func (m *model) rebuildContestIndex() {
 		m.contestIndex = nil
 		return
 	}
-	state, err := buildContestState(context.Background(), m.activeStation.ID, contestID, m.store)
+	state, err := buildContestState(context.Background(), m.activeStation.ID, m.activeStation.Callsign, contestID, m.store)
 	if err != nil {
 		m.contestIndex = nil
 		return
@@ -307,8 +389,12 @@ func (m *model) rebuildContestIndex() {
 // buildContestState scans every QSO logged under contestID for profileID and
 // returns the resulting index. Called on contest open and whenever a full
 // recompute is needed (e.g. after an edit changes a call or band).
-func buildContestState(ctx context.Context, profileID int64, contestID string, st *store) (*contestState, error) {
+// stationCallsign resolves the operator's own DXCC country/continent (via
+// setStation) so a pointsRule can classify each worked QSO; a blank
+// callsign simply leaves a pointsRule scoring 0 for every QSO.
+func buildContestState(ctx context.Context, profileID int64, stationCallsign, contestID string, st *store) (*contestState, error) {
 	state := newContestState()
+	state.setStation(stationCallsign)
 	err := st.forEachQSOForContest(ctx, profileID, contestID, func(q qso) error {
 		state.record(q)
 		return nil

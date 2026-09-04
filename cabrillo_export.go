@@ -242,7 +242,7 @@ func computeContestScore(ctx context.Context, profile stationProfile, event even
 	if event.Scoring == nil {
 		return contestScore{}, nil
 	}
-	state, err := buildContestState(ctx, profile.ID, contestID, st)
+	state, err := buildContestState(ctx, profile.ID, profile.Callsign, contestID, st)
 	if err != nil {
 		return contestScore{}, err
 	}

@@ -68,6 +68,22 @@ type scoringRules struct {
 	// When non-empty it replaces Multiplier entirely rather than adding to it,
 	// so a config can't double-count "unique_call" by accident.
 	Multipliers []multiplierRule `json:"multipliers,omitempty"`
+	// Points is the continent/country-tiered points shape used by contests
+	// like CQ WW (e.g. 0 points same country, 1 same continent/different
+	// country, 3 different continent) instead of a flat PointsPerQSO. When
+	// set it replaces PointsPerQSO entirely for that event (see score()).
+	Points *pointsRule `json:"points,omitempty"`
+}
+
+// pointsRule is a continent/country-tiered points formula (Appendix C's
+// "points": {"same_country":0,"same_continent":1,"other_continent":3}):
+// how many points a QSO is worth, classified by the worked station's
+// relationship to the operator's own station (contestState.setStation
+// resolves the operator's side; record() classifies each worked QSO).
+type pointsRule struct {
+	SameCountry    int `json:"same_country"`
+	SameContinent  int `json:"same_continent"`
+	OtherContinent int `json:"other_continent"`
 }
 
 // multiplierRule is one entry in scoringRules.Multipliers: what to count
@@ -280,6 +296,11 @@ func loadEventCatalog() ([]eventDefinition, error) {
 					}
 				} else if !validScoringMultiplier(event.Scoring.Multiplier) {
 					return nil, fmt.Errorf("event %q has unsupported scoring multiplier %q", event.ID, event.Scoring.Multiplier)
+				}
+				if p := event.Scoring.Points; p != nil {
+					if p.SameCountry < 0 || p.SameContinent < 0 || p.OtherContinent < 0 {
+						return nil, fmt.Errorf("event %q has a negative points value", event.ID)
+					}
 				}
 			}
 			for _, band := range event.Bands {

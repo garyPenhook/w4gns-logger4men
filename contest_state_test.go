@@ -34,7 +34,7 @@ func TestContestStateIsWorkedOnBand(t *testing.T) {
 		}
 	}
 
-	state, err := buildContestState(context.Background(), profile.ID, "CW-OPEN-1", st)
+	state, err := buildContestState(context.Background(), profile.ID, profile.Callsign, "CW-OPEN-1", st)
 	if err != nil {
 		t.Fatalf("buildContestState: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestContestStateRecomputesAfterEdit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	before, err := buildContestState(context.Background(), profile.ID, "CW-OPEN-1", st)
+	before, err := buildContestState(context.Background(), profile.ID, profile.Callsign, "CW-OPEN-1", st)
 	if err != nil {
 		t.Fatalf("buildContestState (before edit): %v", err)
 	}
@@ -133,7 +133,7 @@ func TestContestStateRecomputesAfterEdit(t *testing.T) {
 		t.Fatalf("updateQSO: %v", err)
 	}
 
-	after, err := buildContestState(context.Background(), profile.ID, "CW-OPEN-1", st)
+	after, err := buildContestState(context.Background(), profile.ID, profile.Callsign, "CW-OPEN-1", st)
 	if err != nil {
 		t.Fatalf("buildContestState (after edit): %v", err)
 	}
@@ -258,6 +258,60 @@ func TestContestStateUnscoredQSOExcludedFromMultiplierCount(t *testing.T) {
 	score := state.score(rules)
 	if score.qsoPoints != 0 || score.multipliers != 0 {
 		t.Fatalf("score of a single unscored QSO = %d pts x %d mults, want 0 x 0", score.qsoPoints, score.multipliers)
+	}
+}
+
+// TestContestStateScorePointsRuleTiersByCountryAndContinent exercises the
+// continent/country-tiered points shape (roadmap §3 Phase 3, e.g. CQ WW):
+// a QSO with the operator's own country scores SameCountry, one with a
+// different country on the operator's own continent scores SameContinent,
+// and one on another continent scores OtherContinent.
+func TestContestStateScorePointsRuleTiersByCountryAndContinent(t *testing.T) {
+	state := newContestState()
+	state.setStation("W1AW") // USA, NA
+	state.record(qso{call: "W2XYZ", band: "20M"})  // USA - same country
+	state.record(qso{call: "VE3ABC", band: "20M"}) // Canada - same continent
+	state.record(qso{call: "JA1ABC", band: "20M"}) // Japan - other continent
+
+	rules := &scoringRules{
+		Points: &pointsRule{SameCountry: 0, SameContinent: 1, OtherContinent: 3},
+	}
+	score := state.score(rules)
+	if score.qsoPoints != 4 {
+		t.Fatalf("qsoPoints = %d, want 4 (0 + 1 + 3)", score.qsoPoints)
+	}
+}
+
+// TestContestStateScorePointsRuleUnresolvedStationScoresZero confirms a
+// pointsRule can't guess a tier when the operator's own callsign never
+// resolved (setStation never called, or an unresolvable callsign) — every
+// QSO scores 0 rather than silently defaulting to same-country.
+func TestContestStateScorePointsRuleUnresolvedStationScoresZero(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "JA1ABC", band: "20M"})
+
+	rules := &scoringRules{Points: &pointsRule{SameCountry: 0, SameContinent: 1, OtherContinent: 3}}
+	score := state.score(rules)
+	if score.qsoPoints != 0 {
+		t.Fatalf("qsoPoints = %d, want 0 (station never resolved)", score.qsoPoints)
+	}
+}
+
+// TestContestStateScorePointsRuleTakesPrecedenceOverPointsPerQSO confirms
+// Points, when set, replaces PointsPerQSO entirely rather than adding to it
+// (mirrors Multipliers-over-Multiplier precedence in effectiveMultipliers).
+func TestContestStateScorePointsRuleTakesPrecedenceOverPointsPerQSO(t *testing.T) {
+	state := newContestState()
+	state.setStation("W1AW")
+	state.record(qso{call: "W2XYZ", band: "20M"}) // same country -> 0 under Points
+
+	rules := &scoringRules{
+		PointsPerQSO: 10,
+		Points:       &pointsRule{SameCountry: 0, SameContinent: 1, OtherContinent: 3},
+	}
+	score := state.score(rules)
+	if score.qsoPoints != 0 {
+		t.Fatalf("qsoPoints = %d, want 0 (Points should override PointsPerQSO)", score.qsoPoints)
 	}
 }
 
