@@ -807,3 +807,98 @@ func TestContestIndexSwapsOnEditFromDifferentContestAndRestoresOnCancel(t *testi
 		t.Fatalf("contestIndexID after cancelling the edit = %q, want the active contest %q restored", m.contestIndexID, activeContest)
 	}
 }
+
+// TestContestStateScorePointsRuleCountryGroup exercises SAC's country-group
+// points tier: a worked station's cty.dat country membership in
+// pointsRule.CountryGroup takes precedence over the operator-relative
+// same-country/same-continent/other-continent classification — the
+// Scandinavian side's own rule (group points 0) means two Scandinavian
+// stations working each other score 0 rather than the flat SameContinent
+// value a plain continent match would otherwise give, while a
+// non-Scandinavian European/non-European worked station still falls through
+// to the ordinary continent classification.
+func TestContestStateScorePointsRuleCountryGroup(t *testing.T) {
+	state := newContestState()
+	state.setStation("SM3ABC")                     // Sweden, EU
+	state.record(qso{call: "LA1ABC", band: "20M"}) // Norway - in group, scores GroupPoints not SameContinent
+	state.record(qso{call: "DL1ABC", band: "20M"}) // Germany - EU, not in group - SameContinent
+	state.record(qso{call: "W1AW", band: "20M"})   // USA - NA, not in group - OtherContinent
+
+	rules := &scoringRules{
+		Points: &pointsRule{
+			CountryGroup:   sacScandinavianCountries,
+			GroupPoints:    0,
+			SameContinent:  2,
+			OtherContinent: 3,
+		},
+	}
+	if score := state.score(rules); score.qsoPoints != 5 {
+		t.Fatalf("qsoPoints = %d, want 5 (0 group + 2 same-continent + 3 other-continent)", score.qsoPoints)
+	}
+}
+
+// TestContestStateScorePointsRuleCountryGroupLowBand exercises SAC's
+// non-Scandinavian-entrant band tiering: a Scandinavian QSO scores
+// GroupPoints on a high band and LowBandGroupPoints on a WPX-style low band
+// (80M/40M — SAC's own "3.5 and 7 MHz" rule text).
+func TestContestStateScorePointsRuleCountryGroupLowBand(t *testing.T) {
+	state := newContestState()
+	state.setStation("W1AW")                       // USA - not in the Scandinavian group
+	state.record(qso{call: "SM3ABC", band: "20M"}) // high band
+	state.record(qso{call: "OH2ABC", band: "80M"}) // low band
+
+	rules := &scoringRules{
+		Points: &pointsRule{
+			CountryGroup:       sacScandinavianCountries,
+			GroupPoints:        1,
+			LowBandGroupPoints: 3,
+		},
+	}
+	if score := state.score(rules); score.qsoPoints != 4 {
+		t.Fatalf("qsoPoints = %d, want 4 (1 high band + 3 low band)", score.qsoPoints)
+	}
+}
+
+// TestContestStateScoreSACAreaMultiplier exercises the "sac_area"
+// multiplier: a Scandinavian-entity-plus-numeral value derived from the
+// worked callsign, counted once per band (SAC rule 8.2). Multiple prefix
+// variants from the same entity/numeral (SM3/SK3) count once; a different
+// numeral is a new multiplier; a non-Scandinavian worked station contributes
+// nothing.
+func TestContestStateScoreSACAreaMultiplier(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "SM3ABC", band: "20M"})
+	state.record(qso{call: "SK3XYZ", band: "20M"}) // same entity+numeral, no new mult
+	state.record(qso{call: "SM0ABC", band: "20M"}) // different numeral, new mult
+	state.record(qso{call: "DL1ABC", band: "20M"}) // non-Scandinavian, no mult
+
+	rules := &scoringRules{
+		PointsPerQSO: 1,
+		Multipliers:  []multiplierRule{{Kind: "sac_area", Per: "band"}},
+	}
+	if score := state.score(rules); score.multipliers != 2 {
+		t.Fatalf("multipliers = %d, want 2 (Sweden-3 + Sweden-0)", score.multipliers)
+	}
+}
+
+// TestContestStateWouldBeNewMultiplierSACArea exercises the as-you-type
+// "NEW MULT" flag for the sac_area kind.
+func TestContestStateWouldBeNewMultiplierSACArea(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "SM3ABC", band: "20M"})
+
+	rules := &scoringRules{
+		Multipliers: []multiplierRule{{Kind: "sac_area", Per: "band"}},
+	}
+	sweden := dxccEntity{Country: "Sweden"}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "SK3XYZ", "20M", "", sweden, true); newMult || !workedBefore {
+		t.Fatalf("Sweden-3 (already worked) = newMult=%v workedBefore=%v, want false/true", newMult, workedBefore)
+	}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "SM0ABC", "20M", "", sweden, true); !newMult || workedBefore {
+		t.Fatalf("Sweden-0 (new numeral) = newMult=%v workedBefore=%v, want true/false", newMult, workedBefore)
+	}
+	germany := dxccEntity{Country: "Fed. Rep. of Germany"}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "DL1ABC", "20M", "", germany, true); newMult || workedBefore {
+		t.Fatalf("Germany (non-Scandinavian) = newMult=%v workedBefore=%v, want false/false", newMult, workedBefore)
+	}
+}

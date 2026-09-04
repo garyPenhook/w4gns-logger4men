@@ -41,7 +41,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.18.0"
+const appVersion = "1.19.0"
 
 type screen int
 
@@ -1675,6 +1675,22 @@ func (m *model) openEventCatalog() {
 	m.eventSessionFocus = 0
 }
 
+// openContestOrCatalog is the F7 destination from QSO Entry/QSO Details:
+// Contest Entry (to review/correct the active contest's serial/exchange
+// fields, e.g. the one-time sent-exchange name CW Open needs) while a
+// contest is active, otherwise the Event Catalog to pick one. Without this,
+// Contest Entry — whose own hotkey line has always advertised "F7: Events"
+// to get back to the catalog — had no path back to it at all once the
+// operator left it, other than re-selecting the same event (which resets
+// the running serial number).
+func (m *model) openContestOrCatalog() {
+	if _, ok := m.eventForContestID(); ok {
+		m.openQSOContest()
+		return
+	}
+	m.openEventCatalog()
+}
+
 func (m *model) selectEvent(event eventDefinition, session eventSession) {
 	for index := range m.contestFields {
 		m.contestFields[index].SetValue("")
@@ -1692,7 +1708,14 @@ func (m *model) selectEvent(event eventDefinition, session eventSession) {
 	m.dupeBaselineAfter = time.Time{}
 	m.statusMsg = event.Name + " selected"
 	m.exchangeChoiceFocus = -1
-	m.openQSOContest()
+	// Land back on QSO Entry with Call focused, not the Contest Entry (F7)
+	// screen: QSO Entry is where logging actually happens, its inline
+	// received-exchange fields (entrySlots) already cover this event's
+	// exchange, and Contest Entry itself has no Call field — stranding the
+	// operator there after selecting an event left no way to start logging
+	// without first knowing to press F1.
+	m.screen = qsoEntryScreen
+	m.focusField(fieldCall)
 	// Selecting a contest changes its dupe_scope, so the dupeWarning
 	// indicator (set for whatever contest — or none — was active before)
 	// must be recomputed against the new scope.
@@ -2691,7 +2714,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.openQSODetails()
 			return m, nil
 		case "f7":
-			m.openEventCatalog()
+			m.openContestOrCatalog()
 			return m, nil
 		case "left", "down":
 			if m.focusIdx == fieldBand {
@@ -2765,7 +2788,7 @@ func (m model) updateQSODetails(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focusField(fieldCall)
 			return m, nil
 		case "f7":
-			m.openEventCatalog()
+			m.openContestOrCatalog()
 			return m, nil
 		case "tab", "enter":
 			m.detailFocusIdx = (m.detailFocusIdx + 1) % len(m.detailFields)
@@ -3715,7 +3738,7 @@ func screenHotkeys(current screen) string {
 		escape = "Esc: Back"
 	}
 	line1 := "W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF"
-	line2 := "F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo  •  Ctrl+R: Export CSV  •  Ctrl+W: Continents Worked  •  Ctrl+P: POST mode  •  Ctrl+G: Help  •  " + escape
+	line2 := "F6: QSO Details  •  F7: Contest/Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo  •  Ctrl+R: Export CSV  •  Ctrl+W: Continents Worked  •  Ctrl+P: POST mode  •  Ctrl+G: Help  •  " + escape
 	return hotkeyStyle.Render(line1) + "\n" + hotkeyStyle.Render(line2)
 }
 

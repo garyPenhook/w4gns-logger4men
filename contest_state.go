@@ -75,6 +75,18 @@ type contestState struct {
 	// text, TNQP's multiplier for an out-of-state entrant.
 	tnCountyByBand map[string]map[string]struct{}
 	tnCountyAll    map[string]struct{}
+	// sacAreaByBand/sacAreaAll mirror tnCountyByBand/tnCountyAll for the
+	// "sac_area" multiplier kind (sac_area.go's sacAreaCode): SAC's
+	// Scandinavian-entity-plus-numeral value, derived from the worked
+	// station's callsign rather than its received exchange.
+	sacAreaByBand map[string]map[string]struct{}
+	sacAreaAll    map[string]struct{}
+	// pointCategoryCountry records the worked entity's cty.dat country name
+	// for every scored "CALL|BAND" key, independent of whether the operator's
+	// own station resolved — a pointsRule.CountryGroup check (e.g. SAC's
+	// Scandinavian-entity group) doesn't need the operator's own location,
+	// only the worked station's.
+	pointCategoryCountry map[string]string
 	// stationDXCCNumber/stationContinent identify the operator's own station
 	// (resolved from its callsign via cty.dat), the input a continent/country-
 	// tiered points rule (pointsRule) needs to classify each worked QSO as
@@ -133,8 +145,11 @@ func newContestState() *contestState {
 		exchangeAreaAll:        make(map[string]struct{}),
 		tnCountyByBand:         make(map[string]map[string]struct{}),
 		tnCountyAll:            make(map[string]struct{}),
+		sacAreaByBand:          make(map[string]map[string]struct{}),
+		sacAreaAll:             make(map[string]struct{}),
 		pointCategory:          make(map[string]qsoPointCategory),
 		pointCategoryContinent: make(map[string]string),
+		pointCategoryCountry:   make(map[string]string),
 	}
 }
 
@@ -213,6 +228,10 @@ func (c *contestState) record(q qso) {
 				recordMultiplierValue(c.dxccByBand, c.dxccAll, band, entity.DXCCNumber)
 				recordMultiplierValue(c.cqZoneByBand, c.cqZoneAll, band, entity.CQZone)
 				recordMultiplierValue(c.ituZoneByBand, c.ituZoneAll, band, entity.ITUZone)
+				recordMultiplierStringValue(c.sacAreaByBand, c.sacAreaAll, band, sacAreaCode(entity, call))
+				if entity.Country != "" {
+					c.pointCategoryCountry[key] = entity.Country
+				}
 				if c.stationResolved {
 					switch {
 					case entity.DXCCNumber != 0 && entity.DXCCNumber == c.stationDXCCNumber:
@@ -374,6 +393,14 @@ func (c *contestState) pointsTotal(rule *pointsRule) int {
 	total := 0
 	for key := range c.scoredCallBand {
 		lowBand := wpxLowBand(bandFromCallBandKey(key))
+		if len(rule.CountryGroup) > 0 && countryInList(rule.CountryGroup, c.pointCategoryCountry[key]) {
+			value := rule.GroupPoints
+			if lowBand && rule.LowBandGroupPoints != 0 {
+				value = rule.LowBandGroupPoints
+			}
+			total += value
+			continue
+		}
 		switch c.pointCategory[key] {
 		case pointCategorySameCountry:
 			total += rule.SameCountry
@@ -455,6 +482,15 @@ func (c *contestState) multiplierCount(rule multiplierRule) int {
 			return total
 		}
 		return len(c.tnCountyAll)
+	case "sac_area":
+		if strings.TrimSpace(rule.Per) == "band" {
+			total := 0
+			for _, set := range c.sacAreaByBand {
+				total += len(set)
+			}
+			return total
+		}
+		return len(c.sacAreaAll)
 	}
 	var byBand map[string]map[int]struct{}
 	var all map[int]struct{}
@@ -545,6 +581,25 @@ func (c *contestState) wouldBeNewMultiplier(rules *scoringRules, call, band, exc
 				_, already = c.tnCountyByBand[band][county]
 			} else {
 				_, already = c.tnCountyAll[county]
+			}
+			if already {
+				workedBefore = true
+			} else {
+				newMult = true
+			}
+		case "sac_area":
+			if !entityFound {
+				continue
+			}
+			area := sacAreaCode(entity, call)
+			if area == "" {
+				continue
+			}
+			var already bool
+			if strings.TrimSpace(rule.Per) == "band" {
+				_, already = c.sacAreaByBand[band][area]
+			} else {
+				_, already = c.sacAreaAll[area]
 			}
 			if already {
 				workedBefore = true

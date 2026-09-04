@@ -1,5 +1,11 @@
 # Changelog
 
+### v1.19.0
+
+- Fixed selecting an event on the Events screen leaving you unable to log: it landed on the Contest Entry screen, which has no Call field, instead of QSO Entry. Selecting an event now returns to QSO Entry with Call focused so you can start logging immediately.
+- `F7` from QSO Entry/QSO Details now opens Contest Entry (to set the one-time sent-exchange, e.g. your name for CW Open) when a contest is active, instead of always reopening the Events catalog; the catalog is still one `F7` away from Contest Entry.
+- Wired the Scandinavian Activity Contest, CW (SAC-CW)'s real scoring rules: side-asymmetric points/multipliers for a Scandinavian vs. non-Scandinavian entrant, sourced from sactest.net's rules.
+
 ### v1.18.0
 
 - Added POST (after-contest) entry mode for re-logging QSOs from a paper log. `Ctrl+P` toggles it on QSO Entry, adding a Date/Time (UTC) field to the entry row; logging a QSO uses that typed timestamp instead of the live clock, and refuses to log (with an explanatory message) if it can't be parsed. The field keeps its value between QSOs so only the time needs editing for consecutive entries, and is hidden while editing an existing QSO since edits don't rewrite a QSO's stored time.

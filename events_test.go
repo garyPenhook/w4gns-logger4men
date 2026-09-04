@@ -511,35 +511,72 @@ func TestLoadEventCatalogCWTHasRealScoringRules(t *testing.T) {
 	}
 }
 
-// TestLoadEventCatalogSACCWHasCheckedCabrilloLayout guards the Scandinavian
-// Activity Contest, CW catalog entry's promotion from entry-only to
-// cabrillo-ready: sactest.net's Cabrillo 3.0 QSO line ("QSO: freq mo date
-// time call rst exch call rst exch t") is RST plus one free-text exchange
-// field (the serial number) on both sides — the same shape as the existing
-// cw_rst_exchange layout CQ WW/CQ 160/ARRL DX/CQ WPX already use — and
-// SAC-CW is confirmed against the ADIF Contest ID Enumeration. No scoring
-// block is added here: SAC's real points/multiplier rules haven't been
-// audited yet, so the entry stays cabrillo-ready rather than scoring-ready.
-func TestLoadEventCatalogSACCWHasCheckedCabrilloLayout(t *testing.T) {
+// TestLoadEventCatalogSACCWHasRealScoringRules guards the curated SAC-CW
+// entry's actual scoring config, sourced from
+// sactest.net/blog/scandinavian-activity-contest-2025-rules/ Sections 7-8
+// rather than guessed. SAC is side-asymmetric around a fixed "Scandinavian"
+// country group (Norway, Finland, Sweden, Iceland, Denmark and their listed
+// territories) rather than the operator's own continent: a Scandinavian
+// entrant (Scoring) scores 2 points for a European-non-Scandinavian QSO and
+// 3 for a non-European QSO (a Scandinavian-Scandinavian QSO the rules don't
+// address scores 0 via the pointsRule.CountryGroup override), with a DXCC-
+// entity multiplier per band (§8.1); a non-Scandinavian entrant (DXScoring)
+// scores only for Scandinavian QSOs — 1 point on 20/15/10M, 3 on 80/40M
+// (§7.2's non-European-entrant formula; the flat 1-point European-entrant
+// case is out of scope, matching this app's non-European station profile) —
+// with the "sac_area" multiplier (§8.2: one Scandinavian-entity-plus-numeral
+// combination per band).
+func TestLoadEventCatalogSACCWHasRealScoringRules(t *testing.T) {
 	events, err := loadEventCatalog()
 	if err != nil {
 		t.Fatalf("loadEventCatalog: %v", err)
 	}
 	sac := events[eventIndex(t, events, "SAC-CW")]
+	if sac.Capability != catalogCapabilityScoringReady {
+		t.Fatalf("SAC-CW capability = %q, want %q", sac.Capability, catalogCapabilityScoringReady)
+	}
 	if !sac.cabrilloReady() {
 		t.Fatal("SAC-CW must have a checked Cabrillo layout")
-	}
-	if sac.CabrilloLayout != "cw_rst_exchange" {
-		t.Fatalf("SAC-CW cabrillo_layout = %q, want cw_rst_exchange", sac.CabrilloLayout)
 	}
 	if sac.ADIFContestID != "SAC-CW" {
 		t.Fatalf("SAC-CW adif_contest_id = %q, want SAC-CW", sac.ADIFContestID)
 	}
-	if sac.Capability != catalogCapabilityCabrilloReady {
-		t.Fatalf("SAC-CW capability = %q, want %q", sac.Capability, catalogCapabilityCabrilloReady)
+	if !countryInList(sac.DomesticCountries, "Sweden") || !countryInList(sac.DomesticCountries, "Norway") {
+		t.Fatalf("SAC-CW domestic_countries = %v, want the Scandinavian country group", sac.DomesticCountries)
 	}
-	if sac.Scoring != nil {
-		t.Fatal("SAC-CW must not claim scoring until its points/multiplier rules are audited")
+	if sac.Scoring == nil || sac.Scoring.Points == nil {
+		t.Fatal("SAC-CW must have a Points-based Scoring rule")
+	}
+	p := sac.Scoring.Points
+	if p.GroupPoints != 0 || p.SameContinent != 2 || p.OtherContinent != 3 {
+		t.Fatalf("SAC-CW scoring.points = %+v, want group 0 / same-continent 2 / other-continent 3", p)
+	}
+	if !countryInList(p.CountryGroup, "Sweden") {
+		t.Fatalf("SAC-CW scoring.points.country_group = %v, want the Scandinavian country group", p.CountryGroup)
+	}
+	mults := sac.Scoring.effectiveMultipliers()
+	if len(mults) != 1 || mults[0].Kind != "dxcc" || mults[0].Per != "band" {
+		t.Fatalf("SAC-CW scoring multipliers = %+v, want [{dxcc band}]", mults)
+	}
+	if sac.DXScoring == nil || sac.DXScoring.Points == nil {
+		t.Fatal("SAC-CW must have a Points-based DXScoring rule")
+	}
+	dp := sac.DXScoring.Points
+	if dp.GroupPoints != 1 || dp.LowBandGroupPoints != 3 {
+		t.Fatalf("SAC-CW dx_scoring.points = %+v, want group 1 / low-band group 3", dp)
+	}
+	dxMults := sac.DXScoring.effectiveMultipliers()
+	if len(dxMults) != 1 || dxMults[0].Kind != "sac_area" || dxMults[0].Per != "band" {
+		t.Fatalf("SAC-CW dx_scoring multipliers = %+v, want [{sac_area band}]", dxMults)
+	}
+	if got := sac.effectiveScoring("Sweden"); got != sac.Scoring {
+		t.Fatal("a Scandinavian station (Sweden) must use Scoring")
+	}
+	if got := sac.effectiveScoring("Germany"); got != sac.DXScoring {
+		t.Fatal("a non-Scandinavian station (Germany) must use DXScoring")
+	}
+	if got := sac.effectiveScoring(""); got != sac.Scoring {
+		t.Fatal("an unresolved station must conservatively fall back to Scoring")
 	}
 }
 
@@ -699,8 +736,14 @@ func TestEventCatalogSelectsCWOpenDefaults(t *testing.T) {
 	m.eventFocus = eventIndex(t, m.events, "CW-OPEN")
 	updated, _ = m.updateEventCatalog(tea.KeyMsg{Type: tea.KeyEnter})
 	m = updated.(model)
-	if m.screen != qsoContestScreen || m.contestFields[contestName].Value() != "CW-OPEN-1" || m.contestFields[contestSerialSent].Value() != "001" {
-		t.Fatalf("selected event state = %#v", m)
+	// selectEvent lands back on QSO Entry with Call focused (not Contest
+	// Entry, which has no Call field) so the operator can start logging
+	// immediately; the contest fields it configured are still set underneath.
+	if m.screen != qsoEntryScreen || m.focusIdx != fieldCall {
+		t.Fatalf("selected event screen = %v focusIdx = %v, want qsoEntryScreen/fieldCall", m.screen, m.focusIdx)
+	}
+	if m.contestFields[contestName].Value() != "CW-OPEN-1" || m.contestFields[contestSerialSent].Value() != "001" {
+		t.Fatalf("selected event contest fields = %#v", m.contestFields)
 	}
 }
 

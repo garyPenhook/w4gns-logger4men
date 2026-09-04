@@ -146,7 +146,8 @@ func validateScoringRules(eventID, label string, rules *scoringRules) error {
 		return nil
 	}
 	if p.SameCountry < 0 || p.SameContinent < 0 || p.OtherContinent < 0 ||
-		p.LowBandSameContinent < 0 || p.LowBandOtherContinent < 0 {
+		p.LowBandSameContinent < 0 || p.LowBandOtherContinent < 0 ||
+		p.GroupPoints < 0 || p.LowBandGroupPoints < 0 {
 		return fmt.Errorf("event %q has a negative %s points value", eventID, label)
 	}
 	for continent, value := range p.SameContinentOverrides {
@@ -301,6 +302,20 @@ type pointsRule struct {
 	LowBandSameContinent          int            `json:"low_band_same_continent,omitempty"`
 	LowBandOtherContinent         int            `json:"low_band_other_continent,omitempty"`
 	LowBandSameContinentOverrides map[string]int `json:"low_band_same_continent_overrides,omitempty"`
+	// CountryGroup, when non-empty, adds a group-membership tier that
+	// pointsTotal checks before SameCountry/SameContinent/OtherContinent: a
+	// worked station whose cty.dat country is in CountryGroup scores
+	// GroupPoints (LowBandGroupPoints on a WPX-style low band) instead of the
+	// country/continent-relative value, regardless of the operator's own
+	// location. A worked station outside CountryGroup falls through to the
+	// existing country/continent classification unchanged. This is for
+	// contests scored around a fixed geographic group rather than the
+	// operator's own position — SAC's "Scandinavian" side/DX split, where
+	// e.g. two Scandinavian stations working each other isn't the
+	// same-continent case the flat SameContinent value describes.
+	CountryGroup       []string `json:"country_group,omitempty"`
+	GroupPoints        int      `json:"group_points,omitempty"`
+	LowBandGroupPoints int      `json:"low_band_group_points,omitempty"`
 }
 
 // multiplierRule is one entry in scoringRules.Multipliers: what to count
@@ -317,7 +332,7 @@ type multiplierRule struct {
 // loudly at startup instead of silently scoring zero multipliers.
 func validMultiplierKind(kind string) bool {
 	switch strings.TrimSpace(kind) {
-	case "unique_call", "dxcc", "cqzone", "ituzone", "prefix", "exchange_area", "tn_county":
+	case "unique_call", "dxcc", "cqzone", "ituzone", "prefix", "exchange_area", "tn_county", "sac_area":
 		return true
 	default:
 		return false

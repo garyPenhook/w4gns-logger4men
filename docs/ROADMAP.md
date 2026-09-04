@@ -58,8 +58,46 @@ the log, submitted contest results, or external services.
 - 🔧 **Audit and implement scoring per contest before presenting the catalog as
   correct.** Every one of the 429 event records now declares and is validated
   against an explicit `capability`: 9 intentionally generic templates are
-  `selection-only`, 413 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
-  `CQ-160-CW`, `ARRL-DX-CW`, `CQ-WPX-CW`, and `TNQP` are `scoring-ready`. The
+  `selection-only`, 412 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
+  `CQ-160-CW`, `ARRL-DX-CW`, `CQ-WPX-CW`, `TNQP`, and `SAC-CW` are
+  `scoring-ready`. **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
+  side-asymmetric around a fixed "Scandinavian" country group — Norway,
+  Finland, Sweden, Iceland, Denmark, and the territories the rules list by
+  their own prefix block (Svalbard, Jan Mayen, Åland Islands, Market Reef,
+  Greenland, Faroe Islands) — rather than by the operator's own continent, a
+  shape the existing `pointsRule` (same-country/same-continent/other-
+  continent, relative to the operator) couldn't express: a Scandinavian
+  station working another Scandinavian station is neither "same country" nor
+  meaningfully "same continent" under this rule's own point scale, so a plain
+  continent match would have silently mis-scored it. New **`pointsRule.
+  CountryGroup`** (`events.go`, plus `GroupPoints`/`LowBandGroupPoints`) adds
+  a group-membership tier `pointsTotal` (`contest_state.go`) checks before
+  the country/continent classification: a worked station in `CountryGroup`
+  scores the group value regardless of the operator's own location, and a
+  station outside it falls through to the unchanged existing logic. `record()`
+  now tracks `pointCategoryCountry` (the worked entity's country per scored
+  QSO) unconditionally, since a group check doesn't need the operator's own
+  station to resolve. Wired as `Scoring` for a Scandinavian entrant (§7.1:
+  0 for a Scandinavian-Scandinavian QSO the rules don't otherwise address,
+  2 for European-non-Scandinavian, 3 for non-European; DXCC-entity multiplier
+  per band, §8.1) and `DXScoring` for a non-Scandinavian entrant (§7.2's
+  non-European-entrant formula only — 1 point on 20/15/10M Scandinavian QSOs,
+  3 on 80/40M, scored only for Scandinavian contacts; §7.2's flat 1-point
+  European-entrant case is out of scope, matching this app's own
+  non-European station profile, the same "only the branch that applies to
+  this app's station" scoping TNQP's out-of-state multiplier used). New
+  **`sac_area` multiplier kind** (`sac_area.go`, `sacAreaCode`) implements
+  §8.2's "prefix-number in each Scandinavian DXCC entity" — SI3/SK3/SL3/SM3
+  all resolve to the same `Sweden-3` value, matching the rule's own examples;
+  a call with no digit is the 0th area. Tests: `sac_area_test.go`
+  (`TestSACAreaCode`, `TestSACScandinavianCountriesHas11Values`),
+  `contest_state_test.go`
+  (`TestContestStateScorePointsRuleCountryGroup`,
+  `TestContestStateScorePointsRuleCountryGroupLowBand`,
+  `TestContestStateScoreSACAreaMultiplier`,
+  `TestContestStateWouldBeNewMultiplierSACArea`), `events_test.go`
+  (`TestLoadEventCatalogSACCWHasRealScoringRules`, replacing the earlier
+  cabrillo-ready-only guard). The
   Events screen shows this status, so an operator can tell an entry-only
   template from a checked submission before export. CWT's real scoring
   (cwops.org/cwops-tests/: 1 point per QSO, multiplied by unique callsigns

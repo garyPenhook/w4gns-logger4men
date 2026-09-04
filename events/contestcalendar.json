@@ -453,7 +453,7 @@
   },
   {
     "id": "SAC-CW",
-    "capability": "cabrillo-ready",
+    "capability": "scoring-ready",
     "name": "Scandinavian Activity Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -473,6 +473,40 @@
     "cabrillo_layout": "cw_rst_exchange",
     "rules_url": "https://www.sactest.net/blog/scandinavian-activity-contest-2025-rules/",
     "score_submission_url": "",
+    "domestic_countries": [
+      "Norway", "Finland", "Sweden", "Iceland", "Denmark",
+      "Svalbard", "Jan Mayen", "Aland Islands", "Market Reef",
+      "Greenland", "Faroe Islands"
+    ],
+    "scoring": {
+      "points": {
+        "country_group": [
+          "Norway", "Finland", "Sweden", "Iceland", "Denmark",
+          "Svalbard", "Jan Mayen", "Aland Islands", "Market Reef",
+          "Greenland", "Faroe Islands"
+        ],
+        "group_points": 0,
+        "same_continent": 2,
+        "other_continent": 3
+      },
+      "multipliers": [
+        {"kind": "dxcc", "per": "band"}
+      ]
+    },
+    "dx_scoring": {
+      "points": {
+        "country_group": [
+          "Norway", "Finland", "Sweden", "Iceland", "Denmark",
+          "Svalbard", "Jan Mayen", "Aland Islands", "Market Reef",
+          "Greenland", "Faroe Islands"
+        ],
+        "group_points": 1,
+        "low_band_group_points": 3
+      },
+      "multipliers": [
+        {"kind": "sac_area", "per": "band"}
+      ]
+    },
     "sessions": [
       {
         "id": "1200ZSep19",
