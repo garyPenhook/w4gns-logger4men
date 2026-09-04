@@ -256,6 +256,33 @@ func TestLoadEventCatalogPrefersCuratedSSTOverGeneratedDuplicate(t *testing.T) {
 	}
 }
 
+// TestLoadEventCatalogPrefersCuratedCWTOverGeneratedDuplicate mirrors
+// TestLoadEventCatalogPrefersCuratedOverGeneratedDuplicate for CWT
+// (events/cwops.json): the SD-generated SD-CWOPS entry ("CWOPS Mini-CWT",
+// cabrillo_contest "CW-OPS") collapses the four weekly slots into one
+// synthetic "ALL" session, while the curated CWT entry carries the real
+// Wed/Thu session schedule and now shares the same "CW-OPS" cabrillo_contest
+// token (the real-world Cabrillo tag for this contest), so the curated copy
+// must win.
+func TestLoadEventCatalogPrefersCuratedCWTOverGeneratedDuplicate(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	for _, event := range events {
+		if event.ID == "SD-CWOPS" {
+			t.Fatal("SD-generated CWOPS Mini-CWT duplicate should be dropped in favor of the curated CWT event")
+		}
+	}
+	cwt := events[eventIndex(t, events, "CWT")]
+	if len(cwt.Sessions) != 4 {
+		t.Fatalf("CWT session count = %d, want 4", len(cwt.Sessions))
+	}
+	if cwt.DupeScope != "call+band+session" {
+		t.Fatalf("CWT dupe_scope = %q, want call+band+session", cwt.DupeScope)
+	}
+}
+
 func TestEventCatalogCyclesSSTSessions(t *testing.T) {
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {

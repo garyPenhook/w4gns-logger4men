@@ -73,20 +73,31 @@ Make the 271 imported contests *correct*, not just selectable.
   curated entry (e.g. `ARRL-DX-CW`'s SD home/DX split vs one generic curated
   entry) is left alone: that's added fidelity, not a duplicate. `events.go`
   (`eventDefinition.cabrilloToken`, `generatedEventCatalogFile`).
-- 🔧 **Real sessions/schedules** for multi-session contests needing per-session
+- ✅ **Real sessions/schedules** for multi-session contests needing per-session
   dupe scope and per-session Cabrillo files. The plumbing (schema, `dupe_scope`,
-  per-session Cabrillo export) already exists generically — the gap is real
+  per-session Cabrillo export) already exists generically — the gap was real
   per-contest session data replacing the SD catalog's synthetic single "ALL"
   session. Most major DX contests (ARRL DX, CQ WW, IARU HF) run one continuous
   block and don't need this; the real candidates are weekly sprints with
-  genuinely distinct time slots, matching the existing `CWT`/`CW-OPEN` pattern
-  in `events/cwops.json`. ✅ **K1USN Slow Speed Test (SST)** added as
+  genuinely distinct time slots. **K1USN Slow Speed Test (SST)** added as
   `events/k1usn.json` (`K1USN-SST`, 2 real sessions: Fri 2000-2100 UTC / Mon
   0000-0100 UTC, `dupe_scope: call+band+session`) — de-dups the generated
   `SD-SST` entry via the existing `cabrillo_contest: SLOW-SPEED-TEST` token
-  match. Other weekly sprints in the catalog (AP/SA/NA Sprint, RSGB sprints,
-  Russian Mini-Test 40/80, SCAG Sprint) run a single hour/period once a week
-  and are already correctly single-session — no change needed there.
+  match. Close-out audit found one more real duplicate the token-based de-dup
+  was missing: curated `CWT` (`events/cwops.json`, 4 real Wed/Thu sessions)
+  had no `cabrillo_contest` override, so it fell back to token `CWT` instead
+  of the contest's actual Cabrillo tag `CW-OPS` (confirmed against WA7BNM's
+  Cabrillo names reference) — that mismatch meant the generated `SD-CWOPS`
+  entry ("CWOPS Mini-CWT", already tagged `CW-OPS`) survived de-dup as a
+  spurious single-session duplicate of the same real-world contest, and the
+  curated entry's own Cabrillo exports carried the wrong `CONTEST:` value.
+  Fixed by adding `"cabrillo_contest": "CW-OPS"` to curated `CWT`; test
+  `TestLoadEventCatalogPrefersCuratedCWTOverGeneratedDuplicate` guards both
+  the de-dup and the 4-session count. Other weekly sprints in the catalog
+  (AP/SA/NA Sprint, RSGB sprints, Russian Mini-Test 40/80, SCAG Sprint) run a
+  single hour/period once a week and are already correctly single-session —
+  verified no other generated entry shares a token with a curated one without
+  already being caught by the existing de-dup.
 - ⏳ **Mode handling.** `CATEGORY-MODE` is hard-coded `CW`; for mixed events either
   mark CW-only in-app or add SSB logging (larger — §4). ❓ Decision.
 

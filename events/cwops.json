@@ -10,6 +10,7 @@
     "sent_exchange_hint": "Your name + CWops # (or state/province/DX prefix)",
     "received_exchange_hint": "Name + CWops # (or state/province/DX prefix)",
     "dupe_scope": "call+band+session",
+    "cabrillo_contest": "CW-OPS",
     "rules_url": "https://cwops.org/cwops-tests/",
     "score_submission_url": "https://www.3830scores.com/",
     "sessions": [
