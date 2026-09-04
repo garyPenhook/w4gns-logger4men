@@ -44,13 +44,13 @@ the log, submitted contest results, or external services.
 - 🔧 **Audit and implement scoring per contest before presenting the catalog as
   correct.** Every one of the 429 event records now declares and is validated
   against an explicit `capability`: 9 intentionally generic templates are
-  `selection-only`, 415 are `entry-aware`, CWT is `cabrillo-ready`, and
-  `CW-OPEN`, `CQ-WW-CW`, `CQ-160-CW`, and `ARRL-DX-CW` are `scoring-ready`.
-  The Events screen shows this status, so an operator can tell an entry-only
-  template from a checked submission before export. The actual scoring audit
-  remains: every event except those four still has no `scoring` block and
-  must not be promoted until its rules are tested against authoritative
-  examples.
+  `selection-only`, 414 are `entry-aware`, CWT is `cabrillo-ready`, and
+  `CW-OPEN`, `CQ-WW-CW`, `CQ-160-CW`, `ARRL-DX-CW`, and `CQ-WPX-CW` are
+  `scoring-ready`. The Events screen shows this status, so an operator can
+  tell an entry-only template from a checked submission before export. The
+  actual scoring audit remains: every event except those five still has no
+  `scoring` block and must not be promoted until its rules are tested
+  against authoritative examples.
 
 - 🔧 **Zone autofill no longer infers rules from prose hints.** It requires an
   explicit `received_exchange_autofill` catalog value; ambiguous events such as
@@ -421,6 +421,43 @@ every panel *and* scoring so they always agree.
   added alongside the scoring block, promoting the event's `capability` to
   `scoring-ready`. Test: `events_test.go`
   (`TestLoadEventCatalogARRLDXCWHasRealScoringRules`).
+- ✅ **Real per-contest wiring: CQ WW WPX Contest, CW's actual scoring
+  rules**, the multiplier/points schema gap the CQ-160-CW and ARRL-DX-CW
+  entries above left open ("prefix mult + band-tiered points"). Sourced from
+  cqwpx.com/rules.htm (Rule V.B points, Rule V.C prefix multiplier):
+  - **New `prefix` multiplier kind** (`events.go` `validMultiplierKind`;
+    `contest_state.go` `prefixByBand`/`prefixAll`, extending
+    `multiplierCount`/`wouldBeNewMultiplier`) counted once per contest
+    regardless of band ("Each PREFIX is counted only once regardless of the
+    band ... it is worked"), unlike `dxcc`/`cqzone`/`ituzone` this counts
+    from the callsign directly rather than a cty.dat resolution, so it never
+    skips an unresolved call. `wpx.go` (`wpxPrefix`) implements Rule V.C's
+    "letter/numeral combination which forms the first part of the call":
+    portable-designator handling (a full alternate prefix after `/` replaces
+    the home prefix; a numeral-only designator like `/4` swaps in for the
+    home prefix's own numeral; non-qualifying suffixes `/P /M /MM /AM /A /E
+    /J /QRP` are ignored) and the rule's own no-numeral examples
+    (`PA/N8BJQ`→`PA0`, `XEFTJW`→`XE0`) — a practical implementation, not
+    exhaustive for exotic call formats, the same class of documented
+    approximation as `dxccTable.lookup`.
+  - **Band-tiered `pointsRule`** (`events.go` `LowBandSameContinent`/
+    `LowBandOtherContinent`/`LowBandSameContinentOverrides`;
+    `contest_state.go` `pointsTotal` reading the QSO's own band via
+    `bandFromCallBandKey`, `wpxLowBand` for the 160/80/40M vs. 20/15/10M
+    split) expresses WPX's double points on 40/80/160M relative to
+    10/15/20M (1/1/3 same-country/same-continent/other-continent, doubled to
+    1/2/6), including a North America same-continent exception (2 points
+    high band, 4 low) distinct from the flat override. Zero (unset) falls
+    back to the base field so CQ WW/CQ 160's existing non-tiered configs
+    needed no changes.
+  - Curated `CQ-WPX-CW` (`events/contestcalendar.json`) now carries the real
+    `scoring` block plus `adif_contest_id: CQ-WPX-CW` (ADIF Contest ID
+    Enumeration) and `cabrillo_layout: cw_rst_exchange` (RST + serial number
+    on both sides), promoting `capability` to `scoring-ready`. Tests:
+    `wpx_test.go` (`TestWPXPrefix`), `contest_state_test.go`
+    (`TestContestStateScorePrefixMultiplierCountsOncePerContest`,
+    `TestContestStateScorePointsRuleWPXBandTiering`), `events_test.go`
+    (`TestLoadEventCatalogCQWPXHasRealScoringRules`).
 - ✅ **CSV export** (`Ctrl+R`). `csv_export.go` (`exportCSV`, `writeCSVAtomic`,
   `csvField`/`csvRow` — RFC 4180 quoting, CRLF rows) streams the active
   contest's QSOs (same `contest_id` scoping as Cabrillo/ADIF export) to

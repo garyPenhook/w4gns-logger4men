@@ -56,6 +56,12 @@ type contestState struct {
 	cqZoneAll     map[int]struct{}
 	ituZoneByBand map[string]map[int]struct{}
 	ituZoneAll    map[int]struct{}
+	// prefixByBand/prefixAll mirror dxccByBand/dxccAll for the CQ WPX-style
+	// "prefix" multiplier (wpx.go's wpxPrefix), keyed by the derived prefix
+	// string instead of a cty.dat-resolved number — WPX awards this
+	// regardless of whether the callsign resolves to a known DXCC entity.
+	prefixByBand map[string]map[string]struct{}
+	prefixAll    map[string]struct{}
 	// stationDXCCNumber/stationContinent identify the operator's own station
 	// (resolved from its callsign via cty.dat), the input a continent/country-
 	// tiered points rule (pointsRule) needs to classify each worked QSO as
@@ -108,6 +114,8 @@ func newContestState() *contestState {
 		cqZoneAll:              make(map[int]struct{}),
 		ituZoneByBand:          make(map[string]map[int]struct{}),
 		ituZoneAll:             make(map[int]struct{}),
+		prefixByBand:           make(map[string]map[string]struct{}),
+		prefixAll:              make(map[string]struct{}),
 		pointCategory:          make(map[string]qsoPointCategory),
 		pointCategoryContinent: make(map[string]string),
 	}
@@ -151,6 +159,9 @@ func (c *contestState) record(q qso) {
 	}
 	if !q.time.IsZero() {
 		c.times = append(c.times, q.time)
+	}
+	if !q.unscored {
+		recordMultiplierStringValue(c.prefixByBand, c.prefixAll, band, wpxPrefix(call))
 	}
 	if table, err := sharedDXCCTable(); err == nil {
 		if entity, found := table.lookup(call); found {
@@ -210,6 +221,20 @@ func recordMultiplierValue(byBand map[string]map[int]struct{}, all map[int]struc
 	}
 	if byBand[band] == nil {
 		byBand[band] = make(map[int]struct{})
+	}
+	byBand[band][value] = struct{}{}
+	all[value] = struct{}{}
+}
+
+// recordMultiplierStringValue is recordMultiplierValue's counterpart for a
+// string-valued multiplier (the WPX prefix), which — unlike DXCC/zone
+// numbers — has no "unresolved" zero value to skip.
+func recordMultiplierStringValue(byBand map[string]map[string]struct{}, all map[string]struct{}, band, value string) {
+	if value == "" {
+		return
+	}
+	if byBand[band] == nil {
+		byBand[band] = make(map[string]struct{})
 	}
 	byBand[band][value] = struct{}{}
 	all[value] = struct{}{}
@@ -311,20 +336,53 @@ func (c *contestState) score(rules *scoringRules) contestScore {
 func (c *contestState) pointsTotal(rule *pointsRule) int {
 	total := 0
 	for key := range c.scoredCallBand {
+		lowBand := wpxLowBand(bandFromCallBandKey(key))
 		switch c.pointCategory[key] {
 		case pointCategorySameCountry:
 			total += rule.SameCountry
 		case pointCategorySameContinent:
-			if override, ok := rule.SameContinentOverrides[c.pointCategoryContinent[key]]; ok {
-				total += override
-			} else {
-				total += rule.SameContinent
+			value := rule.SameContinent
+			if lowBand && rule.LowBandSameContinent != 0 {
+				value = rule.LowBandSameContinent
 			}
+			overrides := rule.SameContinentOverrides
+			if lowBand && len(rule.LowBandSameContinentOverrides) > 0 {
+				overrides = rule.LowBandSameContinentOverrides
+			}
+			if override, ok := overrides[c.pointCategoryContinent[key]]; ok {
+				value = override
+			}
+			total += value
 		case pointCategoryOtherContinent:
-			total += rule.OtherContinent
+			value := rule.OtherContinent
+			if lowBand && rule.LowBandOtherContinent != 0 {
+				value = rule.LowBandOtherContinent
+			}
+			total += value
 		}
 	}
 	return total
+}
+
+// bandFromCallBandKey extracts the band half of a "CALL|BAND" key
+// (scoredCallBand/pointCategory's key shape, built in record()).
+func bandFromCallBandKey(key string) string {
+	if idx := strings.LastIndex(key, "|"); idx >= 0 {
+		return key[idx+1:]
+	}
+	return ""
+}
+
+// wpxLowBand reports whether band is one of CQ WPX's double-points "low
+// bands" (160M/80M/40M, i.e. 1.8/3.5/7 MHz) as opposed to the 28/21/14 MHz
+// high bands — Rule V.B's band-tiered QSO points.
+func wpxLowBand(band string) bool {
+	switch strings.ToUpper(strings.TrimSpace(band)) {
+	case "160M", "80M", "40M":
+		return true
+	default:
+		return false
+	}
 }
 
 // multiplierCount returns how many multipliers rule contributes: the size of
@@ -332,6 +390,16 @@ func (c *contestState) pointsTotal(rule *pointsRule) int {
 // per-band set sizes for Per: "band" (the same DXCC entity/zone counts again
 // on each band it's worked, matching CQ WW-style scoring).
 func (c *contestState) multiplierCount(rule multiplierRule) int {
+	if strings.TrimSpace(rule.Kind) == "prefix" {
+		if strings.TrimSpace(rule.Per) == "band" {
+			total := 0
+			for _, set := range c.prefixByBand {
+				total += len(set)
+			}
+			return total
+		}
+		return len(c.prefixAll)
+	}
 	var byBand map[string]map[int]struct{}
 	var all map[int]struct{}
 	switch strings.TrimSpace(rule.Kind) {
@@ -371,6 +439,22 @@ func (c *contestState) wouldBeNewMultiplier(rules *scoringRules, call, band stri
 		switch strings.TrimSpace(rule.Kind) {
 		case "unique_call":
 			if _, worked := c.scoredUniqueCalls[call]; worked {
+				workedBefore = true
+			} else {
+				newMult = true
+			}
+		case "prefix":
+			prefix := wpxPrefix(call)
+			if prefix == "" {
+				continue
+			}
+			var already bool
+			if strings.TrimSpace(rule.Per) == "band" {
+				_, already = c.prefixByBand[band][prefix]
+			} else {
+				_, already = c.prefixAll[prefix]
+			}
+			if already {
 				workedBefore = true
 			} else {
 				newMult = true

@@ -58,7 +58,7 @@
   },
   {
     "id": "CQ-WPX-CW",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "CQ WW WPX Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -74,9 +74,32 @@
     "sent_serial": true,
     "sent_exchange_hint": "RST + Serial No.",
     "received_exchange_hint": "RST + Serial No.",
+    "adif_contest_id": "CQ-WPX-CW",
+    "cabrillo_layout": "cw_rst_exchange",
     "dupe_scope": "call+band",
     "rules_url": "https://www.cqwpx.com/rules.htm",
     "score_submission_url": "",
+    "scoring": {
+      "points": {
+        "same_country": 1,
+        "same_continent": 1,
+        "other_continent": 3,
+        "same_continent_overrides": {
+          "NA": 2
+        },
+        "low_band_same_continent": 2,
+        "low_band_other_continent": 6,
+        "low_band_same_continent_overrides": {
+          "NA": 4
+        }
+      },
+      "multipliers": [
+        {
+          "kind": "prefix",
+          "per": "contest"
+        }
+      ]
+    },
     "sessions": [
       {
         "id": "0000ZMay29",

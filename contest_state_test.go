@@ -381,6 +381,59 @@ func TestContestStateScorePointsRuleTakesPrecedenceOverPointsPerQSO(t *testing.T
 	}
 }
 
+// TestContestStateScorePrefixMultiplierCountsOncePerContest exercises the CQ
+// WPX-style "prefix" multiplier kind: the same WPX prefix worked on two
+// different bands still counts once (Per: "contest", Rule V.C — "Each PREFIX
+// is counted only once regardless of the band"), while a genuinely distinct
+// prefix adds another.
+func TestContestStateScorePrefixMultiplierCountsOncePerContest(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "W1AW", band: "20M"})  // prefix W1
+	state.record(qso{call: "W1XYZ", band: "40M"}) // prefix W1 again, different band
+	state.record(qso{call: "K5ABC", band: "20M"}) // prefix K5, new
+
+	rules := &scoringRules{
+		PointsPerQSO: 1,
+		Multipliers:  []multiplierRule{{Kind: "prefix", Per: "contest"}},
+	}
+	score := state.score(rules)
+	if score.multipliers != 2 {
+		t.Fatalf("multipliers = %d, want 2 (W1 once + K5)", score.multipliers)
+	}
+}
+
+// TestContestStateScorePointsRuleWPXBandTiering exercises CQ WPX's
+// band-tiered points (Rule V.B): high bands (10/15/20M) use the base
+// same-continent/other-continent values, low bands (40/80/160M) double them,
+// and North America's same-continent exception applies its own low-band
+// value rather than doubling the base override.
+func TestContestStateScorePointsRuleWPXBandTiering(t *testing.T) {
+	state := newContestState()
+	state.setStation("W1AW")                       // USA, NA
+	state.record(qso{call: "VE3ABC", band: "20M"}) // NA same-continent, high band
+	state.record(qso{call: "VE3ABC", band: "40M"}) // NA same-continent, low band
+	state.record(qso{call: "JA1ABC", band: "20M"}) // other continent, high band
+	state.record(qso{call: "JA1ABC", band: "80M"}) // other continent, low band
+
+	rules := &scoringRules{
+		Points: &pointsRule{
+			SameContinent:                 1,
+			OtherContinent:                3,
+			SameContinentOverrides:        map[string]int{"NA": 2},
+			LowBandSameContinent:          2,
+			LowBandOtherContinent:         6,
+			LowBandSameContinentOverrides: map[string]int{"NA": 4},
+		},
+	}
+	score := state.score(rules)
+	// VE3ABC/20M: NA override high = 2. VE3ABC/40M: NA override low = 4.
+	// JA1ABC/20M: other-continent high = 3. JA1ABC/80M: other-continent low = 6.
+	want := 2 + 4 + 3 + 6
+	if score.qsoPoints != want {
+		t.Fatalf("qsoPoints = %d, want %d", score.qsoPoints, want)
+	}
+}
+
 // TestContestStateWouldBeNewMultiplier exercises the advance multiplier flag
 // (roadmap Appendix B.5) for a rule set combining unique_call-independent
 // dxcc/cqzone kinds: a callsign from an already-worked country on the same

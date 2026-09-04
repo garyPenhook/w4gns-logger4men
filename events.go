@@ -190,6 +190,16 @@ type pointsRule struct {
 	// in different countries within the North American boundaries count two
 	// (2) points" — cqww.com/rules.htm).
 	SameContinentOverrides map[string]int `json:"same_continent_overrides,omitempty"`
+	// LowBandSameContinent/LowBandOtherContinent/LowBandSameContinentOverrides
+	// apply instead of the corresponding non-low-band field when the QSO's
+	// band is one of the WPX-defined "low bands" (160M/80M/40M) — CQ WPX
+	// awards double points on those bands relative to 20M/15M/10M (e.g. 1/2
+	// same-continent, 3/6 other-continent). Zero (unset) falls back to the
+	// base field, so a contest without band-tiered points (CQ WW, CQ 160)
+	// doesn't need to repeat every value.
+	LowBandSameContinent          int            `json:"low_band_same_continent,omitempty"`
+	LowBandOtherContinent         int            `json:"low_band_other_continent,omitempty"`
+	LowBandSameContinentOverrides map[string]int `json:"low_band_same_continent_overrides,omitempty"`
 }
 
 // multiplierRule is one entry in scoringRules.Multipliers: what to count
@@ -206,7 +216,7 @@ type multiplierRule struct {
 // loudly at startup instead of silently scoring zero multipliers.
 func validMultiplierKind(kind string) bool {
 	switch strings.TrimSpace(kind) {
-	case "unique_call", "dxcc", "cqzone", "ituzone":
+	case "unique_call", "dxcc", "cqzone", "ituzone", "prefix":
 		return true
 	default:
 		return false
@@ -451,7 +461,8 @@ func loadEventCatalog() ([]eventDefinition, error) {
 					return nil, fmt.Errorf("event %q has unsupported scoring multiplier %q", event.ID, event.Scoring.Multiplier)
 				}
 				if p := event.Scoring.Points; p != nil {
-					if p.SameCountry < 0 || p.SameContinent < 0 || p.OtherContinent < 0 {
+					if p.SameCountry < 0 || p.SameContinent < 0 || p.OtherContinent < 0 ||
+						p.LowBandSameContinent < 0 || p.LowBandOtherContinent < 0 {
 						return nil, fmt.Errorf("event %q has a negative points value", event.ID)
 					}
 					for continent, value := range p.SameContinentOverrides {
@@ -460,6 +471,14 @@ func loadEventCatalog() ([]eventDefinition, error) {
 						}
 						if value < 0 {
 							return nil, fmt.Errorf("event %q has a negative same_continent_overrides value for %q", event.ID, continent)
+						}
+					}
+					for continent, value := range p.LowBandSameContinentOverrides {
+						if !validContinentCode(continent) {
+							return nil, fmt.Errorf("event %q has a low_band_same_continent_overrides entry for unsupported continent %q", event.ID, continent)
+						}
+						if value < 0 {
+							return nil, fmt.Errorf("event %q has a negative low_band_same_continent_overrides value for %q", event.ID, continent)
 						}
 					}
 				}

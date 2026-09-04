@@ -290,6 +290,47 @@ func TestLoadEventCatalogARRLDXCWHasRealScoringRules(t *testing.T) {
 	}
 }
 
+// TestLoadEventCatalogCQWPXHasRealScoringRules guards the curated CQ-WPX-CW
+// entry's actual scoring config, sourced from cqwpx.com/rules.htm rather than
+// guessed: band-tiered QSO points (1/1/3 same-country/same-continent/other-
+// continent on 10-20M, doubled to 1/2/6 on 40/80/160M, with a North America
+// same-continent exception of 2/4) and a "prefix" multiplier counted once per
+// contest (Rule V.C: "Each PREFIX is counted only once regardless of the band
+// ... it is worked").
+func TestLoadEventCatalogCQWPXHasRealScoringRules(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	wpx := events[eventIndex(t, events, "CQ-WPX-CW")]
+	if wpx.Scoring == nil {
+		t.Fatal("CQ-WPX-CW must have a Scoring rule")
+	}
+	points := wpx.Scoring.Points
+	if points == nil {
+		t.Fatal("CQ-WPX-CW must use the Points rule (band-tiered), not a flat PointsPerQSO")
+	}
+	if points.SameCountry != 1 || points.SameContinent != 1 || points.OtherContinent != 3 {
+		t.Fatalf("CQ-WPX-CW high-band points = %+v, want same_country=1 same_continent=1 other_continent=3", points)
+	}
+	if points.LowBandSameContinent != 2 || points.LowBandOtherContinent != 6 {
+		t.Fatalf("CQ-WPX-CW low-band points = %+v, want low_band_same_continent=2 low_band_other_continent=6", points)
+	}
+	if points.SameContinentOverrides["NA"] != 2 || points.LowBandSameContinentOverrides["NA"] != 4 {
+		t.Fatalf("CQ-WPX-CW NA overrides = high:%d low:%d, want high:2 low:4", points.SameContinentOverrides["NA"], points.LowBandSameContinentOverrides["NA"])
+	}
+	mults := wpx.Scoring.effectiveMultipliers()
+	if len(mults) != 1 || mults[0].Kind != "prefix" || mults[0].Per != "contest" {
+		t.Fatalf("CQ-WPX-CW multipliers = %+v, want [{prefix contest}]", mults)
+	}
+	if wpx.ADIFContestID != "CQ-WPX-CW" {
+		t.Fatalf("CQ-WPX-CW adif_contest_id = %q, want CQ-WPX-CW", wpx.ADIFContestID)
+	}
+	if !wpx.cabrilloReady() {
+		t.Fatal("CQ-WPX-CW must have a checked Cabrillo layout")
+	}
+}
+
 // TestSDContestCatalogLoadsWithDistinctSideVariants guards the imported SD
 // template catalog: the many contests load alongside the curated events with
 // unique IDs, and side-variant entries that submit under one Cabrillo contest
