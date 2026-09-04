@@ -51,6 +51,7 @@ Your log is stored locally. If a `w4gns.db` already exists in the directory you 
 | `F9` | Browse/edit/delete Recent QSOs (see [Browse, edit, and delete QSOs](#browse-edit-and-delete-qsos)) |
 | `Ctrl+O` | Export the full log as ADIF to your Downloads folder (see [Export ADIF](#export-adif)) |
 | `Ctrl+X` | Export a Cabrillo submission for the loaded contest (see [Cabrillo export](#cabrillo-export)) |
+| `Ctrl+R` | Export a CSV listing of the loaded contest's QSOs (see [CSV export](#csv-export)) |
 | `Tab` / `Shift+Tab` | Move between entry fields |
 | `Enter` | Move to the next field; save a QSO from the final field |
 | `Esc` | Quit from QSO Entry (or cancel an in-progress QSO edit instead, if one is active); cancel Station Setup; return to QSO Entry from DX Cluster, QSO Details, Events & Contests, and ADIF Import; return to DX Cluster from Cluster Filters |
@@ -95,13 +96,14 @@ Press `F6` for optional QSO details: operator name, QTH, grid square, state or p
 TNQP is configured for an out-of-state operator. Its received-exchange field offers Tennessee county codes as you type; use `Up`/`Down` and `Enter` to insert the official four-letter county abbreviation.
 
 <details>
-<summary>Full list of 190 built-in event/contest definitions (click to expand)</summary>
+<summary>Full list of 191 built-in event/contest definitions (click to expand)</summary>
 
-Selected directly with `F7`; grouped by region below. CWops (CWT, CW Open) and the Tennessee QSO Party ship as hand-curated definitions with typeahead exchange support; the rest come from `events/contestcalendar.json`, sourced from the [WA7BNM Contest Calendar](https://www.contestcalendar.com/) and its per-contest detail pages.
+Selected directly with `F7`; grouped by region below. CWops (CWT, CW Open), the K1USN Slow Speed Test, and the Tennessee QSO Party ship as hand-curated definitions with typeahead exchange support; the rest come from `events/contestcalendar.json`, sourced from the [WA7BNM Contest Calendar](https://www.contestcalendar.com/) and its per-contest detail pages. (A separate, larger catalog of 271 contests imported from SD's templates — `events/sd_contests.json` — is also selectable from `F7` but not enumerated here by name; see `docs/ROADMAP.md`.)
 
-**CWops / hand-curated:**
+**CWops / K1USN / hand-curated:**
 - CWops Test (CWT)
 - CW Open
+- K1USN Slow Speed Test (SST)
 - Tennessee QSO Party
 
 **Major & club contests (worldwide/US) (44):**
@@ -387,9 +389,19 @@ When you're done operating a contest, press `Ctrl+X` from any screen to write a 
 - Only QSOs tagged with the currently loaded contest ID are included — other contests and casual (non-contest) QSOs in the same log are left out.
 - The header's `CONTEST:` line is the catalog event's own ID; most match the sponsor's expected Cabrillo contest name, but check yours against the sponsor's rules before uploading, since Cabrillo's `CONTEST:` vocabulary is defined per sponsor.
 - `CATEGORY-OPERATOR`, `CATEGORY-ASSISTED`, and `CATEGORY-POWER` come from the Station Setup (`F2`) fields of the same name, defaulting to `SINGLE-OP`, `NON-ASSISTED`, and `LOW` respectively if left blank. `CATEGORY-BAND` is `ALL` unless the selected event covers only a single band. `CATEGORY-MODE` is always `CW`.
-- `CLAIMED-SCORE` is always written as `0` — contest robots recompute the real score from the QSO lines themselves.
+- `CLAIMED-SCORE` is computed from the exported QSOs for events with a `scoring` rule configured (currently the CWops events); other events keep the informational `0`. Either way, contest robots recompute the authoritative score from the QSO lines themselves.
 - `CLUB`, `NAME`, and `ADDRESS` come from the matching Station Setup fields.
 - The status bar reports `Cabrillo exported: <N> QSOs -> <path>` on success or `Cabrillo export failed: ...` on failure. Exporting runs asynchronously and never blocks QSO entry; pressing `Ctrl+X` again while one is already running is ignored.
+
+## CSV export
+
+Press `Ctrl+R` from any screen to write a plain CSV listing of whatever contest is currently loaded on the Contest Entry field (select one from Events & Contests (`F7`) first — `Ctrl+R` reports "no contest loaded" otherwise).
+
+- The file is written to your Downloads folder (`~/Downloads`, created if missing) as `<CALLSIGN>_<CONTEST>.csv`, e.g. `W4GNS_CQ-WPX-CW-0000ZMay29.csv`. Running it again for the same contest overwrites that file.
+- Only QSOs tagged with the currently loaded contest ID are included, same scoping as Cabrillo/ADIF export.
+- Columns: Date, Time, Call, Band, Mode, Freq(MHz), RST Sent, Sent Exch, RST Rcvd, Rcvd Exch — one row per QSO, in chronological order. There's no per-row score column; it's a QSO listing, not a scored one — see `CLAIMED-SCORE` in the Cabrillo export above for the computed score.
+- Fields are quoted per RFC 4180 only when they contain a comma or quote; rows are CRLF-terminated.
+- The status bar reports `CSV exported: <N> QSOs -> <path>` on success or `CSV export failed: ...` on failure. Exporting runs asynchronously and never blocks QSO entry; pressing `Ctrl+R` again while one is already running is ignored.
 
 ## QRZ Logbook upload
 

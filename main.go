@@ -244,6 +244,7 @@ type model struct {
 	backupInProgress         bool
 	cabrilloExportInProgress bool
 	adifExportInProgress     bool
+	csvExportInProgress      bool
 	// importInProgress guards against launching a second ADIF import while
 	// one is still running (repeated Enter on the Import screen), which would
 	// otherwise start concurrent jobs racing on the same database.
@@ -787,6 +788,58 @@ func (m model) cabrilloExportCmd(contestID string) tea.Cmd {
 			return cabrilloExportedMsg{err: err}
 		}
 		return cabrilloExportedMsg{path: path, count: count, score: score}
+	}
+}
+
+type csvExportedMsg struct {
+	path  string
+	count int
+	err   error
+}
+
+// csvExportCmd writes a CSV listing for the currently active contest
+// (whatever's entered in the Contest Entry (F7) screen's Contest field) to
+// the operator's Downloads folder, mirroring cabrilloExportCmd's shape and
+// snapshotting-by-value the same way.
+func (m model) csvExportCmd(contestID string) tea.Cmd {
+	st := m.store
+	profile := m.activeStation
+	_, ok := m.eventForContestID()
+	wg := m.bgTasks
+	bgCtx := m.bgCtx
+	if bgCtx == nil {
+		bgCtx = context.Background()
+	}
+	if wg != nil {
+		wg.Add(1)
+	}
+	return func() tea.Msg {
+		if wg != nil {
+			defer wg.Done()
+		}
+		if !ok {
+			return csvExportedMsg{err: fmt.Errorf("no matching event/contest found for %q — select one on the Events (F7) screen first", contestID)}
+		}
+		downloads, err := defaultDownloadsDir()
+		if err != nil {
+			return csvExportedMsg{err: err}
+		}
+		if err := os.MkdirAll(downloads, 0o700); err != nil {
+			return csvExportedMsg{err: fmt.Errorf("create Downloads folder: %w", err)}
+		}
+		callsign := profile.Callsign
+		if callsign == "" {
+			callsign = "LOG"
+		}
+		filename := fmt.Sprintf("%s_%s.csv", sanitizeFilenameComponent(callsign), sanitizeFilenameComponent(contestID))
+		path := filepath.Join(downloads, filename)
+		ctx, cancel := context.WithTimeout(bgCtx, backupTimeout)
+		defer cancel()
+		count, err := writeCSVAtomic(ctx, downloads, path, profile, contestID, st)
+		if err != nil {
+			return csvExportedMsg{err: err}
+		}
+		return csvExportedMsg{path: path, count: count}
 	}
 }
 
@@ -2074,6 +2127,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	if message, ok := msg.(csvExportedMsg); ok {
+		m.csvExportInProgress = false
+		if message.err != nil {
+			m.statusMsg = fmt.Sprintf("CSV export failed: %v", message.err)
+		} else {
+			m.statusMsg = fmt.Sprintf("CSV exported: %d QSOs -> %s", message.count, message.path)
+		}
+		return m, nil
+	}
 	if message, ok := msg.(backupCompletedMsg); ok {
 		m.backupInProgress = false
 		if message.err != nil {
@@ -2191,6 +2253,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.adifExportInProgress = true
 		m.statusMsg = "exporting ADIF…"
 		return m, m.adifExportCmd()
+	}
+	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "ctrl+r" {
+		if m.csvExportInProgress {
+			m.statusMsg = "CSV export already in progress…"
+			return m, nil
+		}
+		contestID := strings.TrimSpace(m.contestFields[contestName].Value())
+		if contestID == "" {
+			m.statusMsg = "no contest loaded — set Contest on the Events (F7) screen first"
+			return m, nil
+		}
+		m.csvExportInProgress = true
+		m.statusMsg = "exporting CSV…"
+		return m, m.csvExportCmd(contestID)
 	}
 	if m.screen == stationSetupScreen {
 		return m.updateStationSetup(msg)
@@ -3161,7 +3237,7 @@ func screenHotkeys(current screen) string {
 		escape = "Esc: QSO Entry"
 	}
 	line1 := "W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF"
-	line2 := "F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo  •  Ctrl+W: Worked/Needed  •  " + escape
+	line2 := "F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo  •  Ctrl+R: Export CSV  •  Ctrl+W: Worked/Needed  •  " + escape
 	return hotkeyStyle.Render(line1) + "\n" + hotkeyStyle.Render(line2)
 }
 

@@ -232,6 +232,51 @@ func TestEventCatalogSelectsCWOpenDefaults(t *testing.T) {
 	}
 }
 
+// TestLoadEventCatalogPrefersCuratedSSTOverGeneratedDuplicate mirrors
+// TestLoadEventCatalogPrefersCuratedOverGeneratedDuplicate for K1USN-SST
+// (events/k1usn.json): the SD-generated SD-SST entry collapses both weekly
+// slots into one synthetic "ALL" session, while the curated entry carries the
+// real Friday/Monday session schedule, so the curated copy must win.
+func TestLoadEventCatalogPrefersCuratedSSTOverGeneratedDuplicate(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	for _, event := range events {
+		if event.ID == "SD-SST" {
+			t.Fatal("SD-generated SST duplicate should be dropped in favor of the curated K1USN-SST event")
+		}
+	}
+	sst := events[eventIndex(t, events, "K1USN-SST")]
+	if len(sst.Sessions) != 2 {
+		t.Fatalf("K1USN-SST session count = %d, want 2", len(sst.Sessions))
+	}
+	if sst.DupeScope != "call+band+session" {
+		t.Fatalf("K1USN-SST dupe_scope = %q, want call+band+session", sst.DupeScope)
+	}
+}
+
+func TestEventCatalogCyclesSSTSessions(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	m := initialModel(st)
+	m.openEventCatalog()
+	m.eventFocus = eventIndex(t, m.events, "K1USN-SST")
+	updated, _ := m.updateEventCatalog(tea.KeyMsg{Type: tea.KeyRight})
+	m = updated.(model)
+	if m.eventSessionFocus != 1 {
+		t.Fatalf("K1USN-SST session focus = %d, want 1", m.eventSessionFocus)
+	}
+	updated, _ = m.updateEventCatalog(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
+	if m.contestFields[contestName].Value() != "K1USN-SST-MON" {
+		t.Fatalf("contest ID = %q", m.contestFields[contestName].Value())
+	}
+}
+
 func TestEventCatalogCyclesCWTSessions(t *testing.T) {
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {

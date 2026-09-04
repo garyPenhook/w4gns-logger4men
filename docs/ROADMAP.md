@@ -73,8 +73,20 @@ Make the 271 imported contests *correct*, not just selectable.
   curated entry (e.g. `ARRL-DX-CW`'s SD home/DX split vs one generic curated
   entry) is left alone: that's added fidelity, not a duplicate. `events.go`
   (`eventDefinition.cabrilloToken`, `generatedEventCatalogFile`).
-- ⏳ **Real sessions/schedules** for multi-session contests needing per-session
-  dupe scope and per-session Cabrillo files. Start with the ones people run.
+- 🔧 **Real sessions/schedules** for multi-session contests needing per-session
+  dupe scope and per-session Cabrillo files. The plumbing (schema, `dupe_scope`,
+  per-session Cabrillo export) already exists generically — the gap is real
+  per-contest session data replacing the SD catalog's synthetic single "ALL"
+  session. Most major DX contests (ARRL DX, CQ WW, IARU HF) run one continuous
+  block and don't need this; the real candidates are weekly sprints with
+  genuinely distinct time slots, matching the existing `CWT`/`CW-OPEN` pattern
+  in `events/cwops.json`. ✅ **K1USN Slow Speed Test (SST)** added as
+  `events/k1usn.json` (`K1USN-SST`, 2 real sessions: Fri 2000-2100 UTC / Mon
+  0000-0100 UTC, `dupe_scope: call+band+session`) — de-dups the generated
+  `SD-SST` entry via the existing `cabrillo_contest: SLOW-SPEED-TEST` token
+  match. Other weekly sprints in the catalog (AP/SA/NA Sprint, RSGB sprints,
+  Russian Mini-Test 40/80, SCAG Sprint) run a single hour/period once a week
+  and are already correctly single-session — no change needed there.
 - ⏳ **Mode handling.** `CATEGORY-MODE` is hard-coded `CW`; for mixed events either
   mark CW-only in-app or add SSB logging (larger — §4). ❓ Decision.
 
@@ -164,8 +176,22 @@ every panel *and* scoring so they always agree.
 - ⏳ `/Z` (mark old for delete), `/X` (logged-but-unscored), `ZAP`, `SETDUPE`.
 - ⏳ Area-mult `.mlt` tables + data-driven **multiplier/points schema** in `events.go`
   (`MULTSCOUNT`, `MULTSBOTH`, `POINTSAREA`, `MAXBAND/MINBAND`, `TIMES`, …).
-- ⏳ SDCHECK parity: **CSV export**, per-session Cabrillo filenames (`CALL1.log`),
-  **POST** (after-contest) entry mode.
+- ✅ **CSV export** (`Ctrl+R`). `csv_export.go` (`exportCSV`, `writeCSVAtomic`,
+  `csvField`/`csvRow` — RFC 4180 quoting, CRLF rows) streams the active
+  contest's QSOs (same `contest_id` scoping as Cabrillo/ADIF export) to
+  `{CALL}_{contestID}.csv` in Downloads; wired in `main.go`
+  (`csvExportCmd`, `csvExportedMsg`, `model.csvExportInProgress`) with the
+  same atomic-write-then-rename and `bgTasks` shutdown-drain shape as
+  `cabrilloExportCmd`/`adifExportCmd`. Deliberately a plain QSO listing (no
+  per-row points) — a correct per-row score needs the same dupe/once-per-band
+  logic `contestState.score()` applies for `CLAIMED-SCORE`, which the
+  Cabrillo header already surfaces. **Per-session Cabrillo filenames** were
+  already effectively done: the export filename embeds the literal
+  `contest_id` (`main.go` `cabrilloExportCmd`), which is session-granular
+  (e.g. `K1USN-SST-MON`) whenever the operator selects a session-specific
+  contest ID from the Events (F7) screen — no `CALL1.log`-style renaming
+  needed since the existing naming already disambiguates by session.
+- ⏳ SDCHECK parity: **POST** (after-contest) entry mode.
 - ⏳ In-app **HELP** for the new commands.
 
 ## 4. Later / hardware-bound / niche
@@ -353,7 +379,7 @@ DXpedition/special-event templates — **Core** (data-driven)
 **Files/config/output**
 - Text log (`.ALL`), audit/backup (`.AUD`), power-loss safe — **Have** (SQLite +
   atomic writes + backup); document equivalence
-- SDCHECK: **Cabrillo `.LOG`**, **ADIF**, **CSV** — **Have** (Cab/ADIF) / **Core** (CSV, per-session names)
+- SDCHECK: **Cabrillo `.LOG`**, **ADIF**, **CSV** — **Have** (Cab/ADIF/CSV, per-session names)
 - Update CTY files — **Later**
 - `.TPL` templates / 290+ contests — **Have** pattern (`events/*.json`); grow — **Core/ongoing**
 - SD.INI prefs (colors, units, autofill, beep, ESM) — **Core** (map to prefs)
