@@ -116,6 +116,47 @@ func TestLoadEventCatalogIncludesCWopsDefinitions(t *testing.T) {
 	}
 }
 
+func TestEventCapabilityValidationAndCatalogStatus(t *testing.T) {
+	valid := []eventDefinition{
+		{ID: "SELECT", Capability: catalogCapabilitySelectionOnly},
+		{ID: "ENTRY", Capability: catalogCapabilityEntryAware, Bands: []string{"20M"}, RcvdExchangeHint: "RST + serial"},
+		{ID: "CAB", Capability: catalogCapabilityCabrilloReady, CabrilloLayout: "cw_rst_exchange"},
+		{ID: "SCORE", Capability: catalogCapabilityScoringReady, CabrilloLayout: "cw_rst_exchange", Scoring: &scoringRules{}},
+	}
+	for _, event := range valid {
+		if err := event.validateCapability(); err != nil {
+			t.Errorf("validateCapability(%q): %v", event.Capability, err)
+		}
+	}
+	for _, event := range []eventDefinition{
+		{ID: "MISSING", Capability: ""},
+		{ID: "BAD-ENTRY", Capability: catalogCapabilityEntryAware, Bands: []string{"20M"}, RcvdExchangeHint: "RST", CabrilloLayout: "cw_rst_exchange"},
+		{ID: "BAD-CAB", Capability: catalogCapabilityCabrilloReady},
+		{ID: "BAD-SCORE", Capability: catalogCapabilityScoringReady, CabrilloLayout: "cw_rst_exchange"},
+	} {
+		if err := event.validateCapability(); err == nil {
+			t.Errorf("validateCapability(%+v) succeeded, want error", event)
+		}
+	}
+
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	for _, tc := range []struct{ id, capability string }{
+		{"SD-GENERAL", catalogCapabilitySelectionOnly},
+		{"TNQP", catalogCapabilityEntryAware},
+		{"CWT", catalogCapabilityCabrilloReady},
+		{"CW-OPEN", catalogCapabilityScoringReady},
+		{"CQ-WW-CW", catalogCapabilityScoringReady},
+		{"CQ-160-CW", catalogCapabilityScoringReady},
+	} {
+		if got := events[eventIndex(t, events, tc.id)].Capability; got != tc.capability {
+			t.Errorf("%s capability = %q, want %q", tc.id, got, tc.capability)
+		}
+	}
+}
+
 // TestLoadEventCatalogCQWWHasRealScoringRules guards the curated CQ-WW-CW
 // entry's actual scoring config (roadmap §3 Phase 3 "real per-contest
 // wiring"), sourced from cqww.com/rules.htm rather than guessed: 0/1/3

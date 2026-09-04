@@ -1,6 +1,7 @@
 [
   {
     "id": "AGCW-QRP",
+    "capability": "entry-aware",
     "name": "AGCW QRP/QRP Party",
     "organizer": "",
     "kind": "annual contest",
@@ -28,6 +29,7 @@
   },
   {
     "id": "EA-MAJESTAD-CW",
+    "capability": "entry-aware",
     "name": "His Maj. King of Spain Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -56,6 +58,7 @@
   },
   {
     "id": "CQ-WPX-CW",
+    "capability": "entry-aware",
     "name": "CQ WW WPX Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -84,6 +87,7 @@
   },
   {
     "id": "QRP-ARCI-HOOTOWL-SPRINT",
+    "capability": "entry-aware",
     "name": "QRP ARCI Hootowl Sprint",
     "organizer": "",
     "kind": "annual contest",
@@ -112,6 +116,7 @@
   },
   {
     "id": "IARU-REGION-1-FIELD-DAY",
+    "capability": "entry-aware",
     "name": "IARU Region 1 Field Day, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -140,6 +145,7 @@
   },
   {
     "id": "WWSA",
+    "capability": "entry-aware",
     "name": "GACW WWSA CW DX Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -167,6 +173,7 @@
   },
   {
     "id": "AADX-CW",
+    "capability": "entry-aware",
     "name": "All Asian DX Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -195,6 +202,7 @@
   },
   {
     "id": "MMC-HF-CW",
+    "capability": "entry-aware",
     "name": "Marconi Memorial HF Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -223,6 +231,7 @@
   },
   {
     "id": "QRP-ARCI-SUMMER-HOMEBREW-SPRINT",
+    "capability": "entry-aware",
     "name": "QRP ARCI Summer Homebrew Sprint",
     "organizer": "",
     "kind": "annual contest",
@@ -251,6 +260,7 @@
   },
   {
     "id": "ARS-FLIGHT-OF-THE-BUMBLEBEES",
+    "capability": "entry-aware",
     "name": "ARS Flight of the Bumblebees",
     "organizer": "",
     "kind": "annual contest",
@@ -277,6 +287,7 @@
   },
   {
     "id": "DARC-WAEDC-CW",
+    "capability": "entry-aware",
     "name": "WAE DX Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -304,6 +315,7 @@
   },
   {
     "id": "KEYMAN-S-CLUB-OF-JAPAN-CONTEST",
+    "capability": "entry-aware",
     "name": "Keyman's Club of Japan Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -333,6 +345,7 @@
   },
   {
     "id": "SARL-HF-CW",
+    "capability": "entry-aware",
     "name": "SARL HF CW Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -358,6 +371,7 @@
   },
   {
     "id": "MI-QRP-LABOR-DAY-CW-SPRINT",
+    "capability": "entry-aware",
     "name": "MI QRP Labor Day CW Sprint",
     "organizer": "",
     "kind": "annual contest",
@@ -387,6 +401,7 @@
   },
   {
     "id": "AGCW-STRAIGHT-KEY-PARTY",
+    "capability": "entry-aware",
     "name": "AGCW Straight Key Party",
     "organizer": "",
     "kind": "annual contest",
@@ -415,6 +430,7 @@
   },
   {
     "id": "SAC-CW",
+    "capability": "entry-aware",
     "name": "Scandinavian Activity Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -442,6 +458,7 @@
   },
   {
     "id": "GERMAN-TELEGRAPHY-CONTEST",
+    "capability": "entry-aware",
     "name": "German Telegraphy Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -466,6 +483,7 @@
   },
   {
     "id": "OCEANIA-DX-CW",
+    "capability": "entry-aware",
     "name": "Oceania DX Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -494,6 +512,7 @@
   },
   {
     "id": "UBA-ON-CW",
+    "capability": "entry-aware",
     "name": "UBA ON Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -518,6 +537,7 @@
   },
   {
     "id": "AP-SPRINT",
+    "capability": "entry-aware",
     "name": "Asia-Pacific Fall Sprint, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -542,6 +562,7 @@
   },
   {
     "id": "QRP-ARCI-FALL-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "QRP ARCI Fall QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -570,6 +591,7 @@
   },
   {
     "id": "ARRL-SS-CW",
+    "capability": "entry-aware",
     "name": "ARRL Sweepstakes Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -598,6 +620,7 @@
   },
   {
     "id": "OK-OM-DX",
+    "capability": "entry-aware",
     "name": "OK/OM DX Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -626,6 +649,7 @@
   },
   {
     "id": "CQ-WW-CW",
+    "capability": "scoring-ready",
     "name": "CQ Worldwide DX Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -670,6 +694,7 @@
   },
   {
     "id": "QRP-ARCI-HOLIDAY-SPIRITS-SPRINT",
+    "capability": "entry-aware",
     "name": "QRP ARCI Holiday Spirits Sprint",
     "organizer": "",
     "kind": "annual contest",
@@ -698,6 +723,7 @@
   },
   {
     "id": "STEW-PERRY",
+    "capability": "entry-aware",
     "name": "Stew Perry Topband Challenge",
     "organizer": "",
     "kind": "annual contest",
@@ -721,6 +747,7 @@
   },
   {
     "id": "AGCW-HAPPY-NEW-YEAR-CONTEST",
+    "capability": "entry-aware",
     "name": "AGCW Happy New Year Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -746,6 +773,7 @@
   },
   {
     "id": "NAQP-CW",
+    "capability": "entry-aware",
     "name": "North American QSO Party, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -774,6 +802,7 @@
   },
   {
     "id": "EUCW-160M",
+    "capability": "entry-aware",
     "name": "EUCW 160m Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -797,6 +826,7 @@
   },
   {
     "id": "NRAU-CW",
+    "capability": "entry-aware",
     "name": "NRAU-Baltic Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -821,6 +851,7 @@
   },
   {
     "id": "CQ-160-CW",
+    "capability": "scoring-ready",
     "name": "CQ 160-Meter Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -858,6 +889,7 @@
   },
   {
     "id": "REF-CW",
+    "capability": "entry-aware",
     "name": "REF Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -885,6 +917,7 @@
   },
   {
     "id": "KCJ-TOPBAND",
+    "capability": "entry-aware",
     "name": "KCJ Topband Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -908,6 +941,7 @@
   },
   {
     "id": "ASIA-PACIFIC-SPRING-SPRINT",
+    "capability": "entry-aware",
     "name": "Asia-Pacific Spring Sprint, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -932,6 +966,7 @@
   },
   {
     "id": "NA-SPRINT-CW",
+    "capability": "entry-aware",
     "name": "North American Sprint, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -957,6 +992,7 @@
   },
   {
     "id": "AGCW-SEMI-AUTOMATIC-KEY-EVENING",
+    "capability": "entry-aware",
     "name": "AGCW Semi-Automatic Key Evening",
     "organizer": "",
     "kind": "annual contest",
@@ -981,6 +1017,7 @@
   },
   {
     "id": "ARRL-DX-CW",
+    "capability": "entry-aware",
     "name": "ARRL Inter. DX Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -1009,6 +1046,7 @@
   },
   {
     "id": "UBA-DX-CW",
+    "capability": "entry-aware",
     "name": "UBA DX Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -1036,6 +1074,7 @@
   },
   {
     "id": "HIGH-SPEED-CLUB-CW-CONTEST",
+    "capability": "entry-aware",
     "name": "High Speed Club CW Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -1063,6 +1102,7 @@
   },
   {
     "id": "PRO-CW-CONTEST",
+    "capability": "entry-aware",
     "name": "PRO CW Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -1090,6 +1130,7 @@
   },
   {
     "id": "ARS-SPARTAN-SPRINT",
+    "capability": "entry-aware",
     "name": "ARS Spartan Sprint",
     "organizer": "",
     "kind": "annual contest",
@@ -1117,6 +1158,7 @@
   },
   {
     "id": "AGCW-YL-CW-PARTY",
+    "capability": "entry-aware",
     "name": "AGCW YL-CW Party",
     "organizer": "",
     "kind": "annual contest",
@@ -1140,6 +1182,7 @@
   },
   {
     "id": "AGCW-QRP-CONTEST",
+    "capability": "entry-aware",
     "name": "AGCW QRP Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -1167,6 +1210,7 @@
   },
   {
     "id": "WAKE-UP-QRP-SPRINT",
+    "capability": "entry-aware",
     "name": "Wake-Up! QRP Sprint",
     "organizer": "",
     "kind": "annual contest",
@@ -1191,6 +1235,7 @@
   },
   {
     "id": "JIDX-CW",
+    "capability": "entry-aware",
     "name": "JIDX CW Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -1219,6 +1264,7 @@
   },
   {
     "id": "QRP-ARCI-SPRING-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "QRP ARCI Spring QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -1247,6 +1293,7 @@
   },
   {
     "id": "NAQCC-CW-SPRINT",
+    "capability": "entry-aware",
     "name": "NAQCC CW Sprint",
     "organizer": "",
     "kind": "annual contest",
@@ -1275,6 +1322,7 @@
   },
   {
     "id": "EA-QRP-CW-CONTEST",
+    "capability": "entry-aware",
     "name": "EA-QRP CW Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -1302,6 +1350,7 @@
   },
   {
     "id": "RUN-FOR-THE-BACON-QRP-CONTEST",
+    "capability": "entry-aware",
     "name": "Run for the Bacon QRP Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -1330,6 +1379,7 @@
   },
   {
     "id": "NCCC-SPRINT-CW",
+    "capability": "entry-aware",
     "name": "NCCC Sprint Ladder",
     "organizer": "",
     "kind": "annual contest",
@@ -1357,6 +1407,7 @@
   },
   {
     "id": "SKCC-SPRINT",
+    "capability": "entry-aware",
     "name": "SKCC Sprint",
     "organizer": "",
     "kind": "annual contest",
@@ -1386,6 +1437,7 @@
   },
   {
     "id": "SKCC-WEEKEND-SPRINTATHON",
+    "capability": "entry-aware",
     "name": "SKCC Weekend Sprintathon",
     "organizer": "",
     "kind": "annual contest",
@@ -1415,6 +1467,7 @@
   },
   {
     "id": "QRP-TO-THE-FIELD",
+    "capability": "entry-aware",
     "name": "QRP to the Field",
     "organizer": "",
     "kind": "annual contest",
@@ -1442,6 +1495,7 @@
   },
   {
     "id": "HA3NS-SPRINT",
+    "capability": "entry-aware",
     "name": "HA3NS Sprint Memorial Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -1466,6 +1520,7 @@
   },
   {
     "id": "RSGB-80M-AUT",
+    "capability": "entry-aware",
     "name": "RSGB 80m Autumn Series, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -1489,6 +1544,7 @@
   },
   {
     "id": "HOMEBREW-AND-OLDTIME-EQUIPMENT-P",
+    "capability": "entry-aware",
     "name": "Homebrew and Oldtime Equipment Party",
     "organizer": "",
     "kind": "annual contest",
@@ -1513,6 +1569,7 @@
   },
   {
     "id": "CLASSIC-EXCHANGE",
+    "capability": "entry-aware",
     "name": "Classic Exchange, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -1542,6 +1599,7 @@
   },
   {
     "id": "ARRL-RR-CW",
+    "capability": "entry-aware",
     "name": "ARRL Rookie Roundup, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -1569,6 +1627,7 @@
   },
   {
     "id": "AWA-BRUCE-KELLEY-1929-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "AWA Bruce Kelley 1929 QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -1595,6 +1654,7 @@
   },
   {
     "id": "HUNGARIAN-STRAIGHT-KEY-CONTEST",
+    "capability": "entry-aware",
     "name": "Hungarian Straight Key Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -1618,6 +1678,7 @@
   },
   {
     "id": "QRP-FOX-HUNT",
+    "capability": "entry-aware",
     "name": "QRP Fox Hunt",
     "organizer": "",
     "kind": "annual contest",
@@ -1641,6 +1702,7 @@
   },
   {
     "id": "CVA-DX-CW",
+    "capability": "entry-aware",
     "name": "CVA DX Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -1669,6 +1731,7 @@
   },
   {
     "id": "UKEI-DX",
+    "capability": "entry-aware",
     "name": "UK/EI DX Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -1696,6 +1759,7 @@
   },
   {
     "id": "NOVICE-RIG-ROUNDUP",
+    "capability": "entry-aware",
     "name": "Novice Rig Roundup",
     "organizer": "",
     "kind": "annual contest",
@@ -1722,6 +1786,7 @@
   },
   {
     "id": "SKCC-SPRINT-EUROPE",
+    "capability": "entry-aware",
     "name": "SKCC Sprint Europe",
     "organizer": "",
     "kind": "annual contest",
@@ -1751,6 +1816,7 @@
   },
   {
     "id": "ZOMBIE-SHUFFLE",
+    "capability": "entry-aware",
     "name": "Zombie Shuffle",
     "organizer": "",
     "kind": "annual contest",
@@ -1778,6 +1844,7 @@
   },
   {
     "id": "QCX-CHALLENGE",
+    "capability": "entry-aware",
     "name": "QCX Challenge",
     "organizer": "",
     "kind": "annual contest",
@@ -1806,6 +1873,7 @@
   },
   {
     "id": "K1USNSST",
+    "capability": "entry-aware",
     "name": "K1USN Slow Speed Test",
     "organizer": "",
     "kind": "annual contest",
@@ -1834,6 +1902,7 @@
   },
   {
     "id": "DIG-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "DIG QSO Party, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -1861,6 +1930,7 @@
   },
   {
     "id": "WALK-FOR-THE-BACON-QRP-CONTEST",
+    "capability": "entry-aware",
     "name": "Walk for the Bacon QRP Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -1889,6 +1959,7 @@
   },
   {
     "id": "MCD-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Marconi Club ARI Loano QSO Party Day",
     "organizer": "",
     "kind": "annual contest",
@@ -1914,6 +1985,7 @@
   },
   {
     "id": "MINITEST-40",
+    "capability": "entry-aware",
     "name": "Mini-Test 40",
     "organizer": "",
     "kind": "annual contest",
@@ -1937,6 +2009,7 @@
   },
   {
     "id": "MINITEST-80",
+    "capability": "entry-aware",
     "name": "Mini-Test 80",
     "organizer": "",
     "kind": "annual contest",
@@ -1960,6 +2033,7 @@
   },
   {
     "id": "A1CLUB-AWT",
+    "capability": "entry-aware",
     "name": "A1Club AWT",
     "organizer": "",
     "kind": "annual contest",
@@ -1988,6 +2062,7 @@
   },
   {
     "id": "ICWC-MST",
+    "capability": "entry-aware",
     "name": "ICWC Medium Speed Test",
     "organizer": "",
     "kind": "annual contest",
@@ -2016,6 +2091,7 @@
   },
   {
     "id": "K1USNSST-OPEN",
+    "capability": "entry-aware",
     "name": "K1USN SST Open",
     "organizer": "",
     "kind": "annual contest",
@@ -2044,6 +2120,7 @@
   },
   {
     "id": "SLOW-CW-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Marconi Club ARI Loano Slow CW QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2069,6 +2146,7 @@
   },
   {
     "id": "DARC-CWA",
+    "capability": "entry-aware",
     "name": "DARC CW-Training Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -2092,6 +2170,7 @@
   },
   {
     "id": "TTC-SPCWC",
+    "capability": "entry-aware",
     "name": "Tuesday's Telegraphy Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -2116,6 +2195,7 @@
   },
   {
     "id": "KENTUCKY-STATE-PARKS-ON-THE-AIR",
+    "capability": "entry-aware",
     "name": "Kentucky State Parks on the Air",
     "organizer": "",
     "kind": "annual contest",
@@ -2143,6 +2223,7 @@
   },
   {
     "id": "4-STATES-QRP-GROUP-SECOND-SUNDAY",
+    "capability": "entry-aware",
     "name": "4 States QRP Group Second Sunday Sprint",
     "organizer": "",
     "kind": "annual contest",
@@ -2171,6 +2252,7 @@
   },
   {
     "id": "HI-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Hawaii QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2199,6 +2281,7 @@
   },
   {
     "id": "OH-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Ohio QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2227,6 +2310,7 @@
   },
   {
     "id": "7QP",
+    "capability": "entry-aware",
     "name": "7th Call Area QSO Party",
     "organizer": "",
     "kind": "multi-state QSO party (AZ, ID, MT, NV, OR, UT, WA, WY)",
@@ -2255,6 +2339,7 @@
   },
   {
     "id": "AL-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Alabama QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2282,6 +2367,7 @@
   },
   {
     "id": "AZ-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Arizona QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2310,6 +2396,7 @@
   },
   {
     "id": "AR-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Arkansas QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2339,6 +2426,7 @@
   },
   {
     "id": "CA-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "California QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2367,6 +2455,7 @@
   },
   {
     "id": "COQP",
+    "capability": "entry-aware",
     "name": "Colorado QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2395,6 +2484,7 @@
   },
   {
     "id": "DE-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Delaware QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2423,6 +2513,7 @@
   },
   {
     "id": "FCG-FQP",
+    "capability": "entry-aware",
     "name": "Florida QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2449,6 +2540,7 @@
   },
   {
     "id": "GA-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Georgia QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2478,6 +2570,7 @@
   },
   {
     "id": "ID-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Idaho QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2506,6 +2599,7 @@
   },
   {
     "id": "IL-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Illinois QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2535,6 +2629,7 @@
   },
   {
     "id": "IN-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Indiana QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2563,6 +2658,7 @@
   },
   {
     "id": "IAQP",
+    "capability": "entry-aware",
     "name": "Iowa QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2586,6 +2682,7 @@
   },
   {
     "id": "KS-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Kansas QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2614,6 +2711,7 @@
   },
   {
     "id": "KYQP",
+    "capability": "entry-aware",
     "name": "Kentucky QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2643,6 +2741,7 @@
   },
   {
     "id": "LA-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Louisiana QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2672,6 +2771,7 @@
   },
   {
     "id": "ME-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Maine QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2700,6 +2800,7 @@
   },
   {
     "id": "MDC-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Maryland-DC QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2728,6 +2829,7 @@
   },
   {
     "id": "MI-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Michigan QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2755,6 +2857,7 @@
   },
   {
     "id": "MN-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Minnesota QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2783,6 +2886,7 @@
   },
   {
     "id": "MS-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Mississippi QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2812,6 +2916,7 @@
   },
   {
     "id": "MO-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Missouri QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2840,6 +2945,7 @@
   },
   {
     "id": "NEQP",
+    "capability": "entry-aware",
     "name": "New England QSO Party",
     "organizer": "",
     "kind": "multi-state QSO party (CT, ME, MA, NH, RI, VT)",
@@ -2867,6 +2973,7 @@
   },
   {
     "id": "NH-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "New Hampshire QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2894,6 +3001,7 @@
   },
   {
     "id": "NJQP",
+    "capability": "entry-aware",
     "name": "New Jersey QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2921,6 +3029,7 @@
   },
   {
     "id": "NM-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "New Mexico QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2950,6 +3059,7 @@
   },
   {
     "id": "NY-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "New York QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2978,6 +3088,7 @@
   },
   {
     "id": "NC-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "North Carolina QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -3006,6 +3117,7 @@
   },
   {
     "id": "OK-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Oklahoma QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -3034,6 +3146,7 @@
   },
   {
     "id": "PA-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Pennsylvania QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -3062,6 +3175,7 @@
   },
   {
     "id": "SC-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "South Carolina QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -3091,6 +3205,7 @@
   },
   {
     "id": "SDQSOP",
+    "capability": "entry-aware",
     "name": "South Dakota QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -3120,6 +3235,7 @@
   },
   {
     "id": "TXQP",
+    "capability": "entry-aware",
     "name": "Texas QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -3148,6 +3264,7 @@
   },
   {
     "id": "VT-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Vermont QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -3176,6 +3293,7 @@
   },
   {
     "id": "VA-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Virginia QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -3204,6 +3322,7 @@
   },
   {
     "id": "WA-SALMON-RUN",
+    "capability": "entry-aware",
     "name": "Washington State Salmon Run",
     "organizer": "",
     "kind": "annual contest",
@@ -3233,6 +3352,7 @@
   },
   {
     "id": "WVQP",
+    "capability": "entry-aware",
     "name": "West Virginia QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -3260,6 +3380,7 @@
   },
   {
     "id": "WIQP",
+    "capability": "entry-aware",
     "name": "Wisconsin QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -3288,6 +3409,7 @@
   },
   {
     "id": "ISLAND-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "U.S. Islands QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -3317,6 +3439,7 @@
   },
   {
     "id": "CQP",
+    "capability": "entry-aware",
     "name": "Collegiate QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -3345,6 +3468,7 @@
   },
   {
     "id": "NE-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Nebraska QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -3373,6 +3497,7 @@
   },
   {
     "id": "ND-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "North Dakota QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -3401,6 +3526,7 @@
   },
   {
     "id": "CANADA-WINTER",
+    "capability": "entry-aware",
     "name": "RAC Winter Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -3430,6 +3556,7 @@
   },
   {
     "id": "BC-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "British Columbia QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -3458,6 +3585,7 @@
   },
   {
     "id": "NSARA-CONTEST",
+    "capability": "entry-aware",
     "name": "NSARA Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -3481,6 +3609,7 @@
   },
   {
     "id": "ON-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Ontario QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -3510,6 +3639,7 @@
   },
   {
     "id": "QC-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Quebec QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -3538,6 +3668,7 @@
   },
   {
     "id": "CP-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Canadian Prairies QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -3564,6 +3695,7 @@
   },
   {
     "id": "AC-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "Atlantic Canada QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -3591,6 +3723,7 @@
   },
   {
     "id": "CANADA-DAY",
+    "capability": "entry-aware",
     "name": "RAC Canada Day Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -3620,6 +3753,7 @@
   },
   {
     "id": "SA10M",
+    "capability": "entry-aware",
     "name": "South America 10 Meter Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -3643,6 +3777,7 @@
   },
   {
     "id": "SACW",
+    "capability": "entry-aware",
     "name": "South American Integration Contest CW",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -3669,6 +3804,7 @@
   },
   {
     "id": "VENEZUELAN-IND-DAY-CONTEST",
+    "capability": "entry-aware",
     "name": "Venezuelan Ind. Day Contest",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -3697,6 +3833,7 @@
   },
   {
     "id": "WWPDX",
+    "capability": "entry-aware",
     "name": "World Wide Argentina DX Contest",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -3724,6 +3861,7 @@
   },
   {
     "id": "LABRE-DX",
+    "capability": "entry-aware",
     "name": "LABRE DX Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -3752,6 +3890,7 @@
   },
   {
     "id": "RSGB-IOTA",
+    "capability": "entry-aware",
     "name": "RSGB IOTA Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -3779,6 +3918,7 @@
   },
   {
     "id": "ALL-AUSTRIAN-160-METER-CONTEST",
+    "capability": "entry-aware",
     "name": "All Austrian 160-Meter Contest",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -3802,6 +3942,7 @@
   },
   {
     "id": "40-80",
+    "capability": "entry-aware",
     "name": "ARI 40/80 Contest",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -3826,6 +3967,7 @@
   },
   {
     "id": "ARI-DX",
+    "capability": "entry-aware",
     "name": "ARI International DX Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -3853,6 +3995,7 @@
   },
   {
     "id": "BALKAN-HF",
+    "capability": "entry-aware",
     "name": "Balkan HF Contest",
     "organizer": "",
     "kind": "annual contest (Active, but no recent results)",
@@ -3877,6 +4020,7 @@
   },
   {
     "id": "BALTIC-CONTEST",
+    "capability": "entry-aware",
     "name": "Baltic Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -3900,6 +4044,7 @@
   },
   {
     "id": "9A-DX",
+    "capability": "entry-aware",
     "name": "Croatian DX Contest",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -3928,6 +4073,7 @@
   },
   {
     "id": "DARC-10",
+    "capability": "entry-aware",
     "name": "DARC 10-Meter Contest",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -3951,6 +4097,7 @@
   },
   {
     "id": "XMAS",
+    "capability": "entry-aware",
     "name": "DARC Christmas Contest",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -3975,6 +4122,7 @@
   },
   {
     "id": "EASTER",
+    "capability": "entry-aware",
     "name": "DARC Easter Contest",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -3999,6 +4147,7 @@
   },
   {
     "id": "PACC",
+    "capability": "entry-aware",
     "name": "Dutch PACC Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -4027,6 +4176,7 @@
   },
   {
     "id": "EUHFC",
+    "capability": "entry-aware",
     "name": "European HF Championship",
     "organizer": "",
     "kind": "annual contest",
@@ -4055,6 +4205,7 @@
   },
   {
     "id": "EUDXC",
+    "capability": "entry-aware",
     "name": "European Union DX Contest",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -4083,6 +4234,7 @@
   },
   {
     "id": "HELVETIA",
+    "capability": "entry-aware",
     "name": "Helvetia Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -4111,6 +4263,7 @@
   },
   {
     "id": "HA-DX",
+    "capability": "entry-aware",
     "name": "Hungarian DX Contest",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -4139,6 +4292,7 @@
   },
   {
     "id": "LZ-DX",
+    "capability": "entry-aware",
     "name": "LZ DX Contest",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -4166,6 +4320,7 @@
   },
   {
     "id": "LZ-INTERNATIONAL-6-METER-CONTEST",
+    "capability": "entry-aware",
     "name": "LZ International 6-Meter Contest",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -4189,6 +4344,7 @@
   },
   {
     "id": "PORTUGAL-DAY",
+    "capability": "entry-aware",
     "name": "Portugal Day Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -4216,6 +4372,7 @@
   },
   {
     "id": "PORTUGUESE-NAVY-DAY-CONTEST-CT1D",
+    "capability": "entry-aware",
     "name": "Portuguese Navy Day Contest - CT1DBS Memorial",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -4243,6 +4400,7 @@
   },
   {
     "id": "RAEM",
+    "capability": "entry-aware",
     "name": "RAEM Contest",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -4270,6 +4428,7 @@
   },
   {
     "id": "REF-160-METER-CONTEST",
+    "capability": "entry-aware",
     "name": "REF 160-Meter Contest",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -4293,6 +4452,7 @@
   },
   {
     "id": "REF-DDFM-6M-CONTEST",
+    "capability": "entry-aware",
     "name": "REF DDFM 6m Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -4316,6 +4476,7 @@
   },
   {
     "id": "RSGB-160",
+    "capability": "entry-aware",
     "name": "RSGB 1.8 MHz Contest",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -4339,6 +4500,7 @@
   },
   {
     "id": "RSGB-80M-CC",
+    "capability": "entry-aware",
     "name": "RSGB 80m Club Championship, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -4362,6 +4524,7 @@
   },
   {
     "id": "RSGB-AFS-CW",
+    "capability": "entry-aware",
     "name": "RSGB AFS Contest, CW",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -4386,6 +4549,7 @@
   },
   {
     "id": "RSGB-LOW-POWER",
+    "capability": "entry-aware",
     "name": "RSGB International Low Power Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -4411,6 +4575,7 @@
   },
   {
     "id": "RSGB-NFD",
+    "capability": "entry-aware",
     "name": "RSGB National Field Day",
     "organizer": "",
     "kind": "annual contest",
@@ -4439,6 +4604,7 @@
   },
   {
     "id": "RADIO-160",
+    "capability": "entry-aware",
     "name": "Russian 160-Meter DX Contest",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -4462,6 +4628,7 @@
   },
   {
     "id": "RDAC",
+    "capability": "entry-aware",
     "name": "Russian District Award Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -4490,6 +4657,7 @@
   },
   {
     "id": "RDXC",
+    "capability": "entry-aware",
     "name": "Russian DX Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -4518,6 +4686,7 @@
   },
   {
     "id": "RUSSIAN-RADIO-TEAM-CHAMPIONSHIP",
+    "capability": "entry-aware",
     "name": "Russian Radio Team Championship",
     "organizer": "",
     "kind": "annual contest",
@@ -4544,6 +4713,7 @@
   },
   {
     "id": "RADIO-YL-OM",
+    "capability": "entry-aware",
     "name": "Russian YL/OM Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -4570,6 +4740,7 @@
   },
   {
     "id": "SPDX",
+    "capability": "entry-aware",
     "name": "SP DX Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -4598,6 +4769,7 @@
   },
   {
     "id": "TR-HF",
+    "capability": "entry-aware",
     "name": "Turkiye HF Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -4626,6 +4798,7 @@
   },
   {
     "id": "UBA-ON-6M",
+    "capability": "entry-aware",
     "name": "UBA ON Contest, 6m",
     "organizer": "",
     "kind": "annual contest (Active, but no recent results)",
@@ -4649,6 +4822,7 @@
   },
   {
     "id": "UBA-SPRING-CONTEST",
+    "capability": "entry-aware",
     "name": "UBA Spring Contest, 6m",
     "organizer": "",
     "kind": "annual contest",
@@ -4672,6 +4846,7 @@
   },
   {
     "id": "UBA-SPRING-CONTEST-2",
+    "capability": "entry-aware",
     "name": "UBA Spring Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -4695,6 +4870,7 @@
   },
   {
     "id": "UKRAINIAN-DX",
+    "capability": "entry-aware",
     "name": "Ukrainian DX Contest",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -4723,6 +4899,7 @@
   },
   {
     "id": "WAG",
+    "capability": "entry-aware",
     "name": "Worked All Germany Contest",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -4751,6 +4928,7 @@
   },
   {
     "id": "YO-DX-HF",
+    "capability": "entry-aware",
     "name": "YO DX HF Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -4778,6 +4956,7 @@
   },
   {
     "id": "YUDX",
+    "capability": "entry-aware",
     "name": "YU DX Contest",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -4805,6 +4984,7 @@
   },
   {
     "id": "ARSI-VU-DX",
+    "capability": "entry-aware",
     "name": "ARSI VU DX Contest",
     "organizer": "",
     "kind": "annual contest (Active, but no recent results)",
@@ -4831,6 +5011,7 @@
   },
   {
     "id": "EURASIA-CHAMP",
+    "capability": "entry-aware",
     "name": "EurAsia HF Championship",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -4859,6 +5040,7 @@
   },
   {
     "id": "SEANET-CONTEST",
+    "capability": "entry-aware",
     "name": "SEANET Contest",
     "organizer": "",
     "kind": "annual contest (Active, but no recent results)",
@@ -4886,6 +5068,7 @@
   },
   {
     "id": "BEKASI-MERDEKA-CONTEST",
+    "capability": "entry-aware",
     "name": "YB Bekasi Merdeka Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -4913,6 +5096,7 @@
   },
   {
     "id": "IRTS-80M-COUNTIES",
+    "capability": "entry-aware",
     "name": "IRTS 80m Counties Contest",
     "organizer": "IRTS",
     "kind": "annual contest",
@@ -4946,6 +5130,7 @@
   },
   {
     "id": "ARRL-160M",
+    "capability": "entry-aware",
     "name": "ARRL 160-Meter Contest",
     "organizer": "ARRL",
     "kind": "annual contest",
@@ -4969,6 +5154,7 @@
   },
   {
     "id": "QRP-ARCI-TOPBAND-SPRINT",
+    "capability": "entry-aware",
     "name": "QRP ARCI Topband Sprint",
     "organizer": "QRP ARCI",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -4992,6 +5178,7 @@
   },
   {
     "id": "NTC-QSO-PARTY",
+    "capability": "entry-aware",
     "name": "NTC QSO Party",
     "organizer": "NTC",
     "kind": "monthly event",

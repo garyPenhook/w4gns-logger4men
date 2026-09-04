@@ -1,6 +1,7 @@
 [
   {
     "id": "TNQP",
+    "capability": "entry-aware",
     "name": "Tennessee QSO Party",
     "organizer": "TNQP",
     "kind": "state QSO party",

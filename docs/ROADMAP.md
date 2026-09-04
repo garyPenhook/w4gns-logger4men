@@ -41,14 +41,15 @@ the log, submitted contest results, or external services.
   CW Open, CQ WW CW, and CQ 160 CW; every other catalog entry is intentionally
   selection/entry-only until its sponsor-specific schema is verified.
 
-- ⏳ **Audit and implement scoring per contest before presenting the catalog as
-  correct.** There are 462 event records in `events/*.json`, but only three
-  currently contain a `scoring` block (`CW-OPEN`, `CQ-WW-CW`, and
-  `CQ-160-CW`). Every other event exports `CLAIMED-SCORE: 0`, and CWT is one
-  immediately visible curated example with no scoring definition. Add an
-  explicit catalog capability/status field (selection-only, entry-aware,
-  Cabrillo-ready, scoring-ready), validate it at load, and test each promoted
-  contest against authoritative examples.
+- 🔧 **Audit and implement scoring per contest before presenting the catalog as
+  correct.** Every one of the 462 event records now declares and is validated
+  against an explicit `capability`: 10 intentionally generic templates are
+  `selection-only`, 448 are `entry-aware`, CWT is `cabrillo-ready`, and only
+  `CW-OPEN`, `CQ-WW-CW`, and `CQ-160-CW` are `scoring-ready`. The Events
+  screen shows this status, so an operator can tell an entry-only template
+  from a checked submission before export. The actual scoring audit remains:
+  every event except those three still has no `scoring` block and must not be
+  promoted until its rules are tested against authoritative examples.
 
 - 🔧 **Zone autofill no longer infers rules from prose hints.** It requires an
   explicit `received_exchange_autofill` catalog value; ambiguous events such as

@@ -1,6 +1,7 @@
 [
   {
     "id": "K1USN-SST",
+    "capability": "entry-aware",
     "name": "K1USN Slow Speed Test (SST)",
     "organizer": "K1USN Radio Club",
     "kind": "weekly event",

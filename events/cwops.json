@@ -1,6 +1,7 @@
 [
   {
     "id": "CWT",
+    "capability": "cabrillo-ready",
     "name": "CWops Test (CWT)",
     "organizer": "CWops",
     "kind": "weekly event",
@@ -23,6 +24,7 @@
   },
   {
     "id": "CW-OPEN",
+    "capability": "scoring-ready",
     "name": "CW Open",
     "organizer": "CWops",
     "kind": "annual contest",

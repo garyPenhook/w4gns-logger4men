@@ -3636,6 +3636,9 @@ func (m model) eventCatalogView() string {
 // and score-submission URL.
 func eventDetailLine(event eventDefinition) string {
 	parts := []string{}
+	if event.Capability != "" {
+		parts = append(parts, "status: "+capabilityLabel(event.Capability))
+	}
 	if event.Organizer != "" {
 		parts = append(parts, "by "+event.Organizer)
 	}

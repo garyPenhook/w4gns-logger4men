@@ -242,13 +242,14 @@ func TestCheckDupeWarnsOnceForUnrecognizedContestName(t *testing.T) {
 
 func TestEventDetailLineSurfacesPreviouslyUnusedFields(t *testing.T) {
 	event := eventDefinition{
+		Capability:         catalogCapabilityScoringReady,
 		Organizer:          "CWops",
 		Bands:              []string{"20M", "15M"},
 		RulesURL:           "https://example.com/rules",
 		ScoreSubmissionURL: "https://example.com/scores",
 	}
 	line := eventDetailLine(event)
-	for _, want := range []string{"CWops", "20M/15M", "https://example.com/rules", "https://example.com/scores"} {
+	for _, want := range []string{"scoring ready", "CWops", "20M/15M", "https://example.com/rules", "https://example.com/scores"} {
 		if !strings.Contains(line, want) {
 			t.Errorf("eventDetailLine() = %q, want it to contain %q", line, want)
 		}

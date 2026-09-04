@@ -16,6 +16,11 @@ var eventConfigFiles embed.FS
 type eventDefinition struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+	// Capability tells the operator how far this catalog record has been
+	// verified. It is deliberately explicit rather than inferred in the UI:
+	// an event can be useful for entry while still being unsafe to submit as
+	// Cabrillo or unable to produce a trustworthy claimed score.
+	Capability string `json:"capability"`
 	// CabrilloContest overrides the Cabrillo CONTEST: token when the event's own
 	// ID isn't the sponsor's identifier — e.g. a contest with distinct "home"
 	// and "DX" side entries (different exchanges) that both submit under one
@@ -53,6 +58,82 @@ type eventDefinition struct {
 	// configured. Cabrillo export is per-session, so the computed score is one
 	// session's score; the sponsor's robot recomputes the authoritative total.
 	Scoring *scoringRules `json:"scoring"`
+}
+
+const (
+	// catalogCapabilitySelectionOnly is a discoverable catalog placeholder;
+	// it may be selected but makes no promise about exchange-aware entry.
+	catalogCapabilitySelectionOnly = "selection-only"
+	// catalogCapabilityEntryAware has reviewed bands and exchange hints, but
+	// no verified Cabrillo line format or scoring implementation.
+	catalogCapabilityEntryAware = "entry-aware"
+	// catalogCapabilityCabrilloReady additionally has a checked Cabrillo QSO
+	// line layout. It may still lack contest-specific scoring rules.
+	catalogCapabilityCabrilloReady = "cabrillo-ready"
+	// catalogCapabilityScoringReady has both a checked Cabrillo layout and
+	// implemented scoring rules.
+	catalogCapabilityScoringReady = "scoring-ready"
+)
+
+func validEventCapability(capability string) bool {
+	switch strings.TrimSpace(capability) {
+	case catalogCapabilitySelectionOnly, catalogCapabilityEntryAware,
+		catalogCapabilityCabrilloReady, catalogCapabilityScoringReady:
+		return true
+	default:
+		return false
+	}
+}
+
+// capabilityLabel is intentionally operator-facing (rather than exposing
+// JSON tokens) for the Events screen.
+func capabilityLabel(capability string) string {
+	switch strings.TrimSpace(capability) {
+	case catalogCapabilitySelectionOnly:
+		return "selection only"
+	case catalogCapabilityEntryAware:
+		return "entry aware"
+	case catalogCapabilityCabrilloReady:
+		return "Cabrillo ready"
+	case catalogCapabilityScoringReady:
+		return "scoring ready"
+	default:
+		return "unverified"
+	}
+}
+
+// validateCapability makes the advertised catalog state mechanically true.
+// Keep the requirements intentionally conservative: a status may never imply
+// that the exporter or scorer knows more about an event than its data proves.
+func (e eventDefinition) validateCapability() error {
+	capability := strings.TrimSpace(e.Capability)
+	if !validEventCapability(capability) {
+		return fmt.Errorf("event %q has unsupported capability %q", e.ID, e.Capability)
+	}
+	hasLayout := strings.TrimSpace(e.CabrilloLayout) != ""
+	hasScoring := e.Scoring != nil
+	switch capability {
+	case catalogCapabilitySelectionOnly:
+		if hasLayout || hasScoring {
+			return fmt.Errorf("event %q capability %q must not declare Cabrillo layout or scoring", e.ID, capability)
+		}
+	case catalogCapabilityEntryAware:
+		if len(e.Bands) == 0 || strings.TrimSpace(e.RcvdExchangeHint) == "" {
+			return fmt.Errorf("event %q capability %q requires bands and a received exchange hint", e.ID, capability)
+		}
+		if hasLayout || hasScoring {
+			return fmt.Errorf("event %q capability %q must not declare Cabrillo layout or scoring", e.ID, capability)
+		}
+	case catalogCapabilityCabrilloReady:
+		if !hasLayout || hasScoring {
+			return fmt.Errorf("event %q capability %q requires Cabrillo layout and no scoring", e.ID, capability)
+		}
+	case catalogCapabilityScoringReady:
+		if !hasLayout || !hasScoring {
+			return fmt.Errorf("event %q capability %q requires Cabrillo layout and scoring", e.ID, capability)
+		}
+	}
+	return nil
 }
 
 // scoringRules is a deliberately small, data-driven model of a contest's score
@@ -313,6 +394,9 @@ func loadEventCatalog() ([]eventDefinition, error) {
 			}
 			if !validCabrilloLayout(event.CabrilloLayout) {
 				return nil, fmt.Errorf("event %q has unsupported cabrillo_layout %q", event.ID, event.CabrilloLayout)
+			}
+			if err := event.validateCapability(); err != nil {
+				return nil, err
 			}
 			if event.CabrilloLayout != "" && event.CabrilloOmitRST != (event.CabrilloLayout == "cw_exchange_only") {
 				return nil, fmt.Errorf("event %q has inconsistent cabrillo_omit_rst and cabrillo_layout", event.ID)

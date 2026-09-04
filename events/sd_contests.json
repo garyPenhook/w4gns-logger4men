@@ -1,6 +1,7 @@
 [
   {
     "id": "SD-1010",
+    "capability": "entry-aware",
     "name": "10-10 QSO Party",
     "organizer": "",
     "kind": "contest",
@@ -22,6 +23,7 @@
   },
   {
     "id": "SD-7DEINE",
+    "capability": "entry-aware",
     "name": "7DEINE QSO Parties",
     "organizer": "",
     "kind": "contest",
@@ -47,6 +49,7 @@
   },
   {
     "id": "SD-7QPDX",
+    "capability": "entry-aware",
     "name": "7QP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -72,6 +75,7 @@
   },
   {
     "id": "SD-7QP7",
+    "capability": "entry-aware",
     "name": "7QP - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -97,6 +101,7 @@
   },
   {
     "id": "SD-9ADX9A",
+    "capability": "entry-aware",
     "name": "9A DX - 9A Side",
     "organizer": "",
     "kind": "contest",
@@ -122,6 +127,7 @@
   },
   {
     "id": "SD-9ADXDX",
+    "capability": "entry-aware",
     "name": "9A DX - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -147,6 +153,7 @@
   },
   {
     "id": "SD-AFRICA",
+    "capability": "entry-aware",
     "name": "Africa DX Contest",
     "organizer": "",
     "kind": "contest",
@@ -171,6 +178,7 @@
   },
   {
     "id": "SD-AASIADX",
+    "capability": "entry-aware",
     "name": "All Asian DX - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -196,6 +204,7 @@
   },
   {
     "id": "SD-AASIAAS",
+    "capability": "entry-aware",
     "name": "All Asian DX - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -221,6 +230,7 @@
   },
   {
     "id": "SD-AUSTRIA",
+    "capability": "entry-aware",
     "name": "All Austrian 160m Contest",
     "organizer": "",
     "kind": "contest",
@@ -241,6 +251,7 @@
   },
   {
     "id": "SD-ALQPDX",
+    "capability": "entry-aware",
     "name": "ALQP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -266,6 +277,7 @@
   },
   {
     "id": "SD-ALQP",
+    "capability": "entry-aware",
     "name": "ALQP - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -291,6 +303,7 @@
   },
   {
     "id": "SD-ARI4080",
+    "capability": "entry-aware",
     "name": "ARI 40/80 Contest - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -316,6 +329,7 @@
   },
   {
     "id": "SD-ARIDX",
+    "capability": "entry-aware",
     "name": "ARI Contest - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -340,6 +354,7 @@
   },
   {
     "id": "SD-ARI",
+    "capability": "entry-aware",
     "name": "ARI Contest - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -365,6 +380,7 @@
   },
   {
     "id": "SD-ARISEZ",
+    "capability": "entry-aware",
     "name": "ARI Contest delle Sezioni",
     "organizer": "",
     "kind": "contest",
@@ -390,6 +406,7 @@
   },
   {
     "id": "SD-ARQPDX",
+    "capability": "entry-aware",
     "name": "ARQP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -415,6 +432,7 @@
   },
   {
     "id": "SD-ARQP",
+    "capability": "entry-aware",
     "name": "ARQP - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -440,6 +458,7 @@
   },
   {
     "id": "SD-ARRL10X",
+    "capability": "entry-aware",
     "name": "ARRL 10m Contest - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -459,6 +478,7 @@
   },
   {
     "id": "SD-ARRL10W",
+    "capability": "entry-aware",
     "name": "ARRL 10m Contest - W/VE/XE",
     "organizer": "",
     "kind": "contest",
@@ -479,6 +499,7 @@
   },
   {
     "id": "SD-ARRL16X",
+    "capability": "entry-aware",
     "name": "ARRL 160m Contest - DX side",
     "organizer": "",
     "kind": "contest",
@@ -499,6 +520,7 @@
   },
   {
     "id": "SD-ARRL16W",
+    "capability": "entry-aware",
     "name": "ARRL 160m Contest - W/VE",
     "organizer": "",
     "kind": "contest",
@@ -519,6 +541,7 @@
   },
   {
     "id": "SD-ARDXDXC",
+    "capability": "entry-aware",
     "name": "ARRL DX CW - DX side",
     "organizer": "",
     "kind": "contest",
@@ -543,6 +566,7 @@
   },
   {
     "id": "SD-ARDXWVC",
+    "capability": "entry-aware",
     "name": "ARRL DX CW - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -567,6 +591,7 @@
   },
   {
     "id": "SD-ARRLFD",
+    "capability": "entry-aware",
     "name": "ARRL Field Day",
     "organizer": "",
     "kind": "contest",
@@ -592,6 +617,7 @@
   },
   {
     "id": "SD-ARRLSSC",
+    "capability": "entry-aware",
     "name": "ARRL SS CW",
     "organizer": "",
     "kind": "contest",
@@ -618,6 +644,7 @@
   },
   {
     "id": "SD-HIMDX",
+    "capability": "entry-aware",
     "name": "ARSI Himalayan - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -643,6 +670,7 @@
   },
   {
     "id": "SD-HIMVU",
+    "capability": "entry-aware",
     "name": "ARSI Himalayan - VU Side",
     "organizer": "",
     "kind": "contest",
@@ -668,6 +696,7 @@
   },
   {
     "id": "SD-APSPRNT",
+    "capability": "entry-aware",
     "name": "Asia Pacific Sprint",
     "organizer": "",
     "kind": "contest",
@@ -692,6 +721,7 @@
   },
   {
     "id": "SD-BALKAN",
+    "capability": "entry-aware",
     "name": "Balkan HF Contest",
     "organizer": "",
     "kind": "contest",
@@ -716,6 +746,7 @@
   },
   {
     "id": "SD-BALTIC",
+    "capability": "entry-aware",
     "name": "Baltic Contest",
     "organizer": "",
     "kind": "contest",
@@ -735,6 +766,7 @@
   },
   {
     "id": "SD-BCQPDX",
+    "capability": "entry-aware",
     "name": "BCQP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -760,6 +792,7 @@
   },
   {
     "id": "SD-BCQPBC",
+    "capability": "entry-aware",
     "name": "BCQP - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -785,6 +818,7 @@
   },
   {
     "id": "SD-BSCC",
+    "capability": "entry-aware",
     "name": "BSCC - Black Sea Contest",
     "organizer": "",
     "kind": "contest",
@@ -810,6 +844,7 @@
   },
   {
     "id": "SD-BUCH",
+    "capability": "entry-aware",
     "name": "Bucharest DX Contest",
     "organizer": "",
     "kind": "contest",
@@ -835,6 +870,7 @@
   },
   {
     "id": "SD-CISDX",
+    "capability": "entry-aware",
     "name": "CIS Contest - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -859,6 +895,7 @@
   },
   {
     "id": "SD-BERU",
+    "capability": "entry-aware",
     "name": "Commonwealth Contest",
     "organizer": "",
     "kind": "contest",
@@ -884,6 +921,7 @@
   },
   {
     "id": "SD-COVID",
+    "capability": "entry-aware",
     "name": "Covid-19",
     "organizer": "",
     "kind": "contest",
@@ -909,6 +947,7 @@
   },
   {
     "id": "SD-CQ160C",
+    "capability": "entry-aware",
     "name": "CQ 160m - CW",
     "organizer": "",
     "kind": "contest",
@@ -929,6 +968,7 @@
   },
   {
     "id": "SD-CQWPXC",
+    "capability": "entry-aware",
     "name": "CQ WPX - CW",
     "organizer": "",
     "kind": "contest",
@@ -953,6 +993,7 @@
   },
   {
     "id": "SD-CQM",
+    "capability": "entry-aware",
     "name": "CQ-M Contest",
     "organizer": "",
     "kind": "contest",
@@ -977,6 +1018,7 @@
   },
   {
     "id": "SD-CQIR",
+    "capability": "entry-aware",
     "name": "CQIR - Ireland Calling",
     "organizer": "",
     "kind": "contest",
@@ -1002,6 +1044,7 @@
   },
   {
     "id": "SD-CQMM",
+    "capability": "entry-aware",
     "name": "CQMM DX Contest",
     "organizer": "",
     "kind": "contest",
@@ -1027,6 +1070,7 @@
   },
   {
     "id": "SD-CQPDX",
+    "capability": "entry-aware",
     "name": "CQP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -1053,6 +1097,7 @@
   },
   {
     "id": "SD-CQP",
+    "capability": "entry-aware",
     "name": "CQP - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -1079,6 +1124,7 @@
   },
   {
     "id": "SD-CQWWC",
+    "capability": "entry-aware",
     "name": "CQWW CW Contest",
     "organizer": "",
     "kind": "contest",
@@ -1103,6 +1149,7 @@
   },
   {
     "id": "SD-CVADX",
+    "capability": "entry-aware",
     "name": "CVA DX Contest - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -1128,6 +1175,7 @@
   },
   {
     "id": "SD-CVAPY",
+    "capability": "entry-aware",
     "name": "CVA DX Contest - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -1153,6 +1201,7 @@
   },
   {
     "id": "SD-CWOPEN",
+    "capability": "entry-aware",
     "name": "CW OPEN",
     "organizer": "",
     "kind": "contest",
@@ -1179,6 +1228,7 @@
   },
   {
     "id": "SD-CWOPS",
+    "capability": "entry-aware",
     "name": "CWOPS Mini-CWT",
     "organizer": "",
     "kind": "contest",
@@ -1204,6 +1254,7 @@
   },
   {
     "id": "SD-DARC10",
+    "capability": "entry-aware",
     "name": "DARC 10m Contest",
     "organizer": "",
     "kind": "contest",
@@ -1224,6 +1275,7 @@
   },
   {
     "id": "SD-DARFDC",
+    "capability": "entry-aware",
     "name": "DARC CW Field Day",
     "organizer": "",
     "kind": "contest",
@@ -1248,6 +1300,7 @@
   },
   {
     "id": "SD-DARCDX",
+    "capability": "entry-aware",
     "name": "DARC XMAS - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -1272,6 +1325,7 @@
   },
   {
     "id": "SD-DARCX",
+    "capability": "entry-aware",
     "name": "DARC XMAS - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -1297,6 +1351,7 @@
   },
   {
     "id": "SD-DELDX",
+    "capability": "entry-aware",
     "name": "DEQP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -1322,6 +1377,7 @@
   },
   {
     "id": "SD-DELDE",
+    "capability": "entry-aware",
     "name": "DEQP - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -1347,6 +1403,7 @@
   },
   {
     "id": "SD-DIGQP",
+    "capability": "entry-aware",
     "name": "DIG QSO Party",
     "organizer": "",
     "kind": "contest",
@@ -1372,6 +1429,7 @@
   },
   {
     "id": "SD-DIGPA",
+    "capability": "entry-aware",
     "name": "DIG-PA Contest",
     "organizer": "",
     "kind": "contest",
@@ -1392,6 +1450,7 @@
   },
   {
     "id": "SD-DK",
+    "capability": "entry-aware",
     "name": "Dutch Kingdom",
     "organizer": "",
     "kind": "contest",
@@ -1416,6 +1475,7 @@
   },
   {
     "id": "SD-HKDX",
+    "capability": "entry-aware",
     "name": "DXColombia - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -1440,6 +1500,7 @@
   },
   {
     "id": "SD-DXPED",
+    "capability": "entry-aware",
     "name": "DXpedition & Special Event",
     "organizer": "",
     "kind": "contest",
@@ -1464,6 +1525,7 @@
   },
   {
     "id": "SD-ESOPEN",
+    "capability": "entry-aware",
     "name": "ES Open HF - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -1488,6 +1550,7 @@
   },
   {
     "id": "SD-EUHFC",
+    "capability": "entry-aware",
     "name": "EU HF Championship",
     "organizer": "",
     "kind": "contest",
@@ -1513,6 +1576,7 @@
   },
   {
     "id": "SD-EUDX",
+    "capability": "entry-aware",
     "name": "EUDX Contest",
     "organizer": "",
     "kind": "contest",
@@ -1538,6 +1602,7 @@
   },
   {
     "id": "SD-EURASIA",
+    "capability": "entry-aware",
     "name": "Eurasia Championship",
     "organizer": "",
     "kind": "contest",
@@ -1563,6 +1628,7 @@
   },
   {
     "id": "SD-FIRAC",
+    "capability": "entry-aware",
     "name": "FIRAC Contest",
     "organizer": "",
     "kind": "contest",
@@ -1588,6 +1654,7 @@
   },
   {
     "id": "SD-FLSP",
+    "capability": "entry-aware",
     "name": "Florida State Parks",
     "organizer": "",
     "kind": "contest",
@@ -1613,6 +1680,7 @@
   },
   {
     "id": "SD-FOCMAR",
+    "capability": "entry-aware",
     "name": "FOC Marathon",
     "organizer": "",
     "kind": "contest",
@@ -1638,6 +1706,7 @@
   },
   {
     "id": "SD-WINDLE",
+    "capability": "entry-aware",
     "name": "FOC QSO Party",
     "organizer": "",
     "kind": "contest",
@@ -1663,6 +1732,7 @@
   },
   {
     "id": "SD-FQPDX",
+    "capability": "entry-aware",
     "name": "FQP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -1688,6 +1758,7 @@
   },
   {
     "id": "SD-FQP",
+    "capability": "entry-aware",
     "name": "FQP - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -1713,6 +1784,7 @@
   },
   {
     "id": "SD-WWSA",
+    "capability": "entry-aware",
     "name": "GACW WWSA Contest",
     "organizer": "",
     "kind": "contest",
@@ -1738,6 +1810,7 @@
   },
   {
     "id": "SD-GENERAL",
+    "capability": "selection-only",
     "name": "General Purpose",
     "organizer": "",
     "kind": "contest",
@@ -1762,6 +1835,7 @@
   },
   {
     "id": "SD-GQPDX",
+    "capability": "entry-aware",
     "name": "GQP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -1787,6 +1861,7 @@
   },
   {
     "id": "SD-GQP",
+    "capability": "entry-aware",
     "name": "GQP - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -1812,6 +1887,7 @@
   },
   {
     "id": "SD-HARRY",
+    "capability": "entry-aware",
     "name": "Harry Angel",
     "organizer": "",
     "kind": "contest",
@@ -1831,6 +1907,7 @@
   },
   {
     "id": "SD-ALOHADX",
+    "capability": "entry-aware",
     "name": "Hawaii QP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -1856,6 +1933,7 @@
   },
   {
     "id": "SD-ALOHAHI",
+    "capability": "entry-aware",
     "name": "Hawaii QP - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -1881,6 +1959,7 @@
   },
   {
     "id": "SD-USKFDC",
+    "capability": "entry-aware",
     "name": "HB9/USKA CW Field Day",
     "organizer": "",
     "kind": "contest",
@@ -1905,6 +1984,7 @@
   },
   {
     "id": "SD-HELVDX",
+    "capability": "entry-aware",
     "name": "Helvetia Contest - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -1929,6 +2009,7 @@
   },
   {
     "id": "SD-HELVHB9",
+    "capability": "entry-aware",
     "name": "Helvetia Contest - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -1954,6 +2035,7 @@
   },
   {
     "id": "SD-HOLPOH",
+    "capability": "entry-aware",
     "name": "Holicky pohar - OK/OM only",
     "organizer": "",
     "kind": "contest",
@@ -1974,6 +2056,7 @@
   },
   {
     "id": "SD-HOLYDX",
+    "capability": "entry-aware",
     "name": "Holyland Contest - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -1998,6 +2081,7 @@
   },
   {
     "id": "SD-HOLY4X",
+    "capability": "entry-aware",
     "name": "Holyland Contest - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -2023,6 +2107,7 @@
   },
   {
     "id": "SD-HSC",
+    "capability": "entry-aware",
     "name": "HSC Contest",
     "organizer": "",
     "kind": "contest",
@@ -2048,6 +2133,7 @@
   },
   {
     "id": "SD-HSKC",
+    "capability": "entry-aware",
     "name": "HSKC - Straight Key",
     "organizer": "",
     "kind": "contest",
@@ -2068,6 +2154,7 @@
   },
   {
     "id": "SD-HADXDX",
+    "capability": "entry-aware",
     "name": "Hungarian DX - DX side",
     "organizer": "",
     "kind": "contest",
@@ -2092,6 +2179,7 @@
   },
   {
     "id": "SD-HADXHA",
+    "capability": "entry-aware",
     "name": "Hungarian DX - HA side",
     "organizer": "",
     "kind": "contest",
@@ -2117,6 +2205,7 @@
   },
   {
     "id": "SD-IARUHF",
+    "capability": "entry-aware",
     "name": "IARU HF Championship",
     "organizer": "",
     "kind": "contest",
@@ -2141,6 +2230,7 @@
   },
   {
     "id": "SD-IDAHODX",
+    "capability": "entry-aware",
     "name": "Idaho QP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -2166,6 +2256,7 @@
   },
   {
     "id": "SD-IDAHOID",
+    "capability": "entry-aware",
     "name": "Idaho QP - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -2191,6 +2282,7 @@
   },
   {
     "id": "SD-ILQPDX",
+    "capability": "entry-aware",
     "name": "ILQP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -2216,6 +2308,7 @@
   },
   {
     "id": "SD-ILQP",
+    "capability": "entry-aware",
     "name": "ILQP - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -2241,6 +2334,7 @@
   },
   {
     "id": "SD-INORC",
+    "capability": "entry-aware",
     "name": "INORC",
     "organizer": "",
     "kind": "contest",
@@ -2266,6 +2360,7 @@
   },
   {
     "id": "SD-INQPDX",
+    "capability": "entry-aware",
     "name": "INQP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -2291,6 +2386,7 @@
   },
   {
     "id": "SD-INQP",
+    "capability": "entry-aware",
     "name": "INQP - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -2316,6 +2412,7 @@
   },
   {
     "id": "SD-NAVAL",
+    "capability": "entry-aware",
     "name": "International Naval - Member",
     "organizer": "",
     "kind": "contest",
@@ -2341,6 +2438,7 @@
   },
   {
     "id": "SD-NAVALN",
+    "capability": "entry-aware",
     "name": "International Naval - Non Member",
     "organizer": "",
     "kind": "contest",
@@ -2365,6 +2463,7 @@
   },
   {
     "id": "SD-IOTA",
+    "capability": "entry-aware",
     "name": "IOTA Contest",
     "organizer": "",
     "kind": "contest",
@@ -2390,6 +2489,7 @@
   },
   {
     "id": "SD-IRTS4DX",
+    "capability": "entry-aware",
     "name": "IRTS 40m County - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -2409,6 +2509,7 @@
   },
   {
     "id": "SD-IRTS4",
+    "capability": "entry-aware",
     "name": "IRTS 40m County - EI/GI",
     "organizer": "",
     "kind": "contest",
@@ -2429,6 +2530,7 @@
   },
   {
     "id": "SD-IRTSDX",
+    "capability": "entry-aware",
     "name": "IRTS 80m County - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -2448,6 +2550,7 @@
   },
   {
     "id": "SD-IRTS",
+    "capability": "entry-aware",
     "name": "IRTS 80m County - EI/GI",
     "organizer": "",
     "kind": "contest",
@@ -2468,6 +2571,7 @@
   },
   {
     "id": "SD-IRTSFDC",
+    "capability": "entry-aware",
     "name": "IRTS CW Field Day",
     "organizer": "",
     "kind": "contest",
@@ -2492,6 +2596,7 @@
   },
   {
     "id": "SD-JIDXDX",
+    "capability": "entry-aware",
     "name": "JIDX Contest - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -2517,6 +2622,7 @@
   },
   {
     "id": "SD-JIDXJA",
+    "capability": "entry-aware",
     "name": "JIDX contest - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -2541,6 +2647,7 @@
   },
   {
     "id": "SD-JTDXDX",
+    "capability": "selection-only",
     "name": "JT DX Contest - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -2565,6 +2672,7 @@
   },
   {
     "id": "SD-KSQPDX",
+    "capability": "entry-aware",
     "name": "Kansas QP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -2590,6 +2698,7 @@
   },
   {
     "id": "SD-KCJDX",
+    "capability": "entry-aware",
     "name": "KCJ DX Contest - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -2615,6 +2724,7 @@
   },
   {
     "id": "SD-KCJJA",
+    "capability": "entry-aware",
     "name": "KCJ DX Contest - JA side",
     "organizer": "",
     "kind": "contest",
@@ -2640,6 +2750,7 @@
   },
   {
     "id": "SD-KOS",
+    "capability": "entry-aware",
     "name": "King Of Spain - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -2664,6 +2775,7 @@
   },
   {
     "id": "SD-KOSEA",
+    "capability": "entry-aware",
     "name": "King Of Spain - EA Side",
     "organizer": "",
     "kind": "contest",
@@ -2689,6 +2801,7 @@
   },
   {
     "id": "SD-KPC",
+    "capability": "entry-aware",
     "name": "KPC Contest - CW-only",
     "organizer": "",
     "kind": "contest",
@@ -2714,6 +2827,7 @@
   },
   {
     "id": "SD-KSQP",
+    "capability": "entry-aware",
     "name": "KSQP - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -2739,6 +2853,7 @@
   },
   {
     "id": "SD-LATVIA",
+    "capability": "selection-only",
     "name": "Latvia Independence Day",
     "organizer": "",
     "kind": "contest",
@@ -2763,6 +2878,7 @@
   },
   {
     "id": "SD-LAQPLA",
+    "capability": "entry-aware",
     "name": "Louisiana QP - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -2788,6 +2904,7 @@
   },
   {
     "id": "SD-LAQPDX",
+    "capability": "entry-aware",
     "name": "Lousisiana QP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -2813,6 +2930,7 @@
   },
   {
     "id": "SD-LZDX",
+    "capability": "entry-aware",
     "name": "LZ DX Contest",
     "organizer": "",
     "kind": "contest",
@@ -2837,6 +2955,7 @@
   },
   {
     "id": "SD-LZOPEN",
+    "capability": "selection-only",
     "name": "LZ Open Contest",
     "organizer": "",
     "kind": "contest",
@@ -2861,6 +2980,7 @@
   },
   {
     "id": "SD-MEQP",
+    "capability": "entry-aware",
     "name": "Maine QSO Party - MEQP",
     "organizer": "",
     "kind": "contest",
@@ -2886,6 +3006,7 @@
   },
   {
     "id": "SD-MARCONI",
+    "capability": "entry-aware",
     "name": "Marconi Memorial Contest",
     "organizer": "",
     "kind": "contest",
@@ -2910,6 +3031,7 @@
   },
   {
     "id": "SD-MCD",
+    "capability": "entry-aware",
     "name": "MCD - Members",
     "organizer": "",
     "kind": "contest",
@@ -2935,6 +3057,7 @@
   },
   {
     "id": "SD-MCDN",
+    "capability": "entry-aware",
     "name": "MCD - Non Members",
     "organizer": "",
     "kind": "contest",
@@ -2959,6 +3082,7 @@
   },
   {
     "id": "SD-MDCQPDX",
+    "capability": "entry-aware",
     "name": "MD-DC QSO Party - DX side",
     "organizer": "",
     "kind": "contest",
@@ -2985,6 +3109,7 @@
   },
   {
     "id": "SD-MDCQP",
+    "capability": "entry-aware",
     "name": "MD-DC QSO Party - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -3011,6 +3136,7 @@
   },
   {
     "id": "SD-MST",
+    "capability": "entry-aware",
     "name": "Medium Speed Test",
     "organizer": "",
     "kind": "contest",
@@ -3037,6 +3163,7 @@
   },
   {
     "id": "SD-MIQPDX",
+    "capability": "entry-aware",
     "name": "MIQP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -3063,6 +3190,7 @@
   },
   {
     "id": "SD-MIQP",
+    "capability": "entry-aware",
     "name": "MIQP - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -3089,6 +3217,7 @@
   },
   {
     "id": "SD-MNQP",
+    "capability": "entry-aware",
     "name": "MNQP - Minnesota Side",
     "organizer": "",
     "kind": "contest",
@@ -3115,6 +3244,7 @@
   },
   {
     "id": "SD-MOQPDX",
+    "capability": "entry-aware",
     "name": "MOQP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -3140,6 +3270,7 @@
   },
   {
     "id": "SD-MSQPDX",
+    "capability": "entry-aware",
     "name": "MSQP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -3165,6 +3296,7 @@
   },
   {
     "id": "SD-MWC",
+    "capability": "entry-aware",
     "name": "MWC Contest",
     "organizer": "",
     "kind": "contest",
@@ -3189,6 +3321,7 @@
   },
   {
     "id": "SD-NASPRCW",
+    "capability": "selection-only",
     "name": "NA Sprint - CW",
     "organizer": "",
     "kind": "contest",
@@ -3213,6 +3346,7 @@
   },
   {
     "id": "SD-NAQPC",
+    "capability": "entry-aware",
     "name": "NAQP - CW",
     "organizer": "",
     "kind": "contest",
@@ -3239,6 +3373,7 @@
   },
   {
     "id": "SD-NAURYZ",
+    "capability": "entry-aware",
     "name": "NAURYZ DX",
     "organizer": "",
     "kind": "contest",
@@ -3264,6 +3399,7 @@
   },
   {
     "id": "SD-NCQPDX",
+    "capability": "entry-aware",
     "name": "NCQP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -3289,6 +3425,7 @@
   },
   {
     "id": "SD-NCQP",
+    "capability": "entry-aware",
     "name": "NCQP - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -3314,6 +3451,7 @@
   },
   {
     "id": "SD-NQP",
+    "capability": "entry-aware",
     "name": "Nebraska QP - NE Side",
     "organizer": "",
     "kind": "contest",
@@ -3339,6 +3477,7 @@
   },
   {
     "id": "SD-NEQPDX",
+    "capability": "entry-aware",
     "name": "New England QP - DX side",
     "organizer": "",
     "kind": "contest",
@@ -3364,6 +3503,7 @@
   },
   {
     "id": "SD-NEQP",
+    "capability": "entry-aware",
     "name": "New England QP - NE side",
     "organizer": "",
     "kind": "contest",
@@ -3389,6 +3529,7 @@
   },
   {
     "id": "SD-NJQPDX",
+    "capability": "entry-aware",
     "name": "New Jersey QP - DX side",
     "organizer": "",
     "kind": "contest",
@@ -3414,6 +3555,7 @@
   },
   {
     "id": "SD-NYQPDX",
+    "capability": "entry-aware",
     "name": "New York QP - DX side",
     "organizer": "",
     "kind": "contest",
@@ -3439,6 +3581,7 @@
   },
   {
     "id": "SD-NYQP",
+    "capability": "entry-aware",
     "name": "New York QP - NY side",
     "organizer": "",
     "kind": "contest",
@@ -3464,6 +3607,7 @@
   },
   {
     "id": "SD-NJQP",
+    "capability": "entry-aware",
     "name": "NJQP - New Jersey side",
     "organizer": "",
     "kind": "contest",
@@ -3489,6 +3633,7 @@
   },
   {
     "id": "SD-NQPDX",
+    "capability": "entry-aware",
     "name": "NQP - Nebraska QP - DX side",
     "organizer": "",
     "kind": "contest",
@@ -3514,6 +3659,7 @@
   },
   {
     "id": "SD-NRAU",
+    "capability": "entry-aware",
     "name": "NRAU-Baltic Contest",
     "organizer": "",
     "kind": "contest",
@@ -3539,6 +3685,7 @@
   },
   {
     "id": "SD-FYLKES",
+    "capability": "selection-only",
     "name": "NRRL Fylkestest",
     "organizer": "",
     "kind": "contest",
@@ -3563,6 +3710,7 @@
   },
   {
     "id": "SD-MTCW",
+    "capability": "entry-aware",
     "name": "NRRL MT CW",
     "organizer": "",
     "kind": "contest",
@@ -3588,6 +3736,7 @@
   },
   {
     "id": "SD-VINTER",
+    "capability": "entry-aware",
     "name": "NRRL Vintertest",
     "organizer": "",
     "kind": "contest",
@@ -3613,6 +3762,7 @@
   },
   {
     "id": "SD-OCEANIA",
+    "capability": "entry-aware",
     "name": "Oceania Contest",
     "organizer": "",
     "kind": "contest",
@@ -3637,6 +3787,7 @@
   },
   {
     "id": "SD-OHIODX",
+    "capability": "entry-aware",
     "name": "OHQP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -3662,6 +3813,7 @@
   },
   {
     "id": "SD-OHIO",
+    "capability": "entry-aware",
     "name": "OHQP - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -3687,6 +3839,7 @@
   },
   {
     "id": "SD-OKOMCDX",
+    "capability": "entry-aware",
     "name": "OK-OM DX CW - DX side",
     "organizer": "",
     "kind": "contest",
@@ -3711,6 +3864,7 @@
   },
   {
     "id": "SD-OKOMC",
+    "capability": "entry-aware",
     "name": "OK-OM DX CW - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -3736,6 +3890,7 @@
   },
   {
     "id": "SD-OKQPX",
+    "capability": "entry-aware",
     "name": "Oklahoma QSO Party - DX",
     "organizer": "",
     "kind": "contest",
@@ -3761,6 +3916,7 @@
   },
   {
     "id": "SD-OKQP",
+    "capability": "entry-aware",
     "name": "OKQP - Oklahoma Side",
     "organizer": "",
     "kind": "contest",
@@ -3786,6 +3942,7 @@
   },
   {
     "id": "SD-ON10DX",
+    "capability": "entry-aware",
     "name": "ON 10m Contest - DX side",
     "organizer": "",
     "kind": "contest",
@@ -3805,6 +3962,7 @@
   },
   {
     "id": "SD-ON10ON",
+    "capability": "entry-aware",
     "name": "ON 10m Contest - ON side",
     "organizer": "",
     "kind": "contest",
@@ -3825,6 +3983,7 @@
   },
   {
     "id": "SD-ON80DX",
+    "capability": "entry-aware",
     "name": "ON 80m Contest - DX side",
     "organizer": "",
     "kind": "contest",
@@ -3844,6 +4003,7 @@
   },
   {
     "id": "SD-ON80ON",
+    "capability": "entry-aware",
     "name": "ON 80m Contest - ON side",
     "organizer": "",
     "kind": "contest",
@@ -3864,6 +4024,7 @@
   },
   {
     "id": "SD-ONTQPDX",
+    "capability": "entry-aware",
     "name": "Ontario QP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -3889,6 +4050,7 @@
   },
   {
     "id": "SD-ONTQP",
+    "capability": "entry-aware",
     "name": "Ontario QP - VE3 Side",
     "organizer": "",
     "kind": "contest",
@@ -3914,6 +4076,7 @@
   },
   {
     "id": "SD-PABEKER",
+    "capability": "entry-aware",
     "name": "PA BEKER Contest",
     "organizer": "",
     "kind": "contest",
@@ -3939,6 +4102,7 @@
   },
   {
     "id": "SD-PACC",
+    "capability": "entry-aware",
     "name": "PACC - PA side",
     "organizer": "",
     "kind": "contest",
@@ -3964,6 +4128,7 @@
   },
   {
     "id": "SD-PACCDX",
+    "capability": "entry-aware",
     "name": "PACC Contest - DX side",
     "organizer": "",
     "kind": "contest",
@@ -3988,6 +4153,7 @@
   },
   {
     "id": "SD-PAQPDX",
+    "capability": "entry-aware",
     "name": "PAQP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -4013,6 +4179,7 @@
   },
   {
     "id": "SD-PAQP",
+    "capability": "entry-aware",
     "name": "PAQP - PA Side",
     "organizer": "",
     "kind": "contest",
@@ -4038,6 +4205,7 @@
   },
   {
     "id": "SD-PGA",
+    "capability": "entry-aware",
     "name": "PGA-TEST",
     "organizer": "",
     "kind": "contest",
@@ -4063,6 +4231,7 @@
   },
   {
     "id": "SD-PORTCT",
+    "capability": "entry-aware",
     "name": "Portugal Day Contest - CT Side",
     "organizer": "",
     "kind": "contest",
@@ -4088,6 +4257,7 @@
   },
   {
     "id": "SD-PORTDX",
+    "capability": "entry-aware",
     "name": "Portugal Day Contest - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -4112,6 +4282,7 @@
   },
   {
     "id": "SD-QCQPDX",
+    "capability": "entry-aware",
     "name": "QCQP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -4137,6 +4308,7 @@
   },
   {
     "id": "SD-RACDAYX",
+    "capability": "entry-aware",
     "name": "RAC Canada Day - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -4161,6 +4333,7 @@
   },
   {
     "id": "SD-RACDAY",
+    "capability": "entry-aware",
     "name": "RAC Canada Day - VE Side",
     "organizer": "",
     "kind": "contest",
@@ -4186,6 +4359,7 @@
   },
   {
     "id": "SD-RACWINX",
+    "capability": "entry-aware",
     "name": "RAC Winter Day - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -4210,6 +4384,7 @@
   },
   {
     "id": "SD-RACWIN",
+    "capability": "entry-aware",
     "name": "RAC Winter Day - VE Side",
     "organizer": "",
     "kind": "contest",
@@ -4234,6 +4409,7 @@
   },
   {
     "id": "SD-RAEM",
+    "capability": "entry-aware",
     "name": "RAEM Contest",
     "organizer": "",
     "kind": "contest",
@@ -4260,6 +4436,7 @@
   },
   {
     "id": "SD-RANDOM3",
+    "capability": "entry-aware",
     "name": "Random Serials - 3 Digits",
     "organizer": "",
     "kind": "contest",
@@ -4284,6 +4461,7 @@
   },
   {
     "id": "SD-RANDOM4",
+    "capability": "entry-aware",
     "name": "Random Serials - 4 Digits",
     "organizer": "",
     "kind": "contest",
@@ -4308,6 +4486,7 @@
   },
   {
     "id": "SD-RDADX",
+    "capability": "entry-aware",
     "name": "RDA Contest - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -4332,6 +4511,7 @@
   },
   {
     "id": "SD-RDARU",
+    "capability": "entry-aware",
     "name": "RDA Contest - UA Side",
     "organizer": "",
     "kind": "contest",
@@ -4357,6 +4537,7 @@
   },
   {
     "id": "SD-RUSSIAX",
+    "capability": "entry-aware",
     "name": "RDXC - DX side",
     "organizer": "",
     "kind": "contest",
@@ -4381,6 +4562,7 @@
   },
   {
     "id": "SD-RUSSIAU",
+    "capability": "entry-aware",
     "name": "RDXC - Russian Side",
     "organizer": "",
     "kind": "contest",
@@ -4406,6 +4588,7 @@
   },
   {
     "id": "SD-REF160",
+    "capability": "entry-aware",
     "name": "Ref 160m, France",
     "organizer": "",
     "kind": "contest",
@@ -4426,6 +4609,7 @@
   },
   {
     "id": "SD-REFDX",
+    "capability": "entry-aware",
     "name": "REF Contest - DX side",
     "organizer": "",
     "kind": "contest",
@@ -4450,6 +4634,7 @@
   },
   {
     "id": "SD-REFF",
+    "capability": "entry-aware",
     "name": "REF Contest - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -4475,6 +4660,7 @@
   },
   {
     "id": "SD-RS18",
+    "capability": "entry-aware",
     "name": "RSGB 1.8 MHz",
     "organizer": "",
     "kind": "contest",
@@ -4495,6 +4681,7 @@
   },
   {
     "id": "SD-RSGCC",
+    "capability": "entry-aware",
     "name": "RSGB 80m Contests",
     "organizer": "",
     "kind": "contest",
@@ -4514,6 +4701,7 @@
   },
   {
     "id": "SD-RSGBSPR",
+    "capability": "entry-aware",
     "name": "RSGB 80m Sprint",
     "organizer": "",
     "kind": "contest",
@@ -4539,6 +4727,7 @@
   },
   {
     "id": "SD-RSGAFS",
+    "capability": "entry-aware",
     "name": "RSGB AFS CW",
     "organizer": "",
     "kind": "contest",
@@ -4563,6 +4752,7 @@
   },
   {
     "id": "SD-RSGCLUB",
+    "capability": "selection-only",
     "name": "RSGB Club Calls",
     "organizer": "",
     "kind": "contest",
@@ -4583,6 +4773,7 @@
   },
   {
     "id": "SD-RSGHOPE",
+    "capability": "entry-aware",
     "name": "RSGB Hope QSO Party",
     "organizer": "",
     "kind": "contest",
@@ -4607,6 +4798,7 @@
   },
   {
     "id": "SD-RSGLPFD",
+    "capability": "entry-aware",
     "name": "RSGB International LP Contest",
     "organizer": "",
     "kind": "contest",
@@ -4632,6 +4824,7 @@
   },
   {
     "id": "SD-ESPRINT",
+    "capability": "entry-aware",
     "name": "RSGB International Sprint",
     "organizer": "",
     "kind": "contest",
@@ -4656,6 +4849,7 @@
   },
   {
     "id": "SD-RSGFDC",
+    "capability": "entry-aware",
     "name": "RSGB NFD - CW",
     "organizer": "",
     "kind": "contest",
@@ -4680,6 +4874,7 @@
   },
   {
     "id": "SD-RSJUB",
+    "capability": "entry-aware",
     "name": "RSGB Platinum Jubilee",
     "organizer": "",
     "kind": "contest",
@@ -4704,6 +4899,7 @@
   },
   {
     "id": "SD-RSGROLC",
+    "capability": "selection-only",
     "name": "RSGB Rolo - CW",
     "organizer": "",
     "kind": "contest",
@@ -4722,6 +4918,7 @@
   },
   {
     "id": "SD-RUS160",
+    "capability": "entry-aware",
     "name": "Russian 160m",
     "organizer": "",
     "kind": "contest",
@@ -4742,6 +4939,7 @@
   },
   {
     "id": "SD-RUMIN40",
+    "capability": "entry-aware",
     "name": "Russian Mini Test, 40m",
     "organizer": "",
     "kind": "contest",
@@ -4761,6 +4959,7 @@
   },
   {
     "id": "SD-RUMIN80",
+    "capability": "entry-aware",
     "name": "Russian Mini Test, 80m",
     "organizer": "",
     "kind": "contest",
@@ -4780,6 +4979,7 @@
   },
   {
     "id": "SD-RUWWDX",
+    "capability": "entry-aware",
     "name": "Russian WW - DX side",
     "organizer": "",
     "kind": "contest",
@@ -4804,6 +5004,7 @@
   },
   {
     "id": "SD-RUWW",
+    "capability": "entry-aware",
     "name": "Russian WW - UA Side",
     "organizer": "",
     "kind": "contest",
@@ -4829,6 +5030,7 @@
   },
   {
     "id": "SD-SASPRNT",
+    "capability": "entry-aware",
     "name": "SA Sprint",
     "organizer": "",
     "kind": "contest",
@@ -4853,6 +5055,7 @@
   },
   {
     "id": "SD-SACSCAN",
+    "capability": "entry-aware",
     "name": "SAC - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -4876,6 +5079,7 @@
   },
   {
     "id": "SD-SACDX",
+    "capability": "entry-aware",
     "name": "SAC Contest - DX side",
     "organizer": "",
     "kind": "contest",
@@ -4900,6 +5104,7 @@
   },
   {
     "id": "SD-SACEU",
+    "capability": "entry-aware",
     "name": "SAC Contest - EU side",
     "organizer": "",
     "kind": "contest",
@@ -4924,6 +5129,7 @@
   },
   {
     "id": "SD-SALMOND",
+    "capability": "entry-aware",
     "name": "Salmon Run - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -4949,6 +5155,7 @@
   },
   {
     "id": "SD-SALMONW",
+    "capability": "entry-aware",
     "name": "Salmon Run - WA side",
     "organizer": "",
     "kind": "contest",
@@ -4974,6 +5181,7 @@
   },
   {
     "id": "SD-SARLHFC",
+    "capability": "entry-aware",
     "name": "SARL HF CW",
     "organizer": "",
     "kind": "contest",
@@ -4998,6 +5206,7 @@
   },
   {
     "id": "SD-SCAG",
+    "capability": "entry-aware",
     "name": "SCAG Sprint",
     "organizer": "",
     "kind": "contest",
@@ -5017,6 +5226,7 @@
   },
   {
     "id": "SD-SCDX",
+    "capability": "entry-aware",
     "name": "SCQP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -5042,6 +5252,7 @@
   },
   {
     "id": "SD-SC",
+    "capability": "entry-aware",
     "name": "SCQP - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -5067,6 +5278,7 @@
   },
   {
     "id": "SD-SEADX",
+    "capability": "entry-aware",
     "name": "Seanet - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -5091,6 +5303,7 @@
   },
   {
     "id": "SD-SEAHOME",
+    "capability": "entry-aware",
     "name": "Seanet - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -5115,6 +5328,7 @@
   },
   {
     "id": "SD-SKMC",
+    "capability": "entry-aware",
     "name": "SK Memorial Contest",
     "organizer": "",
     "kind": "contest",
@@ -5140,6 +5354,7 @@
   },
   {
     "id": "SD-SST",
+    "capability": "entry-aware",
     "name": "Slow Speed Test",
     "organizer": "",
     "kind": "contest",
@@ -5166,6 +5381,7 @@
   },
   {
     "id": "SD-SA10",
+    "capability": "entry-aware",
     "name": "South America 10m",
     "organizer": "",
     "kind": "contest",
@@ -5186,6 +5402,7 @@
   },
   {
     "id": "SD-SPDXDX",
+    "capability": "entry-aware",
     "name": "SPDX - DX side",
     "organizer": "",
     "kind": "contest",
@@ -5210,6 +5427,7 @@
   },
   {
     "id": "SD-SPDXSP",
+    "capability": "entry-aware",
     "name": "SPDX - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -5235,6 +5453,7 @@
   },
   {
     "id": "SD-SMXMAS",
+    "capability": "selection-only",
     "name": "SSA Jultest",
     "organizer": "",
     "kind": "contest",
@@ -5258,6 +5477,7 @@
   },
   {
     "id": "SD-SSATEST",
+    "capability": "entry-aware",
     "name": "SSA Manadstest",
     "organizer": "",
     "kind": "contest",
@@ -5283,6 +5503,7 @@
   },
   {
     "id": "SD-STEW",
+    "capability": "entry-aware",
     "name": "Stew Perry Topband",
     "organizer": "",
     "kind": "contest",
@@ -5303,6 +5524,7 @@
   },
   {
     "id": "SD-SYLRA",
+    "capability": "entry-aware",
     "name": "SYLRA Contest",
     "organizer": "",
     "kind": "contest",
@@ -5327,6 +5549,7 @@
   },
   {
     "id": "SD-TNQPDX",
+    "capability": "entry-aware",
     "name": "Tennessee QP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -5352,6 +5575,7 @@
   },
   {
     "id": "SD-TNQP",
+    "capability": "entry-aware",
     "name": "Tennessee QP - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -5377,6 +5601,7 @@
   },
   {
     "id": "SD-TESLA",
+    "capability": "entry-aware",
     "name": "Tesla Memorial",
     "organizer": "",
     "kind": "contest",
@@ -5402,6 +5627,7 @@
   },
   {
     "id": "SD-TISZA",
+    "capability": "entry-aware",
     "name": "Tisza Cup",
     "organizer": "",
     "kind": "contest",
@@ -5426,6 +5652,7 @@
   },
   {
     "id": "SD-TOEC",
+    "capability": "entry-aware",
     "name": "TOEC",
     "organizer": "",
     "kind": "contest",
@@ -5451,6 +5678,7 @@
   },
   {
     "id": "SD-WWTRCM",
+    "capability": "entry-aware",
     "name": "TRC DX - Member",
     "organizer": "",
     "kind": "contest",
@@ -5476,6 +5704,7 @@
   },
   {
     "id": "SD-WWTRC",
+    "capability": "entry-aware",
     "name": "TRC DX - Non-member",
     "organizer": "",
     "kind": "contest",
@@ -5500,6 +5729,7 @@
   },
   {
     "id": "SD-TRIMIX",
+    "capability": "entry-aware",
     "name": "Triathlon - CW & SSB",
     "organizer": "",
     "kind": "contest",
@@ -5524,6 +5754,7 @@
   },
   {
     "id": "SD-TRICW",
+    "capability": "entry-aware",
     "name": "Triathlon CW",
     "organizer": "",
     "kind": "contest",
@@ -5548,6 +5779,7 @@
   },
   {
     "id": "SD-UA2DX",
+    "capability": "entry-aware",
     "name": "UA2 QSO Party",
     "organizer": "",
     "kind": "contest",
@@ -5572,6 +5804,7 @@
   },
   {
     "id": "SD-UBA80",
+    "capability": "entry-aware",
     "name": "UBA 80m Spring - DX side",
     "organizer": "",
     "kind": "contest",
@@ -5591,6 +5824,7 @@
   },
   {
     "id": "SD-UBA80ON",
+    "capability": "entry-aware",
     "name": "UBA 80m Spring - ON Side",
     "organizer": "",
     "kind": "contest",
@@ -5611,6 +5845,7 @@
   },
   {
     "id": "SD-UBAFDC",
+    "capability": "entry-aware",
     "name": "UBA CW Field Day",
     "organizer": "",
     "kind": "contest",
@@ -5635,6 +5870,7 @@
   },
   {
     "id": "SD-UBACONX",
+    "capability": "entry-aware",
     "name": "UBA DX Contest - DX side",
     "organizer": "",
     "kind": "contest",
@@ -5659,6 +5895,7 @@
   },
   {
     "id": "SD-UBACON",
+    "capability": "entry-aware",
     "name": "UBA DX Contest - ON Side",
     "organizer": "",
     "kind": "contest",
@@ -5684,6 +5921,7 @@
   },
   {
     "id": "SD-UBAONDX",
+    "capability": "entry-aware",
     "name": "UBA ON Contest - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -5703,6 +5941,7 @@
   },
   {
     "id": "SD-UBAONON",
+    "capability": "entry-aware",
     "name": "UBA ON Contest - ON side",
     "organizer": "",
     "kind": "contest",
@@ -5723,6 +5962,7 @@
   },
   {
     "id": "SD-UBAWON",
+    "capability": "entry-aware",
     "name": "UBA Winter - ON Side",
     "organizer": "",
     "kind": "contest",
@@ -5748,6 +5988,7 @@
   },
   {
     "id": "SD-UBAWDX",
+    "capability": "entry-aware",
     "name": "UBA Winter Contest - DX side",
     "organizer": "",
     "kind": "contest",
@@ -5772,6 +6013,7 @@
   },
   {
     "id": "SD-UKEIDXC",
+    "capability": "entry-aware",
     "name": "UK/EI DX Contest CW",
     "organizer": "",
     "kind": "contest",
@@ -5797,6 +6039,7 @@
   },
   {
     "id": "SD-UK80C",
+    "capability": "entry-aware",
     "name": "UKEICC 80M CW",
     "organizer": "",
     "kind": "contest",
@@ -5817,6 +6060,7 @@
   },
   {
     "id": "SD-UKRDX",
+    "capability": "entry-aware",
     "name": "Ukranian DX - DX side",
     "organizer": "",
     "kind": "contest",
@@ -5841,6 +6085,7 @@
   },
   {
     "id": "SD-UKRUKR",
+    "capability": "entry-aware",
     "name": "Ukranian DX - Ukraine side",
     "organizer": "",
     "kind": "contest",
@@ -5866,6 +6111,7 @@
   },
   {
     "id": "SD-UNDX",
+    "capability": "entry-aware",
     "name": "UN DX - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -5890,6 +6136,7 @@
   },
   {
     "id": "SD-UN",
+    "capability": "entry-aware",
     "name": "UN DX - UN Side",
     "organizer": "",
     "kind": "contest",
@@ -5915,6 +6162,7 @@
   },
   {
     "id": "SD-USCTYS",
+    "capability": "entry-aware",
     "name": "US Counties QSO Party",
     "organizer": "",
     "kind": "contest",
@@ -5940,6 +6188,7 @@
   },
   {
     "id": "SD-VAQPDX",
+    "capability": "entry-aware",
     "name": "VAQP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -5965,6 +6214,7 @@
   },
   {
     "id": "SD-VAQP",
+    "capability": "entry-aware",
     "name": "VAQP - VA Side",
     "organizer": "",
     "kind": "contest",
@@ -5990,6 +6240,7 @@
   },
   {
     "id": "SD-YVIND",
+    "capability": "entry-aware",
     "name": "Venezuela Ind. Day",
     "organizer": "",
     "kind": "contest",
@@ -6014,6 +6265,7 @@
   },
   {
     "id": "SD-VTQPDX",
+    "capability": "entry-aware",
     "name": "Vermont QP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -6039,6 +6291,7 @@
   },
   {
     "id": "SD-VTQP",
+    "capability": "entry-aware",
     "name": "Vermont QP - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -6064,6 +6317,7 @@
   },
   {
     "id": "SD-VKSHDX",
+    "capability": "entry-aware",
     "name": "VK Shires - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -6089,6 +6343,7 @@
   },
   {
     "id": "SD-VKSH",
+    "capability": "entry-aware",
     "name": "VK Shires - VK Side",
     "organizer": "",
     "kind": "contest",
@@ -6114,6 +6369,7 @@
   },
   {
     "id": "SD-VUDXDX",
+    "capability": "entry-aware",
     "name": "VU DX - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -6138,6 +6394,7 @@
   },
   {
     "id": "SD-VUDX",
+    "capability": "entry-aware",
     "name": "VU DX - Home Side",
     "organizer": "",
     "kind": "contest",
@@ -6163,6 +6420,7 @@
   },
   {
     "id": "SD-WAEDX",
+    "capability": "entry-aware",
     "name": "WAE DX Contest",
     "organizer": "",
     "kind": "contest",
@@ -6187,6 +6445,7 @@
   },
   {
     "id": "SD-WAGDL",
+    "capability": "entry-aware",
     "name": "WAG Contest - DL side",
     "organizer": "",
     "kind": "contest",
@@ -6212,6 +6471,7 @@
   },
   {
     "id": "SD-WAGDX",
+    "capability": "entry-aware",
     "name": "WAG Contest - DX side",
     "organizer": "",
     "kind": "contest",
@@ -6236,6 +6496,7 @@
   },
   {
     "id": "SD-WAPC",
+    "capability": "entry-aware",
     "name": "WAPC - China Side",
     "organizer": "",
     "kind": "contest",
@@ -6261,6 +6522,7 @@
   },
   {
     "id": "SD-WAPCDX",
+    "capability": "entry-aware",
     "name": "WAPC - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -6285,6 +6547,7 @@
   },
   {
     "id": "SD-WIAFD",
+    "capability": "selection-only",
     "name": "WIA Field Day",
     "organizer": "",
     "kind": "contest",
@@ -6308,6 +6571,7 @@
   },
   {
     "id": "SD-REMDAY",
+    "capability": "entry-aware",
     "name": "WIA Remembrance Day",
     "organizer": "",
     "kind": "contest",
@@ -6333,6 +6597,7 @@
   },
   {
     "id": "SD-WIQPDX",
+    "capability": "entry-aware",
     "name": "WISCONSIN QP - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -6358,6 +6623,7 @@
   },
   {
     "id": "SD-WWPMC",
+    "capability": "entry-aware",
     "name": "WWPMC",
     "organizer": "",
     "kind": "contest",
@@ -6383,6 +6649,7 @@
   },
   {
     "id": "SD-YODXDX",
+    "capability": "entry-aware",
     "name": "YO DX Contest - DX Side",
     "organizer": "",
     "kind": "contest",
@@ -6407,6 +6674,7 @@
   },
   {
     "id": "SD-YODX",
+    "capability": "entry-aware",
     "name": "YO DX Contest - YO Side",
     "organizer": "",
     "kind": "contest",
@@ -6432,6 +6700,7 @@
   },
   {
     "id": "SD-YOTA",
+    "capability": "entry-aware",
     "name": "YOTA Contest",
     "organizer": "",
     "kind": "contest",
@@ -6457,6 +6726,7 @@
   },
   {
     "id": "SD-YUDX",
+    "capability": "entry-aware",
     "name": "YU DX Contest",
     "organizer": "",
     "kind": "contest",
@@ -6481,6 +6751,7 @@
   },
   {
     "id": "SD-GAGARIN",
+    "capability": "entry-aware",
     "name": "Yuri Gagarin DX Contest",
     "organizer": "",
     "kind": "contest",
