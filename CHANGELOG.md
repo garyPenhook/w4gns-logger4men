@@ -1,5 +1,13 @@
 # Changelog
 
+### v1.25.0
+
+- Wired the Helvetia Contest's real scoring rules: a Switzerland contact scores 10 points regardless of the operator's own location, a same-continent contact 1, and a different-continent contact 3, times a DXCC-country and Swiss-canton multiplier both counted per band — sourced from uska.ch's official rules (issued March 2026). Unlike SAC/WAE/ARRL DX CW, this contest's formula is the same for every entrant, so no side-asymmetric DX-side rules were needed.
+
+### v1.24.0
+
+- Wired the WAE DX Contest, CW's real scoring rules: a flat 1 point per QSO, plus a side-asymmetric multiplier (WAE Country List entities for a non-European entrant, non-European DXCC entities for a European entrant) weighted by a per-band bonus factor, sourced from darc.de's WAEDC rules.
+
 ### v1.23.0
 
 - Wired the North American Sprint, CW's real scoring rules: flat 1 point per QSO times a state/province/other-North-America-entity multiplier (the same table NAQP CW uses) counted once for the whole contest rather than per band, sourced from ncjweb.com's Sprint rules. Also fixed a pre-existing data bug where this contest was configured with no sent serial number, despite the rules requiring one in every exchange.

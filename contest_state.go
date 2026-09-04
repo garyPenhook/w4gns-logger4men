@@ -121,6 +121,12 @@ type contestState struct {
 	// under Section 5).
 	dxccNonWAEByBand map[string]map[int]struct{}
 	dxccNonWAEAll    map[int]struct{}
+	// cantonByBand/cantonAll mirror tnCountyByBand/tnCountyAll for the
+	// "canton" multiplier kind (canton.go's cantonCode): the Swiss canton
+	// parsed from the worked station's received exchange text, the Helvetia
+	// Contest's per-band multiplier alongside dxcc (uska.ch rules §2.7).
+	cantonByBand map[string]map[string]struct{}
+	cantonAll    map[string]struct{}
 	// pointCategoryCountry records the worked entity's cty.dat country name
 	// for every scored "CALL|BAND" key, independent of whether the operator's
 	// own station resolved — a pointsRule.CountryGroup check (e.g. SAC's
@@ -218,6 +224,8 @@ func newContestState() *contestState {
 		waeCountryAll:          make(map[string]struct{}),
 		dxccNonWAEByBand:       make(map[string]map[int]struct{}),
 		dxccNonWAEAll:          make(map[int]struct{}),
+		cantonByBand:           make(map[string]map[string]struct{}),
+		cantonAll:              make(map[string]struct{}),
 		pointCategory:          make(map[string]qsoPointCategory),
 		pointCategoryContinent: make(map[string]string),
 		pointCategoryCountry:   make(map[string]string),
@@ -290,6 +298,7 @@ func (c *contestState) record(q qso) {
 		recordMultiplierStringValue(c.prefixByBand, c.prefixAll, band, wpxPrefix(call))
 		recordMultiplierStringValue(c.exchangeAreaByBand, c.exchangeAreaAll, band, exchangeAreaCode(q.srxString))
 		recordMultiplierStringValue(c.tnCountyByBand, c.tnCountyAll, band, tnCountyCode(q.srxString))
+		recordMultiplierStringValue(c.cantonByBand, c.cantonAll, band, cantonCode(q.srxString))
 		recordMultiplierStringValue(c.naqpAreaByBand, c.naqpAreaAll, band, naqpAreaCode(q.srxString))
 		recordMultiplierStringValue(c.arrlSectionByBand, c.arrlSectionAll, band, arrlSectionCode(q.srxString))
 		if special := iaruExchangeSpecial(q.srxString); special != "" {
@@ -664,6 +673,15 @@ func (c *contestState) multiplierCount(rule multiplierRule) int {
 			return total
 		}
 		return len(c.waeCountryAll)
+	case "canton":
+		if strings.TrimSpace(rule.Per) == "band" {
+			total := 0
+			for _, set := range c.cantonByBand {
+				total += len(set)
+			}
+			return total
+		}
+		return len(c.cantonAll)
 	}
 	var byBand map[string]map[int]struct{}
 	var all map[int]struct{}
@@ -765,6 +783,22 @@ func (c *contestState) wouldBeNewMultiplier(rules *scoringRules, call, band, exc
 				_, already = c.tnCountyByBand[band][county]
 			} else {
 				_, already = c.tnCountyAll[county]
+			}
+			if already {
+				workedBefore = true
+			} else {
+				newMult = true
+			}
+		case "canton":
+			canton := cantonCode(exchangeText)
+			if canton == "" {
+				continue
+			}
+			var already bool
+			if strings.TrimSpace(rule.Per) == "band" {
+				_, already = c.cantonByBand[band][canton]
+			} else {
+				_, already = c.cantonAll[canton]
 			}
 			if already {
 				workedBefore = true

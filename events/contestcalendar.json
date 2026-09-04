@@ -4438,7 +4438,7 @@
   },
   {
     "id": "HELVETIA",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "Helvetia Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -4455,8 +4455,23 @@
     "sent_exchange_hint": "CW, SSB, Digital contest \u2014 CW exchange: HB: RS(T) + 2-letter canton non-HB: RS(T) + Serial No.",
     "received_exchange_hint": "CW, SSB, Digital contest \u2014 CW exchange: HB: RS(T) + 2-letter canton non-HB: RS(T) + Serial No.",
     "dupe_scope": "call+band",
+    "adif_contest_id": "HELVETIA",
+    "cabrillo_layout": "cw_rst_exchange",
     "rules_url": "https://uska.ch/wp-content/uploads/2026/03/2026-01-Rules-and-Regulations-for-Helvetia-Contest-issued-March-2026.pdf",
     "score_submission_url": "",
+    "scoring": {
+      "points": {
+        "country_group": ["Switzerland"],
+        "group_points": 10,
+        "same_country": 1,
+        "same_continent": 1,
+        "other_continent": 3
+      },
+      "multipliers": [
+        {"kind": "dxcc", "per": "band"},
+        {"kind": "canton", "per": "band"}
+      ]
+    },
     "sessions": [
       {
         "id": "1300ZApr25",

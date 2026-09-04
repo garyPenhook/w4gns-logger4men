@@ -58,10 +58,10 @@ the log, submitted contest results, or external services.
 - 🔧 **Audit and implement scoring per contest before presenting the catalog as
   correct.** Every one of the 429 event records now declares and is validated
   against an explicit `capability`: 9 intentionally generic templates are
-  `selection-only`, 407 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
+  `selection-only`, 406 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
   `CQ-160-CW`, `ARRL-DX-CW`, `CQ-WPX-CW`, `TNQP`, `SAC-CW`, `NAQP-CW`,
-  `ARRL-SS-CW`, `IARU-HF`, `NA-SPRINT-CW`, and `DARC-WAEDC-CW` are
-  `scoring-ready`. **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
+  `ARRL-SS-CW`, `IARU-HF`, `NA-SPRINT-CW`, `DARC-WAEDC-CW`, and `HELVETIA`
+  are `scoring-ready`. **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
   side-asymmetric around a fixed "Scandinavian" country group — Norway,
   Finland, Sweden, Iceland, Denmark, and the territories the rules list by
   their own prefix block (Svalbard, Jan Mayen, Åland Islands, Market Reef,
@@ -876,6 +876,48 @@ every panel *and* scoring so they always agree.
   `TestContestStateWouldBeNewMultiplierDXCCNonWAE`), `events_test.go`
   (`TestLoadEventCatalogWAEHasRealScoringRules`), `cabrillo_export_test.go`
   (`TestComputeContestScoreWAESideAsymmetric`).
+- ✅ **Real per-contest wiring: Helvetia Contest's actual QSO points and
+  multiplier rules**, the first curated event with a genuinely
+  side-symmetric formula after SAC/ARRL-DX-CW/WAE's side-asymmetric wiring —
+  every entrant, Swiss or not, scores under the same rule, so only one
+  `Scoring` block was needed (no `DXScoring`/`DomesticCountries`). Sourced
+  from uska.ch's "Rules and Regulations for Helvetia Contest" (issued March
+  2026, §2.5, §2.7): a contact with a station in Switzerland scores 10
+  points regardless of the operator's own location — reusing the existing
+  `pointsRule.CountryGroup`/`GroupPoints` schema SAC-CW introduced, with
+  `CountryGroup: ["Switzerland"]` — a same-continent contact scores 1, and a
+  different-continent contact scores 3; the rules draw no separate
+  same-country tier, so `SameCountry` is configured to match the flat
+  `SameContinent` value (1) rather than left at CQ WW's 0. The multiplier is
+  "Canton and DXCC country (including Switzerland) per band" (§2.7): the
+  existing `dxcc` kind already covers the DXCC half unmodified (it has no
+  Switzerland exclusion to begin with, unlike CQ 160/ARRL DX CW's own-country
+  multiplier gap noted above). **New `canton` multiplier kind**
+  (`canton.go`, `cantonCode`) resolves the Swiss half from the worked
+  station's received-exchange text — only an HB9 station's exchange
+  actually contains a canton (§2.5.1: RS(T) + 2-letter canton; §2.5.2's
+  non-Swiss exchange is a plain running serial number, which never
+  coincidentally matches one of the 26 canton codes) — the same
+  exchange-is-authoritative, whole-text-match shape as `tn_county.go`'s
+  `tnCountyCode`. `contest_state.go` extends the index with
+  `cantonByBand`/`cantonAll` (recorded in `record()`, summed in
+  `multiplierCount()`) and wires the as-you-type "NEW MULT" flag in
+  `wouldBeNewMultiplier`. Curated `HELVETIA`
+  (`events/contestcalendar.json`) carries the real `scoring` block plus
+  `adif_contest_id: HELVETIA` (confirmed against the ADIF Contest ID
+  Enumeration) and `cabrillo_layout: cw_rst_exchange` (RST + one free-text
+  exchange field — canton or serial — the same shape CQ WW/CQ 160/ARRL DX/
+  WPX/IARU HF/WAE already use), promoting `capability` to `scoring-ready`.
+  No de-dup change was needed: the catalog already carried two generated
+  `SD-*` entries sharing the curated entry's `HELVETIA` Cabrillo token
+  (`Helvetia Contest - DX Side`/`- Home Side`) — the existing "token shared
+  by two-or-more generated entries and one curated entry is added fidelity,
+  not a duplicate" rule (§2) already keeps all three. Tests: `canton_test.go`
+  (`TestCantonCode`, `TestCantonCodesHas26Values`), `contest_state_test.go`
+  (`TestContestStateScorePointsRuleHelvetiaCountryGroup`,
+  `TestContestStateScoreCantonMultiplierFromReceivedExchange`,
+  `TestContestStateWouldBeNewMultiplierCanton`), `events_test.go`
+  (`TestLoadEventCatalogHelvetiaHasRealScoringRules`).
 - ✅ **CSV export** (`Ctrl+R`). `csv_export.go` (`exportCSV`, `writeCSVAtomic`,
   `csvField`/`csvRow` — RFC 4180 quoting, CRLF rows) streams the active
   contest's QSOs (same `contest_id` scoping as Cabrillo/ADIF export) to

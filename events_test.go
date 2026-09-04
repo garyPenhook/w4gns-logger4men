@@ -1089,3 +1089,60 @@ func TestEventCatalogCyclesCWTSessions(t *testing.T) {
 		t.Fatalf("contest ID = %q", m.contestFields[contestName].Value())
 	}
 }
+
+// TestLoadEventCatalogHelvetiaHasRealScoringRules guards the curated
+// HELVETIA entry's actual scoring config, sourced from uska.ch's "Rules and
+// Regulations for Helvetia Contest" (issued March 2026), §2.7: a single,
+// side-symmetric formula applies to every entrant (unlike SAC/WAE/ARRL-DX-
+// CW's side-asymmetric Scoring/DXScoring split, so only one Scoring block is
+// needed) — a Switzerland contact scores the country-group value (10)
+// regardless of the operator's own location, a same-continent contact
+// scores 1, and a different-continent contact scores 3; the rules draw no
+// separate same-country distinction, so SameCountry is configured to match
+// the flat 1-point SameContinent value rather than left at CQ WW's 0.
+// Multipliers are DXCC country (including Switzerland) and Swiss canton,
+// both counted per band (§2.7's "Canton and DXCC country ... per band").
+func TestLoadEventCatalogHelvetiaHasRealScoringRules(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	helvetia := events[eventIndex(t, events, "HELVETIA")]
+	if helvetia.Capability != catalogCapabilityScoringReady {
+		t.Fatalf("HELVETIA capability = %q, want %q", helvetia.Capability, catalogCapabilityScoringReady)
+	}
+	if !helvetia.cabrilloReady() {
+		t.Fatal("HELVETIA must have a checked Cabrillo layout")
+	}
+	if helvetia.ADIFContestID != "HELVETIA" {
+		t.Fatalf("HELVETIA adif_contest_id = %q, want HELVETIA", helvetia.ADIFContestID)
+	}
+	if helvetia.Scoring == nil || helvetia.Scoring.Points == nil {
+		t.Fatal("HELVETIA must have a Points-based Scoring rule")
+	}
+	points := helvetia.Scoring.Points
+	if points.GroupPoints != 10 || points.SameCountry != 1 || points.SameContinent != 1 || points.OtherContinent != 3 {
+		t.Fatalf("HELVETIA scoring.points = %+v, want group 10 / same-country 1 / same-continent 1 / other-continent 3", points)
+	}
+	if !countryInList(points.CountryGroup, "Switzerland") {
+		t.Fatalf("HELVETIA scoring.points.country_group = %v, want Switzerland", points.CountryGroup)
+	}
+	mults := helvetia.Scoring.effectiveMultipliers()
+	if len(mults) != 2 {
+		t.Fatalf("HELVETIA multiplier count = %d, want 2 (dxcc + canton)", len(mults))
+	}
+	for _, kind := range []string{"dxcc", "canton"} {
+		found := false
+		for _, rule := range mults {
+			if rule.Kind == kind && rule.Per == "band" {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("HELVETIA missing %q multiplier per band", kind)
+		}
+	}
+	if helvetia.DXScoring != nil {
+		t.Fatal("HELVETIA scoring is side-symmetric and must not have a DXScoring block")
+	}
+}

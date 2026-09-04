@@ -1186,3 +1186,79 @@ func TestContestStateWouldBeNewMultiplierIARUZoneAndHQ(t *testing.T) {
 		t.Fatalf("DARC (new HQ) = newMult=%v workedBefore=%v, want true/false", newMult, workedBefore)
 	}
 }
+
+// TestContestStateScorePointsRuleHelvetiaCountryGroup exercises the Helvetia
+// Contest's own points formula (uska.ch rules §2.7): a Swiss (HB9) contact
+// scores the country-group value (10) regardless of the operator's own
+// location, a same-country contact and a same-continent contact both score
+// the flat 1-point value the rules don't otherwise distinguish, and a
+// different-continent contact scores 3. W1AW is the operator (USA, NA);
+// W2AZ is same-country, VE3ABC is same-continent (Canada, NA), JA1ABC is
+// other-continent (Japan, AS), HB9AA is the Switzerland group hit.
+func TestContestStateScorePointsRuleHelvetiaCountryGroup(t *testing.T) {
+	state := newContestState()
+	state.setStation("W1AW")
+	state.record(qso{call: "HB9AA", band: "20M"})
+	state.record(qso{call: "W2AZ", band: "20M"})
+	state.record(qso{call: "VE3ABC", band: "20M"})
+	state.record(qso{call: "JA1ABC", band: "20M"})
+
+	rules := &scoringRules{
+		Points: &pointsRule{
+			CountryGroup:   []string{"Switzerland"},
+			GroupPoints:    10,
+			SameCountry:    1,
+			SameContinent:  1,
+			OtherContinent: 3,
+		},
+	}
+	if score := state.score(rules); score.qsoPoints != 15 {
+		t.Fatalf("qsoPoints = %d, want 15 (10 Switzerland + 1 same-country + 1 same-continent + 3 other-continent)", score.qsoPoints)
+	}
+}
+
+// TestContestStateScoreCantonMultiplierFromReceivedExchange exercises the
+// Helvetia Contest's "canton" multiplier: a Swiss canton parsed from the
+// worked station's received exchange text, counted per band (uska.ch rules
+// §2.7: "Canton and DXCC country ... per band"). A repeated canton on the
+// same band doesn't add another; the same canton on a different band does;
+// a non-Swiss station's own sent serial number contributes nothing.
+func TestContestStateScoreCantonMultiplierFromReceivedExchange(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "HB9AA", band: "20M", srxString: "ZH"}) // new: ZH/20M
+	state.record(qso{call: "HB9BB", band: "20M", srxString: "zh"}) // same canton+band, case-insensitive
+	state.record(qso{call: "HB9CC", band: "40M", srxString: "ZH"}) // same canton, new band
+	state.record(qso{call: "HB9DD", band: "20M", srxString: "GE"}) // new: GE/20M
+	state.record(qso{call: "W1AW", band: "20M", srxString: "042"}) // not a canton code
+
+	rules := &scoringRules{
+		PointsPerQSO: 1,
+		Multipliers:  []multiplierRule{{Kind: "canton", Per: "band"}},
+	}
+	score := state.score(rules)
+	if score.multipliers != 3 {
+		t.Fatalf("multipliers = %d, want 3 (ZH/20M + ZH/40M + GE/20M)", score.multipliers)
+	}
+}
+
+// TestContestStateWouldBeNewMultiplierCanton exercises the as-you-type "NEW
+// MULT" flag for the canton kind, which — like tn_county — has no
+// callsign-derived fallback and reads only the operator's in-progress
+// received-exchange field text.
+func TestContestStateWouldBeNewMultiplierCanton(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "HB9AA", band: "20M", srxString: "ZH"})
+
+	rules := &scoringRules{
+		Multipliers: []multiplierRule{{Kind: "canton", Per: "band"}},
+	}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "HB9BB", "20M", "ZH", dxccEntity{}, false); newMult || !workedBefore {
+		t.Fatalf("ZH/20M (already worked) = newMult=%v workedBefore=%v, want false/true", newMult, workedBefore)
+	}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "HB9CC", "40M", "ZH", dxccEntity{}, false); !newMult || workedBefore {
+		t.Fatalf("ZH/40M (new band) = newMult=%v workedBefore=%v, want true/false", newMult, workedBefore)
+	}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "W1AW", "20M", "042", dxccEntity{}, false); newMult || workedBefore {
+		t.Fatalf("unrecognized exchange text = newMult=%v workedBefore=%v, want false/false", newMult, workedBefore)
+	}
+}
