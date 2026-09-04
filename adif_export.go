@@ -21,8 +21,10 @@ const adifVersion = "3.1.7"
 // ID List, so exported logs match what other software and contest robots
 // expect.
 var standardContestIDs = map[string]string{
-	"CWT":     "CWOPS-CWT",
-	"CW-OPEN": "CWOPS-CW-OPEN",
+	"CWT":       "CWOPS-CWT",
+	"CW-OPEN":   "CWOPS-CW-OPEN",
+	"CQ-WW-CW":  "CQ-WW-CW",
+	"CQ-160-CW": "CQ-160-CW",
 }
 
 // adifContestID maps an internal contest_id to its ADIF-standard equivalent
@@ -98,7 +100,7 @@ func writeADIFAtomic(ctx context.Context, dir, path string, profileID int64, st 
 		cleanup()
 		return 0, fmt.Errorf("close ADIF file: %w", err)
 	}
-	if err := os.Rename(tempPath, path); err != nil {
+	if err := replaceFileAtomic(tempPath, path); err != nil {
 		cleanup()
 		return 0, fmt.Errorf("finalize ADIF export: %w", err)
 	}

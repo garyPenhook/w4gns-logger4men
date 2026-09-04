@@ -75,9 +75,11 @@ func firstLine(s string) string {
 }
 
 type wrlUploadMsg struct {
-	qsoID int64
-	call  string
-	err   error
+	qsoID             int64
+	call              string
+	err               error
+	deliveryPersisted bool
+	queueErr          error
 }
 
 // wrlUploadCmd forwards one freshly logged QSO to World Radio League. It

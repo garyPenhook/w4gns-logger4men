@@ -107,7 +107,7 @@ func writeCSVAtomic(ctx context.Context, dir, path string, profile stationProfil
 		cleanup()
 		return 0, fmt.Errorf("close CSV file: %w", err)
 	}
-	if err := os.Rename(tempPath, path); err != nil {
+	if err := replaceFileAtomic(tempPath, path); err != nil {
 		cleanup()
 		return 0, fmt.Errorf("finalize CSV export: %w", err)
 	}

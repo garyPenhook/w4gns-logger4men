@@ -11,6 +11,7 @@
     "received_exchange_hint": "Name + CWops # (or state/province/DX prefix)",
     "dupe_scope": "call+band+session",
     "cabrillo_contest": "CW-OPS",
+	"cabrillo_layout": "cw_rst_exchange",
     "rules_url": "https://cwops.org/cwops-tests/",
     "score_submission_url": "https://www.3830scores.com/",
     "sessions": [
@@ -32,6 +33,7 @@
     "received_exchange_hint": "Given name",
     "dupe_scope": "call+band+session",
     "cabrillo_omit_rst": true,
+	"cabrillo_layout": "cw_exchange_only",
     "scoring": {"points_per_qso": 1, "multiplier": "unique_call"},
     "rules_url": "https://cwops.org/cwops-tests/cw-open/",
     "score_submission_url": "https://cwops.contesting.com/",

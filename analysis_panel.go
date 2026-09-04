@@ -41,16 +41,25 @@ func (m model) analysisPanel(width int) string {
 			entity, entityFound = e, true
 			loc := fmt.Sprintf("%s  CQ%d ITU%d %s", entity.Country, entity.CQZone, entity.ITUZone, entity.Continent)
 			lines = append(lines, truncateToWidth(loc, width))
-			if m.activeStation.Latitude != nil && m.activeStation.Longitude != nil &&
-				(entity.Latitude != 0 || entity.Longitude != 0) {
-				bearing, distanceKm := GreatCircleBearingDistance(
-					*m.activeStation.Latitude, *m.activeStation.Longitude,
-					entity.Latitude, entity.Longitude,
-				)
-				lines = append(lines, truncateToWidth(fmt.Sprintf("Bearing %.0f°  %.0f km", bearing, distanceKm), width))
-			}
 		} else {
 			lines = append(lines, truncateToWidth("Country: unknown prefix", width))
+		}
+	}
+	if m.activeStation.Latitude != nil && m.activeStation.Longitude != nil {
+		// A received grid is a station-specific coordinate and therefore more
+		// accurate than the broad DXCC entity centroid. Fall back to the entity
+		// only when no valid grid has been entered or returned by QRZ.
+		targetLat, targetLon := entity.Latitude, entity.Longitude
+		haveTarget := entityFound && (targetLat != 0 || targetLon != 0)
+		if grid, err := ParseGridSquare(m.detailFields[detailGrid].Value()); err == nil {
+			targetLat, targetLon, haveTarget = grid.Latitude, grid.Longitude, true
+		}
+		if haveTarget {
+			bearing, distanceKm := GreatCircleBearingDistance(
+				*m.activeStation.Latitude, *m.activeStation.Longitude,
+				targetLat, targetLon,
+			)
+			lines = append(lines, truncateToWidth(fmt.Sprintf("Bearing %.0f°  %.0f km", bearing, distanceKm), width))
 		}
 	}
 

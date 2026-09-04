@@ -1025,7 +1025,7 @@ func TestSlashXTogglesUnscoredFlagAndExcludesFromScore(t *testing.T) {
 	m, _ = m.logCurrentQSO()
 	target := m.recentQSOs[0]
 
-	event := eventDefinition{ID: "TEST-CONTEST", Scoring: &scoringRules{PointsPerQSO: 1, Multiplier: "unique_call"}}
+	event := eventDefinition{ID: "TEST-CONTEST", CabrilloLayout: "cw_rst_exchange", Scoring: &scoringRules{PointsPerQSO: 1, Multiplier: "unique_call"}}
 	before, err := computeContestScore(context.Background(), m.activeStation, event, "TEST-CONTEST", st)
 	if err != nil {
 		t.Fatal(err)
@@ -1529,6 +1529,54 @@ func TestQRZCallsignLookupMsgFillsOnlyBlankFields(t *testing.T) {
 	}
 }
 
+// TestQRZLookupRequestIDsDoNotLeaveStaleSameCallBindings covers the ordering
+// that a callsign FIFO cannot represent: one lookup resolves before its QSO is
+// saved, then another lookup for the same call resolves after save. The latter
+// must enrich the second row, not consume a stale first-row id.
+func TestQRZLookupRequestIDsDoNotLeaveStaleSameCallBindings(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.qrzXMLCreds = qrzXMLCreds{username: "user", password: "pass"}
+	m.fields[fieldCall].SetValue("W1AW")
+	if cmd := m.autoFillFromQRZ(); cmd == nil {
+		t.Fatal("configured QRZ lookup returned nil")
+	}
+	firstRequest := m.qrzActiveLookup
+	updated, _ := m.Update(qrzCallsignLookupMsg{requestID: firstRequest, call: "W1AW", record: qrzCallsignRecord{name: "Early"}})
+	m = updated.(model)
+	if m.qrzActiveLookup != 0 || len(m.qrzLookups) != 0 {
+		t.Fatal("pre-save QRZ result left a pending lookup binding")
+	}
+	m, _ = m.logCurrentQSO()
+
+	// Work the same call on another band so the normal duplicate guard permits
+	// a second QSO while exercising same-callsign correlation.
+	m.fields[fieldCall].SetValue("W1AW")
+	m.fields[fieldBand].SetValue("40M")
+	m.fields[fieldFrequency].SetValue("7.025")
+	if cmd := m.autoFillFromQRZ(); cmd == nil {
+		t.Fatal("second configured QRZ lookup returned nil")
+	}
+	secondRequest := m.qrzActiveLookup
+	m, _ = m.logCurrentQSO()
+	secondID := m.recentQSOs[0].id
+
+	updated, _ = m.Update(qrzCallsignLookupMsg{requestID: secondRequest, call: "W1AW", record: qrzCallsignRecord{name: "Late"}})
+	m = updated.(model)
+	second, err := st.qsoByID(m.activeStation.ID, secondID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.name != "Late" {
+		t.Fatalf("late QRZ result enriched %q, want second QSO name Late", second.name)
+	}
+}
+
 // TestSaveStationSetupPersistsQRZXMLCredentials covers entering QRZ XML
 // login in Station Setup: saving must write it to the credentials file (so
 // it survives a restart), update the in-memory creds used by the next
@@ -1691,6 +1739,47 @@ func TestSaveStationSetupRetriesClusterConnectionWhenCallsignAdded(t *testing.T)
 	}
 }
 
+// TestSaveStationSetupRotatesClusterAndContestStateOnIdentityChange ensures
+// changing an already-configured station callsign cannot leave the DX cluster
+// logged in as the old call or scoring against the old station entity.
+func TestSaveStationSetupRotatesClusterAndContestStateOnIdentityChange(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.activeStation.Callsign = "W4GNS"
+	m.activeStation.MyGridSquare = "EM12"
+	cqww := m.events[eventIndex(t, m.events, "CQ-WW-CW")]
+	m.selectEvent(cqww, cqww.Sessions[0])
+	if m.contestIndex == nil {
+		t.Fatal("selectEvent did not build the active contest index")
+	}
+	oldIndex := m.contestIndex
+	m.clusterClient = &clusterClient{}
+	m.clusterReconnect = true
+	m.openStationSetup()
+	m.stationFields[stationCallsignField].SetValue("DL1ABC")
+	m.stationFields[stationGridField].SetValue("JO62")
+	m.stationFields[stationTimezoneField].SetValue("UTC")
+
+	cmd := m.saveStationSetup()
+	if cmd == nil || !m.clusterConnecting {
+		t.Fatal("saving a changed callsign did not start a replacement cluster connection")
+	}
+	if m.clusterClient != nil {
+		t.Fatal("old cluster client survived a callsign change")
+	}
+	if m.contestIndex == nil || m.contestIndex == oldIndex {
+		t.Fatal("saving a changed station identity did not rebuild the contest index")
+	}
+	if m.contestIndex.stationContinent != "EU" {
+		t.Fatalf("rebuilt contest index continent = %q, want EU for DL1ABC", m.contestIndex.stationContinent)
+	}
+}
+
 // TestCtrlPTogglesPostModeAndAddsDateTimeSlot covers the Ctrl+P toggle: it
 // flips model.postMode, prefills the Date/Time field with the current UTC
 // time on enable and clears it on disable, and the extra entrySlot only
@@ -1814,6 +1903,35 @@ func TestPostModeRejectsUnparsableTimestamp(t *testing.T) {
 	}
 	if !strings.Contains(m.statusMsg, "POST mode") {
 		t.Fatalf("statusMsg = %q, want a POST-mode format error", m.statusMsg)
+	}
+}
+
+// TestPostModeUsesTypedTimeForCasualDupeCheck ensures paper-log entry checks
+// the contact's actual timestamp, not the wall-clock time when it is typed.
+func TestPostModeUsesTypedTimeForCasualDupeCheck(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	prior := validTestQSO()
+	prior.profileID = m.activeStation.ID
+	if _, err := st.insertQSO(prior); err != nil {
+		t.Fatal(err)
+	}
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	m = updated.(model)
+	m.postFields[postTimestamp].SetValue(prior.time.Add(5 * time.Minute).Format(postTimestampLayout))
+	m.fields[fieldCall].SetValue(prior.call)
+
+	m, _ = m.logCurrentQSO()
+	if !strings.Contains(m.statusMsg, "DUPE") {
+		t.Fatalf("POST duplicate status = %q, want DUPE", m.statusMsg)
+	}
+	if count, err := st.count(m.activeStation.ID); err != nil || count != 1 {
+		t.Fatalf("count after duplicate POST entry = %d, err = %v, want 1", count, err)
 	}
 }
 

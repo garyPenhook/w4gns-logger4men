@@ -247,16 +247,14 @@ type model struct {
 	// would be meaningless there.
 	dupeBaselineAfter time.Time
 
-	// qrzPending maps a normalized callsign to a FIFO queue of logged QSO ids
-	// still awaiting QRZ enrichment. A QRZ callsign lookup fires while the
-	// operator is still typing (before the QSO has an id), so a result that
-	// resolves after the QSO was logged and the form cleared is matched back
-	// to the right row by popping the oldest id queued for that exact call —
-	// not by guessing "the most recently logged QSO", which patches the wrong
-	// row when two QSOs are logged before the first one's lookup returns (or
-	// discards the result entirely when their callsigns differ). See the
-	// qrzCallsignLookupMsg handler in Update.
-	qrzPending map[string][]int64
+	// QRZ lookups start before the QSO has a database id. A monotonically
+	// increasing request id binds each asynchronous result to exactly one form
+	// and, if saved first, exactly one QSO. Callsign-keyed FIFO queues are not
+	// sufficient: a result that arrived before save leaves a stale same-call id
+	// which a later lookup can otherwise patch instead of the new QSO.
+	qrzLookupSequence uint64
+	qrzActiveLookup   uint64
+	qrzLookups        map[uint64]qrzLookupPending
 
 	qrzAPIKey    string
 	wrlAPIKey    string
@@ -606,6 +604,7 @@ func (m *model) focusStationField(index int) {
 // startup is the only other place a connection attempt fires — would need
 // to visit the DX Cluster (F3) screen by hand to ever connect at all.
 func (m *model) saveStationSetup() tea.Cmd {
+	previous := m.activeStation
 	profile := stationProfile{
 		ID:           m.activeStation.ID,
 		Name:         m.stationFields[stationNameField].Value(),
@@ -629,6 +628,18 @@ func (m *model) saveStationSetup() tea.Cmd {
 		return nil
 	}
 	m.activeStation = saved
+	identityChanged := previous.Callsign != saved.Callsign || previous.MyGridSquare != saved.MyGridSquare
+	if identityChanged {
+		// pointsRule classification and bearing origin both depend on the
+		// station identity. The contest id itself did not change, so the usual
+		// lazy contest-id sync would otherwise leave a stale index alive.
+		m.rebuildContestIndex()
+	}
+	if previous.Callsign != saved.Callsign && (m.clusterClient != nil || m.clusterConnecting) {
+		// A DX-cluster login identifies the station. Keep no live/pending socket
+		// authenticated as the old call after Station Setup changes it.
+		m.disconnectCluster()
+	}
 
 	creds := qrzXMLCreds{
 		username: m.stationFields[stationQRZXMLUserField].Value(),
@@ -807,6 +818,9 @@ func (m model) cabrilloExportCmd(contestID string) tea.Cmd {
 		}
 		if !ok {
 			return cabrilloExportedMsg{err: fmt.Errorf("no matching event/contest found for %q — select one on the Events (F7) screen first", contestID)}
+		}
+		if !event.cabrilloReady() {
+			return cabrilloExportedMsg{err: fmt.Errorf("%s has no verified Cabrillo layout yet; CSV export remains available", event.Name)}
 		}
 		downloads, err := defaultDownloadsDir()
 		if err != nil {
@@ -1744,10 +1758,22 @@ func (m *model) autoFillPOTAReference() tea.Cmd {
 
 func (m *model) autoFillFromQRZ() tea.Cmd {
 	call := normalizeCall(m.fields[fieldCall].Value())
-	if call == "" {
+	if call == "" || m.qrzXMLCreds.empty() {
 		return nil
 	}
-	return lookupQRZCallsignCmd(m.qrzXMLCreds, m.qrzXMLSessionKey, call)
+	// There is one active entry form. Starting a lookup for a new call means
+	// the old unsaved form was abandoned, so its result must be discarded.
+	if m.qrzActiveLookup != 0 {
+		delete(m.qrzLookups, m.qrzActiveLookup)
+	}
+	m.qrzLookupSequence++
+	requestID := m.qrzLookupSequence
+	if m.qrzLookups == nil {
+		m.qrzLookups = make(map[uint64]qrzLookupPending)
+	}
+	m.qrzLookups[requestID] = qrzLookupPending{call: call}
+	m.qrzActiveLookup = requestID
+	return lookupQRZCallsignCmdForRequest(m.qrzXMLCreds, m.qrzXMLSessionKey, call, requestID)
 }
 
 // applyQRZRecordToLoggedQSO patches a QRZ callsign-lookup result into a QSO
@@ -1802,56 +1828,23 @@ func (m *model) applyQRZRecordToLoggedQSO(id int64, call string, record qrzCalls
 	return nil
 }
 
-// enqueuePendingQRZ records that a freshly logged QSO (id) may still receive
-// a QRZ callsign-lookup result after the form has cleared, so the result can
-// be matched back to this exact row. Only queued when QRZ XML lookup is
-// actually configured, so the queue can't grow for an operator who never
-// triggers a lookup.
-// maxPendingQRZPerCall and maxPendingQRZCalls bound qrzPending. Entries only
-// matter for the seconds between logging a QSO and its lookup returning; a
-// lookup that never resolves (never triggered, or it errored) would otherwise
-// leave its entry forever, so these caps keep the map from growing without
-// bound over a long session. Dropping a stale entry just forgoes late
-// enrichment of that one already-logged QSO.
-const (
-	maxPendingQRZPerCall = 32
-	maxPendingQRZCalls   = 256
-)
-
-func (m *model) enqueuePendingQRZ(call string, id int64) {
-	if m.qrzXMLCreds.empty() {
-		return
-	}
-	if m.qrzPending == nil {
-		m.qrzPending = make(map[string][]int64)
-	}
-	ids := append(m.qrzPending[call], id)
-	if len(ids) > maxPendingQRZPerCall {
-		ids = ids[len(ids)-maxPendingQRZPerCall:]
-	}
-	m.qrzPending[call] = ids
-	for len(m.qrzPending) > maxPendingQRZCalls {
-		for k := range m.qrzPending {
-			delete(m.qrzPending, k)
-			break
-		}
-	}
+type qrzLookupPending struct {
+	call  string
+	qsoID int64 // zero until the operator saves the form that started it
 }
 
-// dequeuePendingQRZ pops the oldest logged-QSO id awaiting enrichment for
-// call, if any, so each queued QSO is patched by at most one lookup result.
-func (m *model) dequeuePendingQRZ(call string) (int64, bool) {
-	ids := m.qrzPending[call]
-	if len(ids) == 0 {
-		return 0, false
+// bindQRZLookupToQSO attaches the one lookup started for the current form to
+// the just-inserted QSO. A result that already arrived has been removed from
+// qrzLookups, so it cannot leave a stale id for a later same-call lookup.
+func (m *model) bindQRZLookupToQSO(call string, id int64) {
+	requestID := m.qrzActiveLookup
+	m.qrzActiveLookup = 0
+	pending, ok := m.qrzLookups[requestID]
+	if !ok || pending.call != call {
+		return
 	}
-	id := ids[0]
-	if len(ids) == 1 {
-		delete(m.qrzPending, call)
-	} else {
-		m.qrzPending[call] = ids[1:]
-	}
-	return id, true
+	pending.qsoID = id
+	m.qrzLookups[requestID] = pending
 }
 
 func (m *model) resetQSOClockIfReturningToCall(nextFocus int) {
@@ -1925,6 +1918,16 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		m.statusMsg = fmt.Sprintf("%s is not in %s's allowed bands (%s) — not logged", m.qsoBand(), event.Name, strings.Join(event.Bands, "/"))
 		return m, nil
 	}
+	var postTime time.Time
+	if m.postMode {
+		typed := strings.TrimSpace(m.postFields[postTimestamp].Value())
+		parsed, err := time.Parse(postTimestampLayout, typed)
+		if err != nil {
+			m.statusMsg = fmt.Sprintf("POST mode: Date/Time must be %q (UTC) — not logged", postTimestampLayout)
+			return m, nil
+		}
+		postTime = parsed
+	}
 	// Re-check against the database rather than trusting the cached
 	// dupeWarning indicator: the operator can change the contest selection
 	// (which changes dupe_scope) or the band without every intermediate
@@ -1932,7 +1935,11 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 	// chance to catch a real contest duplicate before it's committed.
 	// editingQSOID excludes the record itself from the check when editing.
 	contestID, eventID, dupeScope := m.dupeCheckScope()
-	dupe, err := m.store.isDupe(call, m.qsoBand(), contestID, eventID, dupeScope, m.activeStation.ID, m.editingQSOID, time.Now(), m.dupeBaselineAfter)
+	dupeAt := time.Now()
+	if !postTime.IsZero() {
+		dupeAt = postTime
+	}
+	dupe, err := m.store.isDupe(call, m.qsoBand(), contestID, eventID, dupeScope, m.activeStation.ID, m.editingQSOID, dupeAt, m.dupeBaselineAfter)
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
 		return m, nil
@@ -2000,17 +2007,10 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 
 	var startedAt, endedAt time.Time
 	if m.postMode {
-		// POST mode (SD's after-contest re-entry): the operator supplies the
-		// actual QSO time from a paper log instead of the wall clock. One
-		// field stands in for both time-on/time-off, same as the fallback
-		// below when the live clock never started.
-		typed := strings.TrimSpace(m.postFields[postTimestamp].Value())
-		parsed, err := time.Parse(postTimestampLayout, typed)
-		if err != nil {
-			m.statusMsg = fmt.Sprintf("POST mode: Date/Time must be %q (UTC) — not logged", postTimestampLayout)
-			return m, nil
-		}
-		startedAt, endedAt = parsed, parsed
+		// POST mode (SD's after-contest re-entry): postTime was parsed before
+		// duplicate checking so both persistence and the casual 15-minute
+		// duplicate window use the actual paper-log instant.
+		startedAt, endedAt = postTime, postTime
 	} else {
 		endedAt = time.Now().UTC()
 		startedAt = m.qsoStartedAt
@@ -2031,7 +2031,8 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 	logged.myRig = m.activeStation.Rig
 	logged.myAntenna = m.activeStation.Antenna
 	logged.txPower = m.activeStation.PowerWatts
-	id, err := m.store.insertQSO(logged)
+	destinations := m.uploadDestinations()
+	id, err := m.store.insertQSOWithUploads(logged, destinations, time.Now().Add(uploadBufferDelay))
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
 		return m, nil
@@ -2057,8 +2058,7 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 	}
 	m.qsoStartedAt = time.Time{}
 	m.workedCall = ""
-	m.enqueuePendingQRZ(call, id)
-	m.enqueueUploads(id)
+	m.bindQRZLookupToQSO(call, id)
 	m.clearQSOForm()
 	m.refreshTableRows()
 	return m, nil
@@ -2088,23 +2088,19 @@ func uploadDrainTickCmd() tea.Cmd {
 	return tea.Tick(uploadDrainInterval, func(time.Time) tea.Msg { return uploadDrainMsg{} })
 }
 
-// enqueueUploads queues a freshly logged QSO for delivery to every configured
-// external destination, deferred by uploadBufferDelay so the edit window
-// applies. A destination with no credentials is skipped so its rows can't pile
-// up unsendable. Enqueue errors only affect delivery durability, so they're
-// surfaced in the status bar rather than failing the log.
-func (m *model) enqueueUploads(id int64) {
-	notBefore := time.Now().Add(uploadBufferDelay)
+// uploadDestinations reports the configured external destinations to insert
+// with a new QSO. logCurrentQSO passes this list to insertQSOWithUploads so the
+// QSO and its initial durable delivery rows commit together. A destination with
+// no credentials is omitted so its rows cannot pile up unsendable.
+func (m model) uploadDestinations() []string {
+	var destinations []string
 	if strings.TrimSpace(m.qrzAPIKey) != "" {
-		if err := m.store.enqueueUpload(id, m.activeStation.ID, uploadDestQRZ, notBefore); err != nil {
-			m.statusMsg = fmt.Sprintf("upload queue error: %v", err)
-		}
+		destinations = append(destinations, uploadDestQRZ)
 	}
 	if strings.TrimSpace(m.wrlAPIKey) != "" {
-		if err := m.store.enqueueUpload(id, m.activeStation.ID, uploadDestWRL, notBefore); err != nil {
-			m.statusMsg = fmt.Sprintf("upload queue error: %v", err)
-		}
+		destinations = append(destinations, uploadDestWRL)
 	}
+	return destinations
 }
 
 // drainOutbox claims every delivery now due and returns the upload commands to
@@ -2127,9 +2123,9 @@ func (m *model) drainOutbox() []tea.Cmd {
 		var cmd tea.Cmd
 		switch e.destination {
 		case uploadDestQRZ:
-			cmd = qrzUploadCmd(m.qrzAPIKey, q)
+			cmd = m.qrzOutboxUploadCmd(q)
 		case uploadDestWRL:
-			cmd = wrlUploadCmd(m.wrlAPIKey, m.wrlLogbookID, q)
+			cmd = m.wrlOutboxUploadCmd(q)
 		}
 		if cmd == nil {
 			// Unknown or unconfigured destination: don't leave it stuck.
@@ -2139,6 +2135,69 @@ func (m *model) drainOutbox() []tea.Cmd {
 		cmds = append(cmds, cmd)
 	}
 	return cmds
+}
+
+// qrzOutboxUploadCmd persists the outcome before returning its Tea message.
+// Bubble Tea intentionally does not wait for commands when the UI exits; if a
+// service accepted a request but only Update removed the outbox row, quitting
+// in that gap caused a duplicate remote delivery on next launch. bgTasks makes
+// shutdown wait for this closure while the store is still open.
+func (m model) qrzOutboxUploadCmd(q qso) tea.Cmd {
+	if strings.TrimSpace(m.qrzAPIKey) == "" {
+		return nil
+	}
+	parent := m.bgCtx
+	if parent == nil {
+		parent = context.Background()
+	}
+	wg := m.bgTasks
+	if wg != nil {
+		wg.Add(1)
+	}
+	st, apiKey := m.store, m.qrzAPIKey
+	return func() tea.Msg {
+		if wg != nil {
+			defer wg.Done()
+		}
+		ctx, cancel := context.WithTimeout(parent, qrzUploadTimeout)
+		defer cancel()
+		logID, err := uploadQSOToQRZ(ctx, apiKey, q)
+		if err != nil {
+			queueErr := st.recordUploadFailure(q.id, uploadDestQRZ, err.Error(), time.Now())
+			return qrzUploadMsg{qsoID: q.id, call: q.call, err: err, deliveryPersisted: queueErr == nil, queueErr: queueErr}
+		}
+		queueErr := st.markUploadDone(q.id, uploadDestQRZ)
+		return qrzUploadMsg{qsoID: q.id, call: q.call, logID: logID, deliveryPersisted: queueErr == nil, queueErr: queueErr}
+	}
+}
+
+func (m model) wrlOutboxUploadCmd(q qso) tea.Cmd {
+	if strings.TrimSpace(m.wrlAPIKey) == "" {
+		return nil
+	}
+	parent := m.bgCtx
+	if parent == nil {
+		parent = context.Background()
+	}
+	wg := m.bgTasks
+	if wg != nil {
+		wg.Add(1)
+	}
+	st, apiKey, logbookID := m.store, m.wrlAPIKey, m.wrlLogbookID
+	return func() tea.Msg {
+		if wg != nil {
+			defer wg.Done()
+		}
+		ctx, cancel := context.WithTimeout(parent, wrlUploadTimeout)
+		defer cancel()
+		err := uploadQSOToWRL(ctx, apiKey, logbookID, q)
+		if err != nil {
+			queueErr := st.recordUploadFailure(q.id, uploadDestWRL, err.Error(), time.Now())
+			return wrlUploadMsg{qsoID: q.id, call: q.call, err: err, deliveryPersisted: queueErr == nil, queueErr: queueErr}
+		}
+		queueErr := st.markUploadDone(q.id, uploadDestWRL)
+		return wrlUploadMsg{qsoID: q.id, call: q.call, deliveryPersisted: queueErr == nil, queueErr: queueErr}
+	}
 }
 
 // clearQSOForm resets the fields that should go blank between QSOs. Band,
@@ -2197,19 +2256,38 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.qrzXMLSessionKey = message.sessionKey
 		}
 		call := normalizeCall(m.fields[fieldCall].Value())
-		if message.call != call {
-			// The operator already logged this QSO (or moved on to a
-			// different callsign) before the lookup returned. Match the
-			// result back to the specific row it was fired for by popping
-			// the oldest QSO queued for this exact callsign, and patch it
-			// unless that row is currently open for editing.
-			if message.err == nil {
-				if id, ok := m.dequeuePendingQRZ(message.call); ok && m.editingQSOID != id {
-					if err := m.applyQRZRecordToLoggedQSO(id, message.call, message.record); err != nil {
+		if message.requestID != 0 {
+			pending, known := m.qrzLookups[message.requestID]
+			if !known {
+				// A newer form superseded this request, or its result was already
+				// handled. Never apply an orphaned result by callsign alone.
+				return m, nil
+			}
+			delete(m.qrzLookups, message.requestID)
+			if m.qrzActiveLookup == message.requestID {
+				m.qrzActiveLookup = 0
+			}
+			if message.err != nil {
+				if pending.qsoID == 0 && message.call == call {
+					m.statusMsg = "QRZ lookup unavailable: " + message.err.Error()
+				}
+				return m, nil
+			}
+			if pending.qsoID != 0 {
+				if m.editingQSOID != pending.qsoID {
+					if err := m.applyQRZRecordToLoggedQSO(pending.qsoID, pending.call, message.record); err != nil {
 						m.statusMsg = fmt.Sprintf("db error: %v", err)
 					}
 				}
+				return m, nil
 			}
+			if message.call != call {
+				return m, nil
+			}
+		}
+		if message.call != call {
+			// Legacy/test messages without a request id cannot safely be bound
+			// after the operator moved on, so discard them.
 			return m, nil
 		}
 		if message.err != nil {
@@ -2268,13 +2346,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 	}
 	if message, ok := msg.(qrzUploadMsg); ok {
-		if message.err != nil {
+		if message.queueErr != nil {
+			m.statusMsg = fmt.Sprintf("upload queue error: %v", message.queueErr)
+		} else if message.err != nil {
+			if message.deliveryPersisted {
+				m.statusMsg = fmt.Sprintf("QRZ upload failed for %s (will retry): %v", message.call, message.err)
+				return m, nil
+			}
 			if err := m.store.recordUploadFailure(message.qsoID, uploadDestQRZ, message.err.Error(), time.Now()); err != nil {
 				m.statusMsg = fmt.Sprintf("upload queue error: %v", err)
 			} else {
 				m.statusMsg = fmt.Sprintf("QRZ upload failed for %s (will retry): %v", message.call, message.err)
 			}
 		} else {
+			if message.deliveryPersisted {
+				m.statusMsg = fmt.Sprintf("QRZ upload OK for %s (LOGID %s)", message.call, message.logID)
+				return m, nil
+			}
 			if err := m.store.markUploadDone(message.qsoID, uploadDestQRZ); err != nil {
 				m.statusMsg = fmt.Sprintf("upload queue error: %v", err)
 			} else {
@@ -2284,13 +2372,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if message, ok := msg.(wrlUploadMsg); ok {
-		if message.err != nil {
+		if message.queueErr != nil {
+			m.statusMsg = fmt.Sprintf("upload queue error: %v", message.queueErr)
+		} else if message.err != nil {
+			if message.deliveryPersisted {
+				m.statusMsg = fmt.Sprintf("WRL upload failed for %s (will retry): %v", message.call, message.err)
+				return m, nil
+			}
 			if err := m.store.recordUploadFailure(message.qsoID, uploadDestWRL, message.err.Error(), time.Now()); err != nil {
 				m.statusMsg = fmt.Sprintf("upload queue error: %v", err)
 			} else {
 				m.statusMsg = fmt.Sprintf("WRL upload failed for %s (will retry): %v", message.call, message.err)
 			}
 		} else {
+			if message.deliveryPersisted {
+				m.statusMsg = fmt.Sprintf("WRL upload OK for %s", message.call)
+				return m, nil
+			}
 			if err := m.store.markUploadDone(message.qsoID, uploadDestWRL); err != nil {
 				m.statusMsg = fmt.Sprintf("upload queue error: %v", err)
 			} else {

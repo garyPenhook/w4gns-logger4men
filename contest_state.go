@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -152,6 +153,7 @@ func (c *contestState) record(q qso) {
 	}
 	if table, err := sharedDXCCTable(); err == nil {
 		if entity, found := table.lookup(call); found {
+			entity = entityWithPersistedContext(entity, q)
 			if entity.Continent != "" {
 				if c.continentBand[entity.Continent] == nil {
 					c.continentBand[entity.Continent] = make(map[string]int)
@@ -176,6 +178,26 @@ func (c *contestState) record(q qso) {
 			}
 		}
 	}
+}
+
+// entityWithPersistedContext preserves imported/operator-corrected DXCC and
+// zone values when scoring a stored QSO. The cty.dat lookup still supplies
+// callsign-derived continent/coordinates, but its mutable reference data must
+// not silently replace a QSO's recorded scoring context.
+func entityWithPersistedContext(entity dxccEntity, q qso) dxccEntity {
+	if country := strings.TrimSpace(q.country); country != "" {
+		entity.Country = country
+	}
+	if value, err := strconv.Atoi(strings.TrimSpace(q.dxccNumber)); err == nil && value > 0 {
+		entity.DXCCNumber = value
+	}
+	if value, err := strconv.Atoi(strings.TrimSpace(q.cqZone)); err == nil && value > 0 {
+		entity.CQZone = value
+	}
+	if value, err := strconv.Atoi(strings.TrimSpace(q.ituZone)); err == nil && value > 0 {
+		entity.ITUZone = value
+	}
+	return entity
 }
 
 // recordMultiplierValue adds value to byBand[band] and all, unless value is

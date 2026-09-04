@@ -38,6 +38,16 @@ type eventDefinition struct {
 	ScoreSubmissionURL      string           `json:"score_submission_url"`
 	Sessions                []eventSession   `json:"sessions"`
 	ReceivedExchangeOptions []exchangeOption `json:"received_exchange_options"`
+	// ReceivedExchangeAutofill explicitly opts an event into callsign-derived
+	// receive-exchange filling. It deliberately does not infer a rule from the
+	// display hint: asymmetric contests routinely mention both a domestic
+	// state/province exchange and a DX zone exchange in that text. An empty
+	// value is the safe default.
+	ReceivedExchangeAutofill string `json:"received_exchange_autofill"`
+	// CabrilloLayout declares that this event's QSO-line shape has been checked
+	// against the sponsor format. Blank means the catalog entry is useful for
+	// selection/entry only and must not be exported as a purported submission.
+	CabrilloLayout string `json:"cabrillo_layout"`
 	// Scoring, when present, lets the exporter compute a claimed score for the
 	// contest instead of the informational 0 it emits for events with no rules
 	// configured. Cabrillo export is per-session, so the computed score is one
@@ -162,27 +172,36 @@ func (e eventDefinition) cabrilloToken() string {
 	return e.ID
 }
 
-// receivedExchangeZoneKind reports which zone, if any, the operator is
-// expected to log for the worked station's received exchange, inferred from
-// the catalog's free-text RcvdExchangeHint (roadmap Appendix B.8 "auto data
-// insert"). It drives autofillReceivedExchange (main.go), which prefills the
-// zone from the resolved DXCC entity rather than making the operator type a
-// value that's already knowable from the callsign. "itu_zone" is checked
-// before "cq_zone" since a handful of hints mention both (e.g. IARU-style
-// contests naming ITU zone alongside a CQ-zone-based multiplier note) and ITU
-// is the one actually exchanged in those. Blank means no zone is inferable
-// from the hint text — most contests exchange something the DXCC table can't
-// derive (name, state, serial, RS(T) only).
+// receivedExchangeZoneKind reports the explicitly configured callsign-derived
+// zone type for the worked station's received exchange. Do not infer this from
+// RcvdExchangeHint: hints are descriptive prose and cannot safely encode
+// side-dependent exchanges such as CQ 160's W/VE state-versus-DX-zone rule.
 func (e eventDefinition) receivedExchangeZoneKind() string {
-	hint := strings.ToLower(e.RcvdExchangeHint)
-	switch {
-	case strings.Contains(hint, "itu zone"):
-		return "itu_zone"
-	case strings.Contains(hint, "cq zone"):
-		return "cq_zone"
+	return strings.TrimSpace(e.ReceivedExchangeAutofill)
+}
+
+func validReceivedExchangeAutofill(kind string) bool {
+	switch strings.TrimSpace(kind) {
+	case "", "cq_zone", "itu_zone":
+		return true
 	default:
-		return ""
+		return false
 	}
+}
+
+func validCabrilloLayout(layout string) bool {
+	switch strings.TrimSpace(layout) {
+	case "", "cw_rst_exchange", "cw_exchange_only":
+		return true
+	default:
+		return false
+	}
+}
+
+// cabrilloReady is intentionally strict: a catalog record without a checked
+// line layout is not safe to export as a contest submission.
+func (e eventDefinition) cabrilloReady() bool {
+	return strings.TrimSpace(e.CabrilloLayout) != ""
 }
 
 type exchangeOption struct {
@@ -288,6 +307,15 @@ func loadEventCatalog() ([]eventDefinition, error) {
 			}
 			if !validDupeScope(event.DupeScope) {
 				return nil, fmt.Errorf("event %q has unsupported dupe_scope %q", event.ID, event.DupeScope)
+			}
+			if !validReceivedExchangeAutofill(event.ReceivedExchangeAutofill) {
+				return nil, fmt.Errorf("event %q has unsupported received_exchange_autofill %q", event.ID, event.ReceivedExchangeAutofill)
+			}
+			if !validCabrilloLayout(event.CabrilloLayout) {
+				return nil, fmt.Errorf("event %q has unsupported cabrillo_layout %q", event.ID, event.CabrilloLayout)
+			}
+			if event.CabrilloLayout != "" && event.CabrilloOmitRST != (event.CabrilloLayout == "cw_exchange_only") {
+				return nil, fmt.Errorf("event %q has inconsistent cabrillo_omit_rst and cabrillo_layout", event.ID)
 			}
 			if event.Scoring != nil {
 				if event.Scoring.PointsPerQSO < 0 {

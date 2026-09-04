@@ -83,6 +83,37 @@ func TestAnalysisPanelCountryAndHeading(t *testing.T) {
 	}
 }
 
+// TestAnalysisPanelUsesEnteredGridBeforeEntityCentroid verifies that an
+// operator-entered (or QRZ-returned) grid wins over the much broader country
+// centroid when calculating a short-path bearing. This matters for countries
+// with territory spread over thousands of kilometres.
+func TestAnalysisPanelUsesEnteredGridBeforeEntityCentroid(t *testing.T) {
+	m := analysisTestModel(t)
+	m.fields[fieldCall].SetValue("1A0KM")
+
+	withoutGrid := analysisBearingLine(m.analysisPanel(200))
+	if withoutGrid == "" {
+		t.Fatal("analysis panel without a grid has no bearing line")
+	}
+	m.detailFields[detailGrid].SetValue("FN31") // Connecticut, not Rome.
+	withGrid := analysisBearingLine(m.analysisPanel(200))
+	if withGrid == "" {
+		t.Fatal("analysis panel with a valid grid has no bearing line")
+	}
+	if withGrid == withoutGrid {
+		t.Fatalf("bearing with grid = %q, want it to differ from entity-centroid bearing %q", withGrid, withoutGrid)
+	}
+}
+
+func analysisBearingLine(panel string) string {
+	for _, line := range strings.Split(panel, "\n") {
+		if strings.HasPrefix(line, "Bearing ") {
+			return line
+		}
+	}
+	return ""
+}
+
 func TestAnalysisPanelUnknownPrefix(t *testing.T) {
 	m := analysisTestModel(t)
 	m.fields[fieldCall].SetValue("!!!!!")

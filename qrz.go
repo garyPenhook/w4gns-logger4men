@@ -66,10 +66,12 @@ func tightenKeyFilePermissions(keyFile string) {
 }
 
 type qrzUploadMsg struct {
-	qsoID int64
-	call  string
-	logID string
-	err   error
+	qsoID             int64
+	call              string
+	logID             string
+	err               error
+	deliveryPersisted bool
+	queueErr          error
 }
 
 // qrzUploadCmd uploads one freshly logged QSO to the operator's QRZ Logbook.

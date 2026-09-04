@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"path/filepath"
 	"strings"
@@ -22,9 +23,10 @@ func testStationProfile() stationProfile {
 
 func testEventDefinition() eventDefinition {
 	return eventDefinition{
-		ID:    "CQ-WPX-CW",
-		Name:  "CQ WW WPX Contest, CW",
-		Bands: []string{"160M", "80M", "40M", "20M", "15M", "10M"},
+		ID:             "CQ-WPX-CW",
+		Name:           "CQ WW WPX Contest, CW",
+		Bands:          []string{"160M", "80M", "40M", "20M", "15M", "10M"},
+		CabrilloLayout: "cw_rst_exchange",
 	}
 }
 
@@ -121,6 +123,26 @@ func TestCabrilloQSOLineFormatsExpectedFields(t *testing.T) {
 	}
 }
 
+// TestExportCabrilloRejectsUnverifiedEventEvenWithNoQSOs makes the catalog
+// gate apply to every export, not only a log with a QSO (where the per-line
+// formatter would eventually reject it). An empty unverified event must not
+// produce a deceptively valid-looking header-only submission.
+func TestExportCabrilloRejectsUnverifiedEventEvenWithNoQSOs(t *testing.T) {
+	st, err := openStore(t.TempDir() + "/logger.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	profile, err := st.activeStationProfile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = exportCabrillo(context.Background(), &bytes.Buffer{}, profile, eventDefinition{ID: "UNVERIFIED"}, "UNVERIFIED", st)
+	if err == nil || !strings.Contains(err.Error(), "no verified Cabrillo") {
+		t.Fatalf("exportCabrillo unverified event error = %v, want verification failure", err)
+	}
+}
+
 // TestCabrilloQSOLineOmitsRSTForCWOpen guards the CW Open Cabrillo format,
 // whose exchange is a serial number plus name and carries no signal report:
 // the QSO: line must not emit the RST columns (which default to "599" in the
@@ -134,7 +156,7 @@ func TestCabrilloQSOLineOmitsRSTForCWOpen(t *testing.T) {
 	q.srx, q.srxString = "042", "Joe"
 	q.stationCallsign = "W4GNS"
 
-	event := eventDefinition{ID: "CW-OPEN", Name: "CW Open", CabrilloOmitRST: true}
+	event := eventDefinition{ID: "CW-OPEN", Name: "CW Open", CabrilloOmitRST: true, CabrilloLayout: "cw_exchange_only"}
 	line, err := cabrilloQSOLine(q, testStationProfile(), event)
 	if err != nil {
 		t.Fatalf("cabrilloQSOLine: %v", err)
@@ -244,6 +266,7 @@ func cwOpenScoringEvent() eventDefinition {
 		Name:            "CW Open",
 		Bands:           []string{"160M", "80M", "40M", "20M", "15M", "10M"},
 		CabrilloOmitRST: true,
+		CabrilloLayout:  "cw_exchange_only",
 		Scoring:         &scoringRules{PointsPerQSO: 1, Multiplier: "unique_call"},
 	}
 }

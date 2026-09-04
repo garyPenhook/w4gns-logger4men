@@ -70,26 +70,22 @@ func TestValidMultiplierKindAndPer(t *testing.T) {
 	}
 }
 
-// TestReceivedExchangeZoneKindInfersFromHintText guards the heuristic
-// autofillReceivedExchange (main.go) relies on: it must read "cq_zone" or
-// "itu_zone" out of a catalog entry's free-text hint without any per-event
-// JSON tagging, so every existing and future zone-exchange contest gets
-// autofill for free, and it must not false-positive on unrelated hints.
-func TestReceivedExchangeZoneKindInfersFromHintText(t *testing.T) {
+// TestReceivedExchangeZoneKindRequiresExplicitConfig guards against deriving
+// an exchange rule from descriptive hint prose: asymmetric contests can name
+// a DX zone and a domestic state/province in the same hint.
+func TestReceivedExchangeZoneKindRequiresExplicitConfig(t *testing.T) {
 	cases := []struct {
-		hint string
-		want string
+		event eventDefinition
+		want  string
 	}{
-		{"RST + CQ Zone No.", "cq_zone"},
-		{"Your ITU Zone", "itu_zone"},
-		{"CWSP Members: RST + \"M\" All Others: RST + ITU Zone No.", "itu_zone"},
-		{"599 + Name + State", ""},
-		{"", ""},
+		{eventDefinition{RcvdExchangeHint: "RST + CQ Zone No."}, ""},
+		{eventDefinition{RcvdExchangeHint: "W/VE: RST + state/province DX: RST + CQ Zone"}, ""},
+		{eventDefinition{ReceivedExchangeAutofill: "cq_zone"}, "cq_zone"},
+		{eventDefinition{ReceivedExchangeAutofill: "itu_zone"}, "itu_zone"},
 	}
 	for _, tc := range cases {
-		event := eventDefinition{RcvdExchangeHint: tc.hint}
-		if got := event.receivedExchangeZoneKind(); got != tc.want {
-			t.Errorf("receivedExchangeZoneKind(%q) = %q, want %q", tc.hint, got, tc.want)
+		if got := tc.event.receivedExchangeZoneKind(); got != tc.want {
+			t.Errorf("receivedExchangeZoneKind(%+v) = %q, want %q", tc.event, got, tc.want)
 		}
 	}
 }

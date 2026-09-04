@@ -430,15 +430,51 @@ func resolveDXCC(q qso) (country string, cqZone, ituZone, dxccNumber any) {
 	return country, cqZone, ituZone, dxccNumber
 }
 
-// insertQSO writes a general (non-contest) QSO and returns its id.
+// insertQSO writes a QSO without scheduling an external delivery. It is used
+// by imports and tests; interactive logging uses insertQSOWithUploads so the
+// contact and all configured outbox rows share one durable transaction.
 func (s *store) insertQSO(q qso) (int64, error) {
+	return s.insertQSOWithUploads(q, nil, time.Time{})
+}
+
+// insertQSOWithUploads atomically inserts q and one initial outbox row for
+// each destination. Keeping these writes in one SQLite transaction closes the
+// gap where a power loss after the QSO commit but before enqueueUpload left a
+// logged contact that would never be delivered externally.
+func (s *store) insertQSOWithUploads(q qso, destinations []string, notBefore time.Time) (int64, error) {
 	if err := validateQSO(q); err != nil {
 		return 0, fmt.Errorf("validate qso: %w", err)
 	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("begin QSO insert: %w", err)
+	}
+	defer tx.Rollback()
+	id, err := insertQSOInto(tx, q)
+	if err != nil {
+		return 0, err
+	}
+	if len(destinations) > 0 {
+		if notBefore.IsZero() {
+			return 0, fmt.Errorf("enqueue uploads: missing not-before time")
+		}
+		for _, destination := range destinations {
+			if err := enqueueUploadTx(tx, id, q.profileID, destination, notBefore); err != nil {
+				return 0, err
+			}
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit QSO insert: %w", err)
+	}
+	return id, nil
+}
+
+func insertQSOInto(tx *sql.Tx, q qso) (int64, error) {
 	utcTime := q.time.UTC()
 	utcTimeOff := q.timeOff.UTC()
 	country, cqZone, ituZone, dxccNumber := resolveDXCC(q)
-	res, err := s.db.Exec(
+	res, err := tx.Exec(
 		`INSERT INTO qso (call, qso_date, time_on, qso_date_off, time_off, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, county, email, country, dxcc, cqz, ituz, sig, sig_info, park_name, comment, contest_id, stx, stx_string, srx, srx_string, profile_id, my_gridsquare, station_callsign, operator_name, my_rig, my_antenna, tx_pwr)
 			 VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		q.call,

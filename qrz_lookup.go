@@ -94,6 +94,7 @@ type qrzCallsignRecord struct {
 }
 
 type qrzCallsignLookupMsg struct {
+	requestID  uint64
 	call       string
 	record     qrzCallsignRecord
 	sessionKey string
@@ -106,6 +107,13 @@ type qrzCallsignLookupMsg struct {
 // configured, so no command is returned (mirrors qrzUploadCmd's blank-key
 // guard in qrz.go).
 func lookupQRZCallsignCmd(creds qrzXMLCreds, sessionKey, call string) tea.Cmd {
+	return lookupQRZCallsignCmdForRequest(creds, sessionKey, call, 0)
+}
+
+// lookupQRZCallsignCmdForRequest carries requestID through the asynchronous
+// result so the TUI can bind a late response to the exact form/QSO that
+// started it rather than guessing by callsign.
+func lookupQRZCallsignCmdForRequest(creds qrzXMLCreds, sessionKey, call string, requestID uint64) tea.Cmd {
 	if creds.empty() || strings.TrimSpace(call) == "" {
 		return nil
 	}
@@ -118,7 +126,7 @@ func lookupQRZCallsignCmd(creds qrzXMLCreds, sessionKey, call string) tea.Cmd {
 			var err error
 			key, err = qrzXMLLogin(ctx, creds)
 			if err != nil {
-				return qrzCallsignLookupMsg{call: call, err: err}
+				return qrzCallsignLookupMsg{requestID: requestID, call: call, err: err}
 			}
 		}
 
@@ -126,14 +134,14 @@ func lookupQRZCallsignCmd(creds qrzXMLCreds, sessionKey, call string) tea.Cmd {
 		if isQRZSessionExpired(err) {
 			key, err = qrzXMLLogin(ctx, creds)
 			if err != nil {
-				return qrzCallsignLookupMsg{call: call, err: err}
+				return qrzCallsignLookupMsg{requestID: requestID, call: call, err: err}
 			}
 			record, err = qrzXMLLookupCallsign(ctx, key, call)
 		}
 		if err != nil {
-			return qrzCallsignLookupMsg{call: call, sessionKey: key, err: err}
+			return qrzCallsignLookupMsg{requestID: requestID, call: call, sessionKey: key, err: err}
 		}
-		return qrzCallsignLookupMsg{call: call, record: record, sessionKey: key}
+		return qrzCallsignLookupMsg{requestID: requestID, call: call, record: record, sessionKey: key}
 	}
 }
 

@@ -218,6 +218,42 @@ func TestContestStateScoreSumsDXCCAndZoneMultipliersPerBand(t *testing.T) {
 	}
 }
 
+// TestContestStateUsesPersistedMultiplierContext makes the scoring-context
+// invariant explicit: an imported or operator-corrected DXCC/zone value is a
+// historical fact recorded with the QSO, not a value to silently replace from
+// a newer cty.dat prefix lookup.
+func TestContestStateUsesPersistedMultiplierContext(t *testing.T) {
+	state := newContestState()
+	state.record(qso{
+		call:       "W1AW", // Current cty.dat lookup is USA/CQ 5/ITU 8.
+		band:       "20M",
+		dxccNumber: "999",
+		cqZone:     "88",
+		ituZone:    "77",
+	})
+
+	rules := &scoringRules{
+		PointsPerQSO: 1,
+		Multipliers: []multiplierRule{
+			{Kind: "dxcc", Per: "contest"},
+			{Kind: "cqzone", Per: "contest"},
+			{Kind: "ituzone", Per: "contest"},
+		},
+	}
+	if score := state.score(rules); score.qsoPoints != 1 || score.multipliers != 3 {
+		t.Fatalf("score with persisted DXCC/zone context = %d pts x %d mults, want 1 x 3", score.qsoPoints, score.multipliers)
+	}
+	if _, ok := state.dxccAll[999]; !ok {
+		t.Fatalf("DXCC set = %v, want persisted value 999", state.dxccAll)
+	}
+	if _, ok := state.cqZoneAll[88]; !ok {
+		t.Fatalf("CQ-zone set = %v, want persisted value 88", state.cqZoneAll)
+	}
+	if _, ok := state.ituZoneAll[77]; !ok {
+		t.Fatalf("ITU-zone set = %v, want persisted value 77", state.ituZoneAll)
+	}
+}
+
 // TestContestStateScorePerContestMultiplierCountsOnce mirrors the previous
 // test's log but with Per:"contest" rules, confirming the same DXCC entity
 // or zone worked on multiple bands only counts once toward the multiplier

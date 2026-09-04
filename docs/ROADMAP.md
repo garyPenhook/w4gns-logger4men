@@ -20,6 +20,107 @@ benchmark. Part 1 is the tracker; the appendices hold the detailed design.
 
 # Part 1 — Tracker
 
+## 0. Code-review backlog (2026-09-04)
+
+The items below came from a full repository review. They are defects or gaps in
+already-described behavior, not new feature ideas. Severity reflects risk to
+the log, submitted contest results, or external services.
+
+### P1 — correctness / data-delivery risks
+
+- ✅ **QSO persistence and initial upload enqueueing are one transaction.**
+  `store.insertQSOWithUploads` now inserts the QSO plus all configured QRZ/WRL
+  outbox rows through one SQLite transaction; logging fails rather than leaving
+  a saved contact without its required initial deliveries. Regression coverage
+  verifies the committed QSO/outbox set. Statement-boundary fault injection and
+  a user-facing per-delivery status view remain future hardening.
+
+- 🔧 **Cabrillo export is gated by checked per-event layouts.** The catalog now
+  has validated `cabrillo_layout` values, and export refuses any event without
+  one while leaving CSV available. The checked CW layouts currently cover CWT,
+  CW Open, CQ WW CW, and CQ 160 CW; every other catalog entry is intentionally
+  selection/entry-only until its sponsor-specific schema is verified.
+
+- ⏳ **Audit and implement scoring per contest before presenting the catalog as
+  correct.** There are 462 event records in `events/*.json`, but only three
+  currently contain a `scoring` block (`CW-OPEN`, `CQ-WW-CW`, and
+  `CQ-160-CW`). Every other event exports `CLAIMED-SCORE: 0`, and CWT is one
+  immediately visible curated example with no scoring definition. Add an
+  explicit catalog capability/status field (selection-only, entry-aware,
+  Cabrillo-ready, scoring-ready), validate it at load, and test each promoted
+  contest against authoritative examples.
+
+- 🔧 **Zone autofill no longer infers rules from prose hints.** It requires an
+  explicit `received_exchange_autofill` catalog value; ambiguous events such as
+  CQ 160 CW therefore do not manufacture a zone. A complete side-aware
+  operator/worked-entity exchange schema is still planned.
+
+### P2 — stale state, interoperability, and retry bugs
+
+- ✅ **Station identity changes rebuild dependent state and rotate cluster
+  login.** Saving a changed callsign or grid rebuilds the live contest index;
+  a changed callsign disconnects an active/pending cluster session before the
+  normal reconnect path runs.
+
+- ✅ **QRZ late enrichment is correlated by request ID.** A lookup is bound to
+  a QSO only while that exact request remains outstanding; obsolete, error, or
+  already-consumed results are discarded rather than patching a later QSO with
+  the same callsign. Regression coverage includes result-before-save and
+  repeated-same-call ordering.
+
+- ✅ **Upload completion/failure is persisted before Tea receives the result,
+  and shutdown waits for it.** QRZ/WRL outbox commands are registered with the
+  background-task lifecycle and acknowledge/reschedule their delivery in the
+  command itself. This closes the successful-request/exit race; network
+  ambiguity still gives the overall external-delivery contract at-least-once.
+
+- ✅ **Repeated atomic exports replace existing files on Windows.** Exporters
+  use a platform replacement helper: POSIX uses rename and Windows uses
+  `MoveFileEx` with replace-existing/write-through flags. The Windows target is
+  cross-built; native Windows filesystem regression coverage remains desirable.
+
+- 🔧 **Map internal contest/session ids to standard ADIF identifiers.** CQ WW
+  CW and CQ 160 CW now join CWT and CW Open in the exporter mapping, stripping
+  session suffixes. The correct durable solution is still a validated per-event
+  `adif_contest_id` catalog field covering each promoted event.
+
+- ✅ **Scoring prefers persisted entity context.** Contest iteration loads each
+  QSO's country/DXCC/CQZ/ITUZ fields and `contestState` uses valid recorded
+  values before the current cty.dat lookup. An explicit operator-driven
+  re-resolution workflow remains future work.
+
+- ✅ **POST duplicate checks use the entered timestamp.** POST time is parsed
+  before duplicate detection and drives both the casual 15-minute window and
+  stored start/end timestamps. Rate-meter treatment for deliberately
+  out-of-order paper-log entry remains a product decision.
+
+### P3 — roadmap/UI accuracy and hardening
+
+- ✅ **Bearing/distance prefers the worked station's entered grid.** The
+  analysis panel uses a valid entered/QRZ-filled grid before falling back to
+  DXCC coordinates; a regression test verifies the bearing changes accordingly.
+
+- ⏳ **Rename or implement the promised Countries Worked/Needed view.** The
+  current `continentBand` index counts QSOs per continent and the panel reports
+  only six continent-level worked/not-worked booleans. It does not calculate
+  countries worked or wanted within each continent, so the ✅ tracker item and
+  `Ctrl+W` label overstate what exists. Either implement entity-level totals and
+  denominators or describe the current screen as `Continents Worked`.
+
+- ⏳ **Do not silently discard contest-index rebuild failures.**
+  `rebuildContestIndex` converts any database error into a nil index without a
+  status/error signal. That can make scoring and analysis disappear while the
+  operator continues logging. Preserve the last known-good index as stale or
+  expose a blocking error, and cover the failure path.
+
+- 🔧 **Increase integration coverage around risky asynchronous and file paths.**
+  This pass adds deterministic coverage for atomic initial enqueueing,
+  persisted upload acknowledgement, QRZ request correlation, identity rotation,
+  POST duplicate timing, persisted scoring context, and grid bearings. Native
+  Windows replacement, full `drainOutbox` lifecycle, TUI screens, and reconnect
+  scheduling still need dedicated tests; keep the existing `go test`, `go vet`,
+  race, cross-build, and vulnerability gates.
+
 ## 1. Done (already shipped)
 
 ### CW Open correctness

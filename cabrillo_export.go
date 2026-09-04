@@ -172,12 +172,14 @@ func cabrilloText(value string, width int) string {
 // cabrilloQSOLine renders one Cabrillo QSO: line for the given event. callsign
 // falls back to the profile's callsign when the QSO's own station-identity
 // snapshot is blank (e.g. a QSO logged before Station Setup was filled in).
-// When event.CabrilloOmitRST is set the RST columns are dropped, matching
-// contests (e.g. CW Open) whose exchange is a serial number plus name and
-// carries no signal report — emitting a spurious "599" there would add an
-// extra field the sponsor's log checker doesn't expect and misalign the
-// exchange it parses by position.
+// The checked event.CabrilloLayout selects the QSO-line shape. The generic
+// RST-bearing and exchange-only layouts cover only events explicitly marked
+// ready in the catalog; an unclassified event is rejected rather than being
+// exported in a format its sponsor may misparse.
 func cabrilloQSOLine(q qso, profile stationProfile, event eventDefinition) (string, error) {
+	if !event.cabrilloReady() {
+		return "", fmt.Errorf("event %q has no verified Cabrillo QSO layout", event.ID)
+	}
 	freqKHz, err := cabrilloFrequencyKHz(q)
 	if err != nil {
 		return "", err
@@ -202,7 +204,8 @@ func cabrilloQSOLine(q qso, profile stationProfile, event eventDefinition) (stri
 	if q.unscored {
 		label = "X-QSO:"
 	}
-	if event.CabrilloOmitRST {
+	switch event.CabrilloLayout {
+	case "cw_exchange_only":
 		return fmt.Sprintf("%s %5d CW %s %s %-13s %-13s %-13s %-13s",
 			label, freqKHz,
 			q.time.UTC().Format("2006-01-02"),
@@ -210,14 +213,17 @@ func cabrilloQSOLine(q qso, profile stationProfile, event eventDefinition) (stri
 			sentCall, sentExch,
 			rcvdCall, rcvdExch,
 		), nil
+	case "cw_rst_exchange":
+		return fmt.Sprintf("%s %5d CW %s %s %-13s %-3s %-13s %-13s %-3s %-13s",
+			label, freqKHz,
+			q.time.UTC().Format("2006-01-02"),
+			q.time.UTC().Format("1504"),
+			sentCall, cabrilloText(q.rstSent, 3), sentExch,
+			rcvdCall, cabrilloText(q.rstRcvd, 3), rcvdExch,
+		), nil
+	default:
+		return "", fmt.Errorf("event %q has unsupported Cabrillo QSO layout %q", event.ID, event.CabrilloLayout)
 	}
-	return fmt.Sprintf("%s %5d CW %s %s %-13s %-3s %-13s %-13s %-3s %-13s",
-		label, freqKHz,
-		q.time.UTC().Format("2006-01-02"),
-		q.time.UTC().Format("1504"),
-		sentCall, cabrilloText(q.rstSent, 3), sentExch,
-		rcvdCall, cabrilloText(q.rstRcvd, 3), rcvdExch,
-	), nil
 }
 
 // contestScore is one session's claimed score: PointsPerQSO awarded per unique
@@ -255,6 +261,9 @@ func computeContestScore(ctx context.Context, profile stationProfile, event even
 // claimed score for the header (contest logs are a few hundred QSOs at most,
 // so the extra scan is cheap) before streaming the QSO lines.
 func exportCabrillo(ctx context.Context, writer io.Writer, profile stationProfile, event eventDefinition, contestID string, st *store) (int, contestScore, error) {
+	if !event.cabrilloReady() {
+		return 0, contestScore{}, fmt.Errorf("event %q has no verified Cabrillo QSO layout", event.ID)
+	}
 	score, err := computeContestScore(ctx, profile, event, contestID, st)
 	if err != nil {
 		return 0, contestScore{}, err
@@ -315,7 +324,7 @@ func writeCabrilloAtomic(ctx context.Context, dir, path string, profile stationP
 		cleanup()
 		return 0, contestScore{}, fmt.Errorf("close Cabrillo file: %w", err)
 	}
-	if err := os.Rename(tempPath, path); err != nil {
+	if err := replaceFileAtomic(tempPath, path); err != nil {
 		cleanup()
 		return 0, contestScore{}, fmt.Errorf("finalize Cabrillo export: %w", err)
 	}
@@ -329,7 +338,8 @@ func (s *store) forEachQSOForContest(ctx context.Context, profileID int64, conte
 	rows, err := s.db.QueryContext(ctx, `SELECT call, qso_date, time_on, COALESCE(qso_date_off, ''), COALESCE(time_off, ''), band,
 		COALESCE(freq, ''), mode, COALESCE(rst_sent, ''), COALESCE(rst_rcvd, ''),
 		COALESCE(stx, ''), COALESCE(stx_string, ''), COALESCE(srx, ''), COALESCE(srx_string, ''),
-		COALESCE(station_callsign, ''), unscored
+		COALESCE(station_callsign, ''), unscored, COALESCE(country, ''),
+		COALESCE(CAST(dxcc AS TEXT), ''), COALESCE(CAST(cqz AS TEXT), ''), COALESCE(CAST(ituz AS TEXT), '')
 		FROM qso WHERE profile_id = ? AND contest_id = ? ORDER BY qso_date, time_on, id`, profileID, contestID)
 	if err != nil {
 		return fmt.Errorf("query QSOs for Cabrillo export: %w", err)
@@ -339,7 +349,8 @@ func (s *store) forEachQSOForContest(ctx context.Context, profileID int64, conte
 		var q qso
 		var date, timeOn, dateOff, timeOff string
 		if err := rows.Scan(&q.call, &date, &timeOn, &dateOff, &timeOff, &q.band, &q.frequency, &q.mode, &q.rstSent, &q.rstRcvd,
-			&q.stx, &q.stxString, &q.srx, &q.srxString, &q.stationCallsign, &q.unscored); err != nil {
+			&q.stx, &q.stxString, &q.srx, &q.srxString, &q.stationCallsign, &q.unscored,
+			&q.country, &q.dxccNumber, &q.cqZone, &q.ituZone); err != nil {
 			return fmt.Errorf("scan QSO for Cabrillo export: %w", err)
 		}
 		q.time, _ = time.Parse("20060102150405", date+timeOn)

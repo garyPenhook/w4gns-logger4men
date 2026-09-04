@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
 	"time"
@@ -33,6 +35,92 @@ func TestOutboxEnqueueIsIdempotent(t *testing.T) {
 	}
 	if len(entries) != 1 {
 		t.Fatalf("claimed %d entries, want 1 (enqueue must be idempotent)", len(entries))
+	}
+}
+
+// TestInsertQSOWithUploadsCommitsContactAndDeliveriesTogether verifies the
+// interactive logging path's durability invariant: a successfully returned
+// QSO id has every configured initial outbox row already committed with it.
+func TestInsertQSOWithUploadsCommitsContactAndDeliveriesTogether(t *testing.T) {
+	st := openTestStore(t)
+	profile, err := st.activeStationProfile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := validTestQSO()
+	q.profileID = profile.ID
+	notBefore := time.Date(2026, time.August, 31, 12, 2, 0, 0, time.UTC)
+	id, err := st.insertQSOWithUploads(q, []string{uploadDestQRZ, uploadDestWRL}, notBefore)
+	if err != nil {
+		t.Fatalf("insertQSOWithUploads: %v", err)
+	}
+
+	var qsoCount, deliveryCount int
+	if err := st.db.QueryRow(`SELECT COUNT(*) FROM qso WHERE id = ?`, id).Scan(&qsoCount); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.db.QueryRow(`SELECT COUNT(*) FROM upload_outbox WHERE qso_id = ?`, id).Scan(&deliveryCount); err != nil {
+		t.Fatal(err)
+	}
+	if qsoCount != 1 || deliveryCount != 2 {
+		t.Fatalf("committed qso/outbox rows = %d/%d, want 1/2", qsoCount, deliveryCount)
+	}
+}
+
+// TestQRZOutboxUploadPersistsSuccessBeforeUpdate covers the shutdown race:
+// delivery acknowledgement is written by the command itself, before Bubble
+// Tea has a chance to process its result message (or the program exits).
+func TestQRZOutboxUploadPersistsSuccessBeforeUpdate(t *testing.T) {
+	st := openTestStore(t)
+	profile, err := st.activeStationProfile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := validTestQSO()
+	q.profileID = profile.ID
+	id, err := st.insertQSO(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q.id = id
+	if err := st.enqueueUpload(id, profile.ID, uploadDestQRZ, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatal(err)
+		}
+		if r.Form.Get("ACTION") != "INSERT" {
+			t.Fatalf("QRZ form ACTION = %q, want INSERT", r.Form.Get("ACTION"))
+		}
+		_, _ = w.Write([]byte("RESULT=OK&LOGID=123&COUNT=1"))
+	}))
+	defer srv.Close()
+	oldAPI := qrzLogbookAPI
+	qrzLogbookAPI = srv.URL
+	t.Cleanup(func() { qrzLogbookAPI = oldAPI })
+
+	m := initialModel(st)
+	m.qrzAPIKey = "test-key"
+	cmd := m.qrzOutboxUploadCmd(q)
+	if cmd == nil {
+		t.Fatal("qrzOutboxUploadCmd returned nil with a configured API key")
+	}
+	msg, ok := cmd().(qrzUploadMsg)
+	if !ok {
+		t.Fatalf("outbox command result = %T, want qrzUploadMsg", msg)
+	}
+	if msg.err != nil || msg.queueErr != nil || !msg.deliveryPersisted {
+		t.Fatalf("outbox upload message = %+v, want a persisted success", msg)
+	}
+
+	entries, err := st.claimDueUploads(time.Now().Add(time.Hour), time.Minute, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("outbox still has %d delivery after command success, want 0", len(entries))
 	}
 }
 

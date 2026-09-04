@@ -50,8 +50,22 @@ CREATE INDEX IF NOT EXISTS idx_outbox_due ON upload_outbox(next_attempt_at);
 // IGNORE keeps it idempotent: re-enqueuing an already-queued delivery is a
 // no-op rather than a duplicate send.
 func (s *store) enqueueUpload(qsoID, profileID int64, destination string, notBefore time.Time) error {
+	if err := enqueueUploadTx(s.db, qsoID, profileID, destination, notBefore); err != nil {
+		return err
+	}
+	return nil
+}
+
+// sqlExecer is the small common surface shared by *sql.DB and *sql.Tx. It
+// lets normal queueing and atomic QSO+queue insertion use exactly the same
+// statement without splitting the latter into separate transactions.
+type sqlExecer interface {
+	Exec(query string, args ...any) (sql.Result, error)
+}
+
+func enqueueUploadTx(execer sqlExecer, qsoID, profileID int64, destination string, notBefore time.Time) error {
 	now := time.Now().UTC().Format(time.RFC3339)
-	_, err := s.db.Exec(
+	_, err := execer.Exec(
 		`INSERT OR IGNORE INTO upload_outbox (qso_id, profile_id, destination, attempts, next_attempt_at, created_at)
 		 VALUES (?, ?, ?, 0, ?, ?)`,
 		qsoID, profileID, destination, notBefore.UTC().Format(time.RFC3339), now,
