@@ -41,7 +41,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.17.0"
+const appVersion = "1.18.0"
 
 type screen int
 
@@ -83,6 +83,16 @@ const (
 )
 
 var contestLabels = [contestFieldCount]string{"Contest", "Serial Sent", "Exchange Sent", "Serial Rcvd", "Exchange Rcvd"}
+
+const (
+	postTimestamp = iota
+	postFieldCount
+)
+
+// postTimestampLayout is the operator-typed format for POST (after-contest)
+// entry mode's Date/Time field — no zone offset, so time.Parse reads it as
+// UTC, matching how every other timestamp in this app is stored.
+const postTimestampLayout = "2006-01-02 15:04"
 
 const (
 	stationNameField = iota
@@ -353,6 +363,15 @@ type model struct {
 	// correction. Reset in clearQSOForm and selectEvent (both already blank
 	// the field for a fresh QSO/contest).
 	contestExchangeRcvdEdited bool
+
+	// postMode is SD's "POST" (after-contest) entry mode: when true, the
+	// operator is re-logging QSOs from a paper log after the contest, so
+	// logCurrentQSO uses the operator-typed postFields[postTimestamp] value
+	// instead of time.Now() for the QSO's time. Toggled by Ctrl+P; an extra
+	// entrySlot for the Date/Time field is appended only while this is true.
+	// Independent of the active contest — left untouched by selectEvent.
+	postMode   bool
+	postFields []textinput.Model
 }
 
 // formatSerial renders a running serial number the way contest exchanges are
@@ -476,6 +495,7 @@ func initialModel(st *store) model {
 	// truncate most of them.
 	contests[contestName].CharLimit = maxEventSelectionLength
 	contests[contestName].Width = 30
+	postFields := []textinput.Model{newTextInput(postTimestampLayout, 18)}
 
 	cols := []table.Column{
 		{Title: "UTC", Width: 8},
@@ -503,6 +523,7 @@ func initialModel(st *store) model {
 		bgTasks:        &sync.WaitGroup{},
 		detailFields:   details,
 		contestFields:  contests,
+		postFields:     postFields,
 		events:         events,
 	}
 	profile, err := st.activeStationProfile()
@@ -1499,16 +1520,20 @@ func (m *model) showWorkedCall(call string) {
 // existing focusIdx==fieldCall/fieldBand checks keep working unchanged.
 type entrySlot struct {
 	contest bool
+	post    bool
 	idx     int
 	label   string
 }
 
 // entrySlots returns the ordered focusable inputs for the QSO Entry screen: the
 // base fields, followed (when a contest is active) by the worked station's
-// received exchange. A serial-exchange contest (e.g. CW Open) receives a serial
-// plus an exchange; other contests receive just the exchange (zone, state, …).
+// received exchange, followed (in POST mode) by the operator-typed Date/Time.
+// A serial-exchange contest (e.g. CW Open) receives a serial plus an exchange;
+// other contests receive just the exchange (zone, state, …). The POST slot is
+// always last so it never disturbs the fixed 0..fieldCount-1 base-slot
+// positions or the fieldCount jump target Enter's fast-path relies on.
 func (m model) entrySlots() []entrySlot {
-	slots := make([]entrySlot, 0, fieldCount+2)
+	slots := make([]entrySlot, 0, fieldCount+3)
 	for i := 0; i < fieldCount; i++ {
 		slots = append(slots, entrySlot{idx: i, label: fieldLabels[i]})
 	}
@@ -1517,6 +1542,12 @@ func (m model) entrySlots() []entrySlot {
 			slots = append(slots, entrySlot{contest: true, idx: contestSerialRcvd, label: "Rcv #"})
 		}
 		slots = append(slots, entrySlot{contest: true, idx: contestExchangeRcvd, label: "Rcv Exch"})
+	}
+	if m.postMode && m.editingQSOID == 0 {
+		// logCurrentQSO's edit branch never reads postFields — editing an
+		// existing QSO doesn't rewrite its timestamp — so the slot is hidden
+		// during an edit rather than shown but silently inert.
+		slots = append(slots, entrySlot{post: true, idx: postTimestamp, label: "Date/Time UTC"})
 	}
 	return slots
 }
@@ -1529,9 +1560,12 @@ func (m *model) focusedInput() *textinput.Model {
 	if m.focusIdx < 0 || m.focusIdx >= len(slots) {
 		return nil
 	}
-	if s := slots[m.focusIdx]; s.contest {
+	switch s := slots[m.focusIdx]; {
+	case s.contest:
 		return &m.contestFields[s.idx]
-	} else {
+	case s.post:
+		return &m.postFields[s.idx]
+	default:
 		return &m.fields[s.idx]
 	}
 }
@@ -1543,13 +1577,19 @@ func (m *model) focusField(i int) {
 	for idx := range m.contestFields {
 		m.contestFields[idx].Blur()
 	}
+	for idx := range m.postFields {
+		m.postFields[idx].Blur()
+	}
 	slots := m.entrySlots()
 	if i < 0 || i >= len(slots) {
 		i = 0
 	}
-	if s := slots[i]; s.contest {
+	switch s := slots[i]; {
+	case s.contest:
 		m.contestFields[s.idx].Focus()
-	} else {
+	case s.post:
+		m.postFields[s.idx].Focus()
+	default:
 		m.fields[s.idx].Focus()
 	}
 	m.focusIdx = i
@@ -1958,12 +1998,27 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		return m, nil
 	}
 
-	endedAt := time.Now().UTC()
-	startedAt := m.qsoStartedAt
-	if startedAt.IsZero() {
-		// Tab normally starts the clock. This fallback keeps a QSO valid if an
-		// operator uses a different terminal navigation sequence.
-		startedAt = endedAt
+	var startedAt, endedAt time.Time
+	if m.postMode {
+		// POST mode (SD's after-contest re-entry): the operator supplies the
+		// actual QSO time from a paper log instead of the wall clock. One
+		// field stands in for both time-on/time-off, same as the fallback
+		// below when the live clock never started.
+		typed := strings.TrimSpace(m.postFields[postTimestamp].Value())
+		parsed, err := time.Parse(postTimestampLayout, typed)
+		if err != nil {
+			m.statusMsg = fmt.Sprintf("POST mode: Date/Time must be %q (UTC) — not logged", postTimestampLayout)
+			return m, nil
+		}
+		startedAt, endedAt = parsed, parsed
+	} else {
+		endedAt = time.Now().UTC()
+		startedAt = m.qsoStartedAt
+		if startedAt.IsZero() {
+			// Tab normally starts the clock. This fallback keeps a QSO valid if an
+			// operator uses a different terminal navigation sequence.
+			startedAt = endedAt
+		}
 	}
 	logged := edited
 	logged.mode = cwMode
@@ -2410,6 +2465,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.statusMsg = "exporting CSV…"
 		return m, m.csvExportCmd(contestID)
 	}
+	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "ctrl+p" && m.screen == qsoEntryScreen {
+		if m.editingQSOID != 0 {
+			m.statusMsg = "POST mode: finish or cancel the current edit first"
+			return m, nil
+		}
+		m.postMode = !m.postMode
+		if m.postMode {
+			m.postFields[postTimestamp].SetValue(time.Now().UTC().Format(postTimestampLayout))
+			m.statusMsg = "POST mode ON — type each QSO's actual Date/Time (" + postTimestampLayout + " UTC) instead of using the live clock"
+		} else {
+			m.postFields[postTimestamp].SetValue("")
+			m.statusMsg = "POST mode OFF — logging uses the live clock again"
+		}
+		m.focusField(m.focusIdx)
+		return m, nil
+	}
 	if m.screen == stationSetupScreen {
 		return m.updateStationSetup(msg)
 	}
@@ -2489,12 +2560,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			leavingCall := m.focusIdx == fieldCall
 			m.startQSOClockIfLeavingCall()
 			nextFocus := m.focusIdx + 1
-			if slots := m.entrySlots(); leavingCall && len(slots) > fieldCount {
+			if _, contestActive := m.eventForContestID(); leavingCall && contestActive {
 				// A contest is active: RST/Band/Freq are auto-filled (599 default,
 				// event/cluster-selected band, typed freq) and rarely need touching
 				// mid-QSO, so Enter fast-paths straight to the worked station's
 				// received exchange. Tab still visits every field for the rare
 				// correction, per the roadmap's "keep Tab for full field-by-field".
+				// Gated on the contest itself, not just "slots grew past
+				// fieldCount" — POST mode alone (no contest) also grows the
+				// slot list via its trailing Date/Time slot, and RST/Band/Freq
+				// still need a look when re-entering a paper log.
 				nextFocus = fieldCount
 			}
 			m.focusField(nextFocus)
@@ -2838,6 +2913,7 @@ func (m model) helpPanelView() string {
 		"F8  Backup to Google Drive",
 		"F9  Browse/Edit Recent QSOs (↑/↓ select, Enter view/edit, d delete, Esc/F9 done)",
 		"Ctrl+W  Worked/Needed by Continent",
+		"Ctrl+P  Toggle POST (after-contest) entry mode",
 		"Ctrl+G  This help screen",
 		"Esc  Context-dependent: quit QSO Entry, cancel an edit, or back up one screen",
 	)
@@ -2851,6 +2927,11 @@ func (m model) helpPanelView() string {
 		"Enter  Accept field and advance; on Call with a contest active, fast-paths past auto-filled RST/Band/Freq to the received exchange",
 		"Left/Right (on Band)  Cycle bands",
 		"PgUp/PgDn or mouse wheel  Scroll DX Spots",
+	)
+	section("POST mode (re-logging QSOs from a paper log after the contest)",
+		"Ctrl+P  Toggle on/off (blocked while editing a QSO)",
+		"Adds a Date/Time UTC field (format 2006-01-02 15:04) as the last field in the entry row — Enter there logs the QSO with that time instead of the live clock",
+		"The field keeps its last value between QSOs so consecutive entries only need the time edited",
 	)
 	section("Contest tools (shown when a contest is active, update as you type the call)",
 		"Analysis panel  Dupe flag, country/CQ/ITU/continent, beam heading+distance, new-multiplier flag, band-worked matrix",
@@ -3061,8 +3142,11 @@ func (m model) renderSlot(pos int, s entrySlot) string {
 		box = focusedFieldBoxStyle
 	}
 	input := m.fields[s.idx]
-	if s.contest {
+	switch {
+	case s.contest:
 		input = m.contestFields[s.idx]
+	case s.post:
+		input = m.postFields[s.idx]
 	}
 	content := labelStyle.Render(s.label) + input.View()
 	return box.Render(content)
@@ -3130,6 +3214,10 @@ func (m model) View() string {
 		header += "  |  Sending # " + serial
 	}
 	b.WriteString(headerStyle.Render(header))
+	if m.postMode {
+		b.WriteString("\n")
+		b.WriteString(dupeStyle.Render("POST MODE — logging with typed Date/Time, not the live clock"))
+	}
 	b.WriteString("\n")
 	b.WriteString(solarStyle.Render(m.solarLine()))
 	b.WriteString("\n\n")
@@ -3507,7 +3595,7 @@ func screenHotkeys(current screen) string {
 		escape = "Esc: Back"
 	}
 	line1 := "W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF"
-	line2 := "F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo  •  Ctrl+R: Export CSV  •  Ctrl+W: Worked/Needed  •  Ctrl+G: Help  •  " + escape
+	line2 := "F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo  •  Ctrl+R: Export CSV  •  Ctrl+W: Worked/Needed  •  Ctrl+P: POST mode  •  Ctrl+G: Help  •  " + escape
 	return hotkeyStyle.Render(line1) + "\n" + hotkeyStyle.Render(line2)
 }
 

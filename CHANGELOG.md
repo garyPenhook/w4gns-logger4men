@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.18.0
+
+- Added POST (after-contest) entry mode for re-logging QSOs from a paper log. `Ctrl+P` toggles it on QSO Entry, adding a Date/Time (UTC) field to the entry row; logging a QSO uses that typed timestamp instead of the live clock, and refuses to log (with an explanatory message) if it can't be parsed. The field keeps its value between QSOs so only the time needs editing for consecutive entries, and is hidden while editing an existing QSO since edits don't rewrite a QSO's stored time.
+
 ### v1.17.0
 
 - Added an in-app Help screen (`Ctrl+G`, from any screen) listing every hotkey, QSO Entry editing key, and contest-active tool (analysis panel, Check Partial, rate meter, zone auto-fill) so you don't need `docs/ROADMAP.md` open to find a command. Esc/`Ctrl+G` return to whichever screen you opened it from; `F1` still always goes to QSO Entry.

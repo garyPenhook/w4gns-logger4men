@@ -1690,3 +1690,191 @@ func TestSaveStationSetupRetriesClusterConnectionWhenCallsignAdded(t *testing.T)
 		t.Fatal("saveStationSetup did not mark the cluster connection as in progress")
 	}
 }
+
+// TestCtrlPTogglesPostModeAndAddsDateTimeSlot covers the Ctrl+P toggle: it
+// flips model.postMode, prefills the Date/Time field with the current UTC
+// time on enable and clears it on disable, and the extra entrySlot only
+// exists while postMode is true.
+func TestCtrlPTogglesPostModeAndAddsDateTimeSlot(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	baseSlots := len(m.entrySlots())
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	m = updated.(model)
+	if !m.postMode {
+		t.Fatal("Ctrl+P did not enable POST mode")
+	}
+	if len(m.entrySlots()) != baseSlots+1 {
+		t.Fatalf("entrySlots count = %d after enabling POST mode, want %d", len(m.entrySlots()), baseSlots+1)
+	}
+	if m.postFields[postTimestamp].Value() == "" {
+		t.Fatal("enabling POST mode did not prefill the Date/Time field")
+	}
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	m = updated.(model)
+	if m.postMode {
+		t.Fatal("second Ctrl+P did not disable POST mode")
+	}
+	if len(m.entrySlots()) != baseSlots {
+		t.Fatalf("entrySlots count = %d after disabling POST mode, want %d", len(m.entrySlots()), baseSlots)
+	}
+	if m.postFields[postTimestamp].Value() != "" {
+		t.Fatal("disabling POST mode did not clear the Date/Time field")
+	}
+}
+
+// TestCtrlPBlockedWhileEditingQSO guards against toggling POST mode mid-edit,
+// which would silently reshuffle the entry-slot layout under the operator
+// while a different save path (the edit path, which doesn't consult
+// postMode) is in flight.
+func TestCtrlPBlockedWhileEditingQSO(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.fields[fieldCall].SetValue("W1AW")
+	m, _ = m.logCurrentQSO()
+	m.beginEditQSO(m.recentQSOs[0])
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	m = updated.(model)
+	if m.postMode {
+		t.Fatal("Ctrl+P enabled POST mode while a QSO was loaded for editing")
+	}
+	if !strings.Contains(m.statusMsg, "edit") {
+		t.Fatalf("statusMsg = %q, want a message explaining POST mode is blocked while editing", m.statusMsg)
+	}
+}
+
+// TestPostModeLogsQSOWithTypedTimestampInsteadOfNow is the core behavior:
+// with POST mode on, logCurrentQSO must use the operator-typed Date/Time
+// field, not time.Now(), for both time-on and time-off.
+func TestPostModeLogsQSOWithTypedTimestampInsteadOfNow(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	m = updated.(model)
+
+	want := time.Date(2023, 6, 10, 14, 30, 0, 0, time.UTC)
+	m.postFields[postTimestamp].SetValue(want.Format(postTimestampLayout))
+	m.fields[fieldCall].SetValue("W1AW")
+
+	m, _ = m.logCurrentQSO()
+	if len(m.recentQSOs) == 0 {
+		t.Fatal("logCurrentQSO in POST mode did not log a QSO")
+	}
+	if !m.recentQSOs[0].time.Equal(want) {
+		t.Fatalf("logged time = %v, want %v", m.recentQSOs[0].time, want)
+	}
+
+	// recentQSOs doesn't select time_off, so check the stored end time directly.
+	var qsoDate, timeOn, dateOff, timeOff string
+	if err := st.db.QueryRow(`SELECT qso_date, time_on, qso_date_off, time_off FROM qso WHERE call = 'W1AW'`).Scan(&qsoDate, &timeOn, &dateOff, &timeOff); err != nil {
+		t.Fatal(err)
+	}
+	if qsoDate+timeOn != "20230610143000" || dateOff+timeOff != "20230610143000" {
+		t.Fatalf("stored time_on = %s %s, time_off = %s %s, want both 2023-06-10 14:30:00", qsoDate, timeOn, dateOff, timeOff)
+	}
+}
+
+// TestPostModeRejectsUnparsableTimestamp guards against silently logging a
+// QSO with a garbage or empty Date/Time value in POST mode — it must refuse
+// to save and explain the expected format instead.
+func TestPostModeRejectsUnparsableTimestamp(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	m = updated.(model)
+	m.postFields[postTimestamp].SetValue("not a date")
+	m.fields[fieldCall].SetValue("W1AW")
+
+	m, _ = m.logCurrentQSO()
+	if count, err := st.count(m.activeStation.ID); err != nil || count != 0 {
+		t.Fatalf("count after bad POST-mode timestamp = %d, err = %v, want 0 (not logged)", count, err)
+	}
+	if !strings.Contains(m.statusMsg, "POST mode") {
+		t.Fatalf("statusMsg = %q, want a POST-mode format error", m.statusMsg)
+	}
+}
+
+// TestPostModeEnterFastPathStillVisitsRSTBandFreqWithoutAContest guards a
+// regression where enabling POST mode alone (no contest active) made the
+// Call field's Enter fast-path — meant only for "a contest is active, so
+// RST/Band/Freq are auto-filled and rarely need touching" — misfire, because
+// it used to key off entrySlots() growing past fieldCount, which POST mode's
+// trailing Date/Time slot also does. Enter from Call must still land on
+// RST Sent (fieldRSTSent), not jump straight to the Date/Time slot.
+func TestPostModeEnterFastPathStillVisitsRSTBandFreqWithoutAContest(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	m = updated.(model)
+	if !m.postMode {
+		t.Fatal("Ctrl+P did not enable POST mode")
+	}
+	m.focusField(fieldCall)
+	m.fields[fieldCall].SetValue("W1AW")
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
+	if m.focusIdx != fieldRSTSent {
+		t.Fatalf("focusIdx after Enter from Call in POST mode (no contest) = %d, want %d (fieldRSTSent, the normal next field) — it should not fast-path to the Date/Time slot", m.focusIdx, fieldRSTSent)
+	}
+}
+
+// TestPostModeSlotHiddenWhileEditingQSO guards a regression where the
+// Date/Time slot stayed visible and editable during an edit (F9) that began
+// while POST mode was already on, even though logCurrentQSO's edit branch
+// never reads postFields — a QSO's timestamp isn't rewritten by an edit. A
+// visible-but-inert field is misleading, so the slot must not appear at all
+// while editingQSOID != 0.
+func TestPostModeSlotHiddenWhileEditingQSO(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	m = updated.(model)
+	baseSlotsWithPost := len(m.entrySlots())
+
+	m.fields[fieldCall].SetValue("W1AW")
+	m, _ = m.logCurrentQSO()
+	m.beginEditQSO(m.recentQSOs[0])
+
+	if got := len(m.entrySlots()); got != baseSlotsWithPost-1 {
+		t.Fatalf("entrySlots count while editing with POST mode on = %d, want %d (Date/Time slot hidden)", got, baseSlotsWithPost-1)
+	}
+	for _, s := range m.entrySlots() {
+		if s.post {
+			t.Fatal("entrySlots still includes the POST Date/Time slot while editing a QSO")
+		}
+	}
+}

@@ -183,7 +183,12 @@ every panel *and* scoring so they always agree.
   been logged (`main.go` `View()`, `rateMeterLine`).
 
 **Phase 3 — corrections, mult data, output parity**
-- ⏳ Log-wide **recompute on any edit** (dupes/mults/points) — SD's differentiator.
+- ✅ Log-wide **recompute on any edit** (dupes/mults/points) — SD's differentiator.
+  `rebuildContestIndex` (full re-read from the store) already fires on every
+  mutation path: edit-save (`logCurrentQSO`), table delete, `ZAP`, `/Z`,
+  `/X`, and contest-switch; `score()`/`rate()` are always derived fresh from
+  `contestState`, never cached. No remaining gap — verified no stale-score
+  field exists on `model`.
 - ✅ `/Z` (mark old for delete), `/X` (logged-but-unscored), `ZAP`, `SETDUPE`.
   Typed into the Call field and confirmed with Enter, intercepted in
   `handleCallFieldCommand` (`main.go`) before the normal Enter-to-advance/
@@ -224,7 +229,26 @@ every panel *and* scoring so they always agree.
   (e.g. `K1USN-SST-MON`) whenever the operator selects a session-specific
   contest ID from the Events (F7) screen — no `CALL1.log`-style renaming
   needed since the existing naming already disambiguates by session.
-- ⏳ SDCHECK parity: **POST** (after-contest) entry mode.
+- ✅ SDCHECK parity: **POST** (after-contest) entry mode. `Ctrl+P` toggles
+  `model.postMode`; while on, `entrySlots()` appends a trailing "Date/Time
+  UTC" field (`postFields`, format `2006-01-02 15:04`) to the QSO Entry row,
+  and `logCurrentQSO` uses the operator-typed value for both time-on/time-off
+  instead of `time.Now()` — refusing to save (no QSO logged) on an unparsable
+  value. The field's value persists across QSOs (only the operator edits the
+  minutes for consecutive paper-log entries) but is hidden while editing an
+  existing QSO, since `logCurrentQSO`'s edit branch never rewrites a QSO's
+  stored timestamp. Blocked from toggling mid-edit. The pre-existing Enter
+  fast-path (skip to received exchange when a contest is active) is gated on
+  the contest itself, not slot count, since POST mode's own trailing slot
+  also grows `entrySlots()` past `fieldCount`. `main.go` (`postMode`,
+  `postFields`, `postTimestamp`, `entrySlot.post`, the Ctrl+P handler,
+  `logCurrentQSO`). Tests: `main_test.go`
+  (`TestCtrlPTogglesPostModeAndAddsDateTimeSlot`,
+  `TestCtrlPBlockedWhileEditingQSO`,
+  `TestPostModeLogsQSOWithTypedTimestampInsteadOfNow`,
+  `TestPostModeRejectsUnparsableTimestamp`,
+  `TestPostModeEnterFastPathStillVisitsRSTBandFreqWithoutAContest`,
+  `TestPostModeSlotHiddenWhileEditingQSO`).
 - ✅ **In-app HELP** (`Ctrl+G`, reachable from any screen). `helpScreen`
   (`main.go`), `openHelpPanel`/`updateHelpPanel`/`helpPanelView` — static
   reference covering every screen hotkey, QSO Entry field/editing keys, and
