@@ -34,6 +34,35 @@ func TestDXCCLookupResolvesKnownCallsigns(t *testing.T) {
 	}
 }
 
+// TestDXCCLookupNormalizesLongitudeEastPositive verifies the cty.dat
+// west-positive longitude convention is negated to the standard
+// east-positive convention used by heading/distance math. United States
+// (west of Greenwich) is stored as a positive cty.dat value and must come
+// out negative; Sov Mil Order of Malta (east of Greenwich, in Rome) is
+// stored as a negative cty.dat value and must come out positive.
+func TestDXCCLookupNormalizesLongitudeEastPositive(t *testing.T) {
+	table, err := loadDXCCTable()
+	if err != nil {
+		t.Fatalf("loadDXCCTable returned error: %v", err)
+	}
+
+	us, ok := table.lookup("W4GNS")
+	if !ok {
+		t.Fatal("lookup(\"W4GNS\") = not found, want a match")
+	}
+	if us.Latitude != 37.60 || us.Longitude != -91.87 {
+		t.Errorf("lookup(\"W4GNS\") lat/lon = %v/%v, want 37.60/-91.87", us.Latitude, us.Longitude)
+	}
+
+	malta, ok := table.lookup("1A0KM")
+	if !ok {
+		t.Fatal("lookup(\"1A0KM\") = not found, want a match")
+	}
+	if malta.Latitude != 41.90 || malta.Longitude != 12.43 {
+		t.Errorf("lookup(\"1A0KM\") lat/lon = %v/%v, want 41.90/12.43", malta.Latitude, malta.Longitude)
+	}
+}
+
 // TestDXCCNumberResolvesFromARRLTable spot-checks the ARRL DXCC entity
 // number cross-reference (data/arrl_dxcc.dat) against a handful of
 // well-known calls, including a case where cty.dat splits one ARRL entity

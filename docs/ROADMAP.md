@@ -85,9 +85,15 @@ the model (built on open, incremental on log, full recompute on edit) that feeds
 every panel *and* scoring so they always agree.
 
 **Phase 1 — analysis engine + always-on panels**
-- ⏳ `dxcc.go`: capture the per-entity **lat/lon** currently parsed and discarded
-  (needed for beam headings). Additive; west→east longitude normalization + test.
-- ⏳ `heading.go`: great-circle **bearing + distance** (km/mi via a prefs unit).
+- ✅ `dxcc.go`: capture the per-entity **lat/lon** (header fields 5/6 and the
+  per-alias `<lat/lon>` override), normalizing cty.dat's west-positive
+  longitude to standard east-positive. `dxccEntity.Latitude/Longitude`,
+  `parseAliasLatLon`; test `TestDXCCLookupNormalizesLongitudeEastPositive`.
+- ✅ `heading.go`: great-circle **bearing + distance**. `GreatCircleBearingDistance`
+  (haversine + initial bearing, km) and `KmToMiles`; wiring to a prefs unit
+  toggle is deferred to the analysis-panel UI work below. Tested against
+  equator/meridian exact cases, antipode, zero-distance, and a real
+  southern/western-hemisphere city pair.
 - ⏳ `contestState` index; refactor `computeContestScore` to read it.
 - ⏳ As-you-type (from 2 chars): **dupe**, **country/zone/continent**, **beam
   heading**, **advance multiplier flag** (incl. double-mult for CQWW-style),

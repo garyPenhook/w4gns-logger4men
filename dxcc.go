@@ -31,6 +31,13 @@ type dxccEntity struct {
 	ITUZone    int
 	Continent  string
 	DXCCNumber int
+	// Latitude and Longitude are the entity's reference coordinates, degrees
+	// north/east (standard signed convention). cty.dat stores longitude
+	// west-positive, so it is negated on parse to match. Zero for both means
+	// "no coordinate data" (heading/distance callers should skip rather than
+	// treat 0,0 as the Gulf of Guinea).
+	Latitude  float64
+	Longitude float64
 }
 
 type dxccAlias struct {
@@ -170,6 +177,14 @@ func parseCtyHeader(line string, dxccNumbers map[string]int) (dxccEntity, error)
 	if err != nil {
 		return dxccEntity{}, fmt.Errorf("malformed ITU zone in %q: %w", line, err)
 	}
+	lat, err := strconv.ParseFloat(strings.TrimSpace(fields[4]), 64)
+	if err != nil {
+		return dxccEntity{}, fmt.Errorf("malformed latitude in %q: %w", line, err)
+	}
+	lon, err := strconv.ParseFloat(strings.TrimSpace(fields[5]), 64)
+	if err != nil {
+		return dxccEntity{}, fmt.Errorf("malformed longitude in %q: %w", line, err)
+	}
 	primaryPrefix := strings.TrimSpace(fields[7])
 	return dxccEntity{
 		Country:    strings.TrimSpace(fields[0]),
@@ -177,6 +192,8 @@ func parseCtyHeader(line string, dxccNumbers map[string]int) (dxccEntity, error)
 		ITUZone:    ituZone,
 		Continent:  strings.ToUpper(strings.TrimSpace(fields[3])),
 		DXCCNumber: dxccNumbers[primaryPrefix],
+		Latitude:   lat,
+		Longitude:  -lon, // cty.dat stores longitude west-positive
 	}, nil
 }
 
@@ -204,10 +221,15 @@ func (t *dxccTable) addAliases(base dxccEntity, list string) error {
 				if zone, err := strconv.Atoi(group[2]); err == nil {
 					entity.ITUZone = zone
 				}
+			case group[3] != "": // <lat/lon>
+				if lat, lon, ok := parseAliasLatLon(group[3]); ok {
+					entity.Latitude = lat
+					entity.Longitude = lon
+				}
 			case group[4] != "": // {continent}
 				entity.Continent = strings.ToUpper(strings.TrimSpace(group[4]))
 			}
-			// group[3] (<lat/lon>) and group[5] (~UTC~) are not used by this app.
+			// group[5] (~UTC~) is not used by this app.
 		}
 		prefix := aliasOverridePattern.ReplaceAllString(token, "")
 		if prefix == "" {
@@ -226,6 +248,25 @@ func (t *dxccTable) addAliases(base dxccEntity, list string) error {
 		t.prefixByFirst[prefix[0]] = append(t.prefixByFirst[prefix[0]], dxccAlias{prefix: prefix, entity: entity})
 	}
 	return nil
+}
+
+// parseAliasLatLon parses a cty.dat per-alias "<lat/lon>" override body
+// (already stripped of the angle brackets by aliasOverridePattern), applying
+// the same west-positive longitude normalization as the header fields.
+func parseAliasLatLon(body string) (lat, lon float64, ok bool) {
+	parts := strings.SplitN(body, "/", 2)
+	if len(parts) != 2 {
+		return 0, 0, false
+	}
+	lat, err := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64)
+	if err != nil {
+		return 0, 0, false
+	}
+	westLon, err := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
+	if err != nil {
+		return 0, 0, false
+	}
+	return lat, -westLon, true
 }
 
 // portableCallSuffixes are common modifiers appended to a callsign that never
