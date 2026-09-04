@@ -402,6 +402,55 @@ func TestContestStateScorePrefixMultiplierCountsOncePerContest(t *testing.T) {
 	}
 }
 
+// TestContestStateScoreExchangeAreaMultiplierFromReceivedExchange exercises
+// CQ 160 Meter CW's "exchange_area" multiplier: a US state/DC/Canadian
+// province parsed from the worked station's received exchange text (not
+// resolvable from its callsign), counted once per contest alongside the
+// DXCC-entity multiplier. A repeated area doesn't add another; unrecognized
+// exchange text (a DX station's power report) contributes nothing.
+func TestContestStateScoreExchangeAreaMultiplierFromReceivedExchange(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "W1AW", band: "160M", srxString: "CT"})   // new area: CT
+	state.record(qso{call: "K5ABC", band: "160M", srxString: "ct"})  // same area again, case-insensitive
+	state.record(qso{call: "VE3ABC", band: "160M", srxString: "ON"}) // new area: ON
+	state.record(qso{call: "DL1ABC", band: "160M", srxString: "5NN"})
+
+	rules := &scoringRules{
+		PointsPerQSO: 1,
+		Multipliers:  []multiplierRule{{Kind: "exchange_area", Per: "contest"}},
+	}
+	score := state.score(rules)
+	if score.multipliers != 2 {
+		t.Fatalf("multipliers = %d, want 2 (CT + ON)", score.multipliers)
+	}
+}
+
+// TestContestStateWouldBeNewMultiplierExchangeArea exercises the as-you-type
+// "NEW MULT" flag for the exchange_area kind, which — unlike dxcc/cqzone/
+// ituzone — has no callsign-derived fallback and reads only the operator's
+// in-progress received-exchange field text.
+func TestContestStateWouldBeNewMultiplierExchangeArea(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "W1AW", band: "160M", srxString: "CT"})
+
+	rules := &scoringRules{
+		Multipliers: []multiplierRule{{Kind: "exchange_area", Per: "contest"}},
+	}
+	// Same area already worked: not a new mult.
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "W1XYZ", "160M", "CT", dxccEntity{}, false); newMult || !workedBefore {
+		t.Fatalf("CT (already worked) = newMult=%v workedBefore=%v, want false/true", newMult, workedBefore)
+	}
+	// A different area: new mult.
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "K5ABC", "160M", "TX", dxccEntity{}, false); !newMult || workedBefore {
+		t.Fatalf("TX (new area) = newMult=%v workedBefore=%v, want true/false", newMult, workedBefore)
+	}
+	// Not yet a recognizable area (still typing, or a DX power exchange):
+	// no flag either way.
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "DL1ABC", "160M", "5NN", dxccEntity{}, false); newMult || workedBefore {
+		t.Fatalf("unrecognized exchange text = newMult=%v workedBefore=%v, want false/false", newMult, workedBefore)
+	}
+}
+
 // TestContestStateScorePointsRuleWPXBandTiering exercises CQ WPX's
 // band-tiered points (Rule V.B): high bands (10/15/20M) use the base
 // same-continent/other-continent values, low bands (40/80/160M) double them,
@@ -456,7 +505,7 @@ func TestContestStateWouldBeNewMultiplier(t *testing.T) {
 	if !found {
 		t.Fatal("expected W2XYZ to resolve to a DXCC entity")
 	}
-	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "W2XYZ", "20M", usEntity, true); newMult || !workedBefore {
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "W2XYZ", "20M", "", usEntity, true); newMult || !workedBefore {
 		t.Fatalf("W2XYZ/20M (same country, same band) = newMult=%v workedBefore=%v, want false/true", newMult, workedBefore)
 	}
 
@@ -465,17 +514,17 @@ func TestContestStateWouldBeNewMultiplier(t *testing.T) {
 	if !found {
 		t.Fatal("expected DL1ABC to resolve to a DXCC entity")
 	}
-	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "DL1ABC", "20M", dlEntity, true); !newMult || workedBefore {
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "DL1ABC", "20M", "", dlEntity, true); !newMult || workedBefore {
 		t.Fatalf("DL1ABC/20M (new country) = newMult=%v workedBefore=%v, want true/false", newMult, workedBefore)
 	}
 
 	// Same USA country, but a fresh band: new DXCC mult again (Per:"band").
-	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "W2XYZ", "40M", usEntity, true); !newMult || workedBefore {
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "W2XYZ", "40M", "", usEntity, true); !newMult || workedBefore {
 		t.Fatalf("W2XYZ/40M (same country, new band) = newMult=%v workedBefore=%v, want true/false", newMult, workedBefore)
 	}
 
 	// Unresolved prefix: no dxcc/cqzone/ituzone rule can fire.
-	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "ZZ1XYZ", "20M", dxccEntity{}, false); newMult || workedBefore {
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "ZZ1XYZ", "20M", "", dxccEntity{}, false); newMult || workedBefore {
 		t.Fatalf("unresolved prefix = newMult=%v workedBefore=%v, want false/false", newMult, workedBefore)
 	}
 }

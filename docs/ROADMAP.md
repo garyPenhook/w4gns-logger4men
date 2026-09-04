@@ -403,21 +403,46 @@ every panel *and* scoring so they always agree.
   an override before falling back to the flat `SameContinent` value. Tests:
   `contest_state_test.go` (`TestContestStateScorePointsRulePerContinentOverride`),
   `events_test.go` (`TestLoadEventCatalogCQWWHasRealScoringRules`).
-- ✅ **Real per-contest wiring: CQ 160-Meter CW's actual scoring rules.**
-  Curated `CQ-160-CW` (`events/contestcalendar.json`) now carries a real
-  `scoring` block sourced from cq160.com/rules/index.htm: flat 2/5/10 points
-  for same-country/same-continent/other-continent (no NA-style exception
-  here, unlike CQ WW), plus a DXCC-entity multiplier counted once per
-  contest (`per: "contest"` — the rules explicitly note CQ zones sent in the
-  exchange are location info only and don't count as multipliers). The real
-  rules also award DX stations a US-state/DC/Canadian-province multiplier —
-  left out rather than guessed at, since those come from the *received
-  exchange text*, not the worked callsign, and the current multiplier
-  schema (`dxcc`/`cqzone`/`ituzone`) only resolves multipliers from the
-  callsign side. An exchange-derived multiplier kind is a real schema gap,
-  same shape as the still-open roster/area-mult item, and a candidate for
-  wiring ARRL DX CW (asymmetric DXCC-vs-state/province mults) and CQ WPX CW
-  (prefix mult + band-tiered points) next. Test: `events_test.go`
+- ✅ **Real per-contest wiring: CQ 160-Meter CW's actual scoring rules,**
+  including the exchange-derived multiplier schema gap this entry originally
+  left open. Curated `CQ-160-CW` (`events/contestcalendar.json`) carries a
+  real `scoring` block sourced from cq160.com/rules/: flat 2/5/10 points for
+  same-country/same-continent/other-continent (no NA-style exception here,
+  unlike CQ WW), a DXCC-entity multiplier, and — re-reading the current
+  rules text closely — a second, *uniformly awarded* multiplier for each
+  distinct US state/DC/Canadian province worked ("MULTIPLIER: U.S. States...
+  Canadian Provinces..."), both `per: "contest"`. Unlike what this entry
+  first assumed, that multiplier is not DX-side-only: CQ 160's rule counts
+  it for every entrant. **New `exchange_area` multiplier kind**
+  (`exchange_area.go`) resolves it from the worked station's *received
+  exchange text* (`qso.srxString`) rather than a cty.dat callsign lookup —
+  the first multiplier kind with no callsign-derived fallback — against a
+  canonical 63-value table (48 contiguous US states + DC + the 14 Canadian
+  provinces/territories both CQ 160 and ARRL DX CW's rules enumerate,
+  Newfoundland/Labrador counted separately "for reasons of tradition"; an
+  `NF`→`NL` alias covers ARRL DX's own alternate spelling). `contest_state.go`
+  extends the index with `exchangeAreaByBand`/`exchangeAreaAll` (recorded in
+  `record()`, summed in `multiplierCount()`) and threads the operator's
+  in-progress received-exchange field text into `wouldBeNewMultiplier`
+  (new `exchangeText` parameter, wired from `analysisPanel`) so the as-you-
+  type "NEW MULT" flag works for this kind too. **Deliberately not wired
+  into ARRL DX CW**: that contest's version of this multiplier (Rule 5.2.2)
+  is genuinely side-asymmetric — it replaces the DXCC-entity multiplier for
+  a DX-side entrant rather than adding to it, and this app's own station
+  profile is W/VE-side, so adding it to ARRL DX CW's existing scoring block
+  would double-count. Applying it correctly needs the app to know which side
+  the *operator's own station* is on and pick one multiplier rule set or the
+  other — a real gap, but a different one than "no exchange-derived kind
+  exists," and left open pending that side-detection work. Separately noted,
+  not fixed here (out of scope for this change): CQ 160's `dxcc` multiplier
+  as configured doesn't exclude the operator's own country, so a domestic
+  QSO can be miscounted as a spurious 1-multiplier "DXCC entity" that isn't
+  actually in the rule's DXCC/WAE country list — pre-existing, not
+  introduced by this change. Tests: `exchange_area_test.go`
+  (`TestExchangeAreaCode`, `TestExchangeAreaCodesHas63Values`),
+  `contest_state_test.go`
+  (`TestContestStateScoreExchangeAreaMultiplierFromReceivedExchange`,
+  `TestContestStateWouldBeNewMultiplierExchangeArea`), `events_test.go`
   (`TestLoadEventCatalogCQ160HasRealScoringRules`).
 - ✅ **Real per-contest wiring: ARRL International DX Contest, CW's actual
   scoring rules.** Curated `ARRL-DX-CW` (`events/contestcalendar.json`) now

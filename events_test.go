@@ -230,11 +230,11 @@ func TestValidADIFContestID(t *testing.T) {
 // CQ-160-CW entry's actual scoring config (roadmap §3 Phase 3 "real
 // per-contest wiring"), sourced from cq160.com/rules/index.htm rather than
 // guessed: 2/5/10 points for same-country/same-continent/other-continent,
-// plus a DXCC-entity multiplier counted once per contest. The rules also
-// award US-state and Canadian-province multipliers to DX stations, which
-// the schema can't express yet (states/provinces come from the received
-// exchange text, not the worked callsign) — deliberately left out rather
-// than guessed at.
+// plus a DXCC-entity multiplier and a US-state/DC/Canadian-province
+// ("exchange_area") multiplier, each counted once per contest — cq160.com's
+// rules award both uniformly to every entrant (not just DX stations), unlike
+// ARRL DX CW's side-asymmetric state/province multiplier (still unwired: see
+// exchange_area.go).
 func TestLoadEventCatalogCQ160HasRealScoringRules(t *testing.T) {
 	events, err := loadEventCatalog()
 	if err != nil {
@@ -249,8 +249,9 @@ func TestLoadEventCatalogCQ160HasRealScoringRules(t *testing.T) {
 		t.Fatalf("CQ-160-CW points = %+v, want {2,5,10}", points)
 	}
 	mults := cq160.Scoring.effectiveMultipliers()
-	if len(mults) != 1 || mults[0].Kind != "dxcc" || mults[0].Per != "contest" {
-		t.Fatalf("CQ-160-CW multipliers = %+v, want [{dxcc contest}]", mults)
+	want := []multiplierRule{{Kind: "dxcc", Per: "contest"}, {Kind: "exchange_area", Per: "contest"}}
+	if len(mults) != len(want) || mults[0] != want[0] || mults[1] != want[1] {
+		t.Fatalf("CQ-160-CW multipliers = %+v, want %+v", mults, want)
 	}
 	if cq160.receivedExchangeZoneKind() != "cq_zone" {
 		t.Fatalf("CQ-160-CW received_exchange_autofill = %q, want cq_zone", cq160.receivedExchangeZoneKind())

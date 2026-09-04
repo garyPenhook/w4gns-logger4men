@@ -71,7 +71,8 @@ func (m model) analysisPanel(width int) string {
 		lines = append(lines, truncateToWidth(dupeStyle.Render("DUPE — worked before on this band"), width))
 	case m.contestIndex != nil && event.Scoring != nil:
 		band := m.fields[fieldBand].Value()
-		newMult, workedBefore := m.contestIndex.wouldBeNewMultiplier(event.Scoring, call, band, entity, entityFound)
+		exchangeText := m.contestFields[contestExchangeRcvd].Value()
+		newMult, workedBefore := m.contestIndex.wouldBeNewMultiplier(event.Scoring, call, band, exchangeText, entity, entityFound)
 		switch {
 		case newMult:
 			lines = append(lines, truncateToWidth(newMultStyle.Render("NEW MULT"), width))

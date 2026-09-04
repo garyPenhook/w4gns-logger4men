@@ -62,6 +62,13 @@ type contestState struct {
 	// regardless of whether the callsign resolves to a known DXCC entity.
 	prefixByBand map[string]map[string]struct{}
 	prefixAll    map[string]struct{}
+	// exchangeAreaByBand/exchangeAreaAll mirror prefixByBand/prefixAll for the
+	// "exchange_area" multiplier kind (exchange_area.go's exchangeAreaCode): a
+	// US state/DC/Canadian province parsed from the worked station's received
+	// exchange text rather than resolved from its callsign, for contests
+	// (e.g. CQ 160 Meter CW) that award that as a multiplier alongside DXCC.
+	exchangeAreaByBand map[string]map[string]struct{}
+	exchangeAreaAll    map[string]struct{}
 	// stationDXCCNumber/stationContinent identify the operator's own station
 	// (resolved from its callsign via cty.dat), the input a continent/country-
 	// tiered points rule (pointsRule) needs to classify each worked QSO as
@@ -116,6 +123,8 @@ func newContestState() *contestState {
 		ituZoneAll:             make(map[int]struct{}),
 		prefixByBand:           make(map[string]map[string]struct{}),
 		prefixAll:              make(map[string]struct{}),
+		exchangeAreaByBand:     make(map[string]map[string]struct{}),
+		exchangeAreaAll:        make(map[string]struct{}),
 		pointCategory:          make(map[string]qsoPointCategory),
 		pointCategoryContinent: make(map[string]string),
 	}
@@ -162,6 +171,7 @@ func (c *contestState) record(q qso) {
 	}
 	if !q.unscored {
 		recordMultiplierStringValue(c.prefixByBand, c.prefixAll, band, wpxPrefix(call))
+		recordMultiplierStringValue(c.exchangeAreaByBand, c.exchangeAreaAll, band, exchangeAreaCode(q.srxString))
 	}
 	if table, err := sharedDXCCTable(); err == nil {
 		if entity, found := table.lookup(call); found {
@@ -390,7 +400,8 @@ func wpxLowBand(band string) bool {
 // per-band set sizes for Per: "band" (the same DXCC entity/zone counts again
 // on each band it's worked, matching CQ WW-style scoring).
 func (c *contestState) multiplierCount(rule multiplierRule) int {
-	if strings.TrimSpace(rule.Kind) == "prefix" {
+	switch strings.TrimSpace(rule.Kind) {
+	case "prefix":
 		if strings.TrimSpace(rule.Per) == "band" {
 			total := 0
 			for _, set := range c.prefixByBand {
@@ -399,6 +410,15 @@ func (c *contestState) multiplierCount(rule multiplierRule) int {
 			return total
 		}
 		return len(c.prefixAll)
+	case "exchange_area":
+		if strings.TrimSpace(rule.Per) == "band" {
+			total := 0
+			for _, set := range c.exchangeAreaByBand {
+				total += len(set)
+			}
+			return total
+		}
+		return len(c.exchangeAreaAll)
 	}
 	var byBand map[string]map[int]struct{}
 	var all map[int]struct{}
@@ -432,7 +452,11 @@ func (c *contestState) multiplierCount(rule multiplierRule) int {
 // (e.g. CQ WW's DXCC-per-band + zone-per-band) can produce either, both, or
 // neither depending on what's already logged. entityFound false (unresolved
 // prefix) skips every dxcc/cqzone/ituzone rule — nothing to check yet.
-func (c *contestState) wouldBeNewMultiplier(rules *scoringRules, call, band string, entity dxccEntity, entityFound bool) (newMult, workedBefore bool) {
+// exchangeText is the operator's in-progress received-exchange field value,
+// the exchange_area rule's only input (it has no callsign-derived value to
+// fall back on, unlike dxcc/cqzone/ituzone): an unrecognized or not-yet-typed
+// exchange skips that rule rather than guessing.
+func (c *contestState) wouldBeNewMultiplier(rules *scoringRules, call, band, exchangeText string, entity dxccEntity, entityFound bool) (newMult, workedBefore bool) {
 	call = strings.ToUpper(strings.TrimSpace(call))
 	band = strings.ToUpper(strings.TrimSpace(band))
 	for _, rule := range rules.effectiveMultipliers() {
@@ -453,6 +477,22 @@ func (c *contestState) wouldBeNewMultiplier(rules *scoringRules, call, band stri
 				_, already = c.prefixByBand[band][prefix]
 			} else {
 				_, already = c.prefixAll[prefix]
+			}
+			if already {
+				workedBefore = true
+			} else {
+				newMult = true
+			}
+		case "exchange_area":
+			area := exchangeAreaCode(exchangeText)
+			if area == "" {
+				continue
+			}
+			var already bool
+			if strings.TrimSpace(rule.Per) == "band" {
+				_, already = c.exchangeAreaByBand[band][area]
+			} else {
+				_, already = c.exchangeAreaAll[area]
 			}
 			if already {
 				workedBefore = true
