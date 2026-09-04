@@ -510,9 +510,9 @@ func TestContestStateWouldBeNewMultiplierTNCounty(t *testing.T) {
 // band does; a non-North-America worked station contributes nothing.
 func TestContestStateScoreNAQPAreaMultiplierFromReceivedExchange(t *testing.T) {
 	state := newContestState()
-	state.record(qso{call: "W4ABC", band: "20M", srxString: "BOB CA"})   // new: CA/20M
-	state.record(qso{call: "K6XYZ", band: "20M", srxString: "JOE CA"})   // same area+band, no new mult
-	state.record(qso{call: "W6DEF", band: "40M", srxString: "SUE CA"})   // same area, new band
+	state.record(qso{call: "W4ABC", band: "20M", srxString: "BOB CA"})  // new: CA/20M
+	state.record(qso{call: "K6XYZ", band: "20M", srxString: "JOE CA"})  // same area+band, no new mult
+	state.record(qso{call: "W6DEF", band: "40M", srxString: "SUE CA"})  // same area, new band
 	state.record(qso{call: "XE1GHI", band: "20M", srxString: "ANA XE"}) // other-NA entity: new mult
 	state.record(qso{call: "JA1JKL", band: "20M", srxString: "KEN"})    // non-NA: no mult
 
@@ -548,6 +548,54 @@ func TestContestStateWouldBeNewMultiplierNAQPArea(t *testing.T) {
 	// Non-NA worked station: no flag either way.
 	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "JA1JKL", "20M", "KEN", dxccEntity{}, false); newMult || workedBefore {
 		t.Fatalf("non-NA exchange text = newMult=%v workedBefore=%v, want false/false", newMult, workedBefore)
+	}
+}
+
+// TestContestStateScoreARRLSectionMultiplierCountsOncePerContest exercises
+// ARRL Sweepstakes' "arrl_section" multiplier (Rule 5.2/5.3,
+// contests.arrl.org/ContestRules/SS-Rules.pdf): the section parsed from the
+// last token of the worked station's received exchange text ("Precedence
+// Check Section"), counted once for the whole contest regardless of band —
+// unlike naqp_area/exchange_area's per-band multipliers, since SS itself
+// only allows working a station once regardless of band (dupe_scope "call").
+func TestContestStateScoreARRLSectionMultiplierCountsOncePerContest(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "W4ABC", band: "20M", srxString: "B 74 SCV"}) // new: SCV
+	state.record(qso{call: "K6XYZ", band: "40M", srxString: "A 88 SCV"}) // same section, no new mult
+	state.record(qso{call: "W1AW", band: "20M", srxString: "Q 79 CT"})   // new: CT
+
+	rules := &scoringRules{
+		PointsPerQSO: 2,
+		Multipliers:  []multiplierRule{{Kind: "arrl_section", Per: "contest"}},
+	}
+	score := state.score(rules)
+	if score.multipliers != 2 {
+		t.Fatalf("multipliers = %d, want 2 (SCV + CT)", score.multipliers)
+	}
+}
+
+// TestContestStateWouldBeNewMultiplierARRLSection exercises the as-you-type
+// "NEW MULT" flag for the arrl_section kind, which — like naqp_area/
+// exchange_area — has no callsign-derived fallback and reads only the
+// operator's in-progress received-exchange field text.
+func TestContestStateWouldBeNewMultiplierARRLSection(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "W4ABC", band: "20M", srxString: "B 74 SCV"})
+
+	rules := &scoringRules{
+		Multipliers: []multiplierRule{{Kind: "arrl_section", Per: "contest"}},
+	}
+	// Same section, already worked (even on a different band): not a new mult.
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "K6XYZ", "40M", "A 88 SCV", dxccEntity{}, false); newMult || !workedBefore {
+		t.Fatalf("SCV (already worked) = newMult=%v workedBefore=%v, want false/true", newMult, workedBefore)
+	}
+	// New section: new mult.
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "W1AW", "20M", "Q 79 CT", dxccEntity{}, false); !newMult || workedBefore {
+		t.Fatalf("CT (new section) = newMult=%v workedBefore=%v, want true/false", newMult, workedBefore)
+	}
+	// Unrecognized exchange text: no flag either way.
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "N0CALL", "20M", "garbage", dxccEntity{}, false); newMult || workedBefore {
+		t.Fatalf("unrecognized exchange text = newMult=%v workedBefore=%v, want false/false", newMult, workedBefore)
 	}
 }
 

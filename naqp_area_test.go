@@ -26,9 +26,9 @@ func TestNAQPAreaCode(t *testing.T) {
 		{"XE", "Mexico"},
 		{"BOB XE", "Mexico"},
 		{"KP4", "Puerto Rico"},
-		{"US", ""},   // US -> Ukraine in cty.dat, not a domestic code
-		{"K", ""},    // resolves to United States, already handled by state codes
-		{"VE", ""},   // resolves to Canada, already handled by province codes
+		{"US", ""}, // US -> Ukraine in cty.dat, not a domestic code
+		{"K", ""},  // resolves to United States, already handled by state codes
+		{"VE", ""}, // resolves to Canada, already handled by province codes
 		{"", ""},
 		{"BOB", ""},
 	}

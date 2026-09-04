@@ -602,9 +602,13 @@ func (s *store) insertQSOChunk(ctx context.Context, qsos []qso) (int, error) {
 //   - "call+band+session": a dupe only within this exact session
 //     (contestID, e.g. "CWT-1900"), unbounded in time — CWT/CW Open allow
 //     working the same station again in a later session.
+//   - "call": a dupe anywhere in this contest regardless of band — ARRL
+//     Sweepstakes Rule 2.2's "each station may be contacted only once,
+//     regardless of band," the one configured event that isn't a per-band
+//     dupe check.
 //   - anything else non-blank (almost every catalog entry uses
 //     "call+band"): a dupe anywhere in this contest (any session of eventID),
-//     unbounded in time.
+//     scoped to band, unbounded in time.
 //
 // excludeID, when non-zero, omits that row's own id from the match — used
 // when re-saving an edited QSO so it doesn't count as a dupe of itself.
@@ -629,6 +633,9 @@ func (s *store) isDupe(call, band, contestID, eventID, dupeScope string, profile
 	case dupeScope == "call+band+session":
 		query = `SELECT COUNT(1) FROM qso WHERE call = ? AND band = ? AND profile_id = ? AND contest_id = ?`
 		args = []any{call, band, profileID, contestID}
+	case dupeScope == "call":
+		query = `SELECT COUNT(1) FROM qso WHERE call = ? AND profile_id = ? AND (contest_id = ? OR contest_id LIKE ?)`
+		args = []any{call, profileID, eventID, eventID + "-%"}
 	default:
 		query = `SELECT COUNT(1) FROM qso WHERE call = ? AND band = ? AND profile_id = ? AND (contest_id = ? OR contest_id LIKE ?)`
 		args = []any{call, band, profileID, eventID, eventID + "-%"}

@@ -650,7 +650,7 @@
   },
   {
     "id": "ARRL-SS-CW",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "ARRL Sweepstakes Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -666,7 +666,16 @@
     "sent_serial": true,
     "sent_exchange_hint": "Serial No. + Precedence (Q/A/B/U/M/S) + [your call sign] + Check + ARRL/RAC Section",
     "received_exchange_hint": "Serial No. + Precedence (Q/A/B/U/M/S) + [your call sign] + Check + ARRL/RAC Section",
-    "dupe_scope": "call+band",
+    "dupe_scope": "call",
+    "cabrillo_layout": "cw_exchange_only",
+    "cabrillo_omit_rst": true,
+    "adif_contest_id": "ARRL-SS-CW",
+    "scoring": {
+      "points_per_qso": 2,
+      "multipliers": [
+        { "kind": "arrl_section", "per": "contest" }
+      ]
+    },
     "rules_url": "https://www.arrl.org/sweepstakes",
     "score_submission_url": "",
     "sessions": [

@@ -438,6 +438,35 @@ func TestDupeCheckHonorsCallBandContestScope(t *testing.T) {
 	}
 }
 
+// TestDupeCheckHonorsCallScopeRegardlessOfBand covers ARRL Sweepstakes'
+// dupe_scope "call": Rule 2.2 ("Each station may be contacted only once,
+// regardless of band") means a station worked on one band is a dupe on every
+// other band too, unlike every other configured event's "call+band" scope.
+func TestDupeCheckHonorsCallScopeRegardlessOfBand(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+	now := time.Date(2026, time.August, 31, 18, 0, 0, 0, time.UTC)
+	q := validTestQSO()
+	q.call, q.band, q.contestID = "W4GNS", "20M", "ARRL-SS-CW"
+	q.time = now.Add(-3 * time.Hour)
+	q.timeOff = q.time.Add(time.Minute)
+	if _, err := st.insertQSO(q); err != nil {
+		t.Fatalf("insert QSO: %v", err)
+	}
+
+	dupe, err := st.isDupe("W4GNS", "40M", "ARRL-SS-CW", "ARRL-SS-CW", "call", 0, 0, now, time.Time{})
+	if err != nil || !dupe {
+		t.Fatalf("different-band dupe under call scope = %t, err = %v", dupe, err)
+	}
+	dupe, err = st.isDupe("K1ABC", "20M", "ARRL-SS-CW", "ARRL-SS-CW", "call", 0, 0, now, time.Time{})
+	if err != nil || dupe {
+		t.Fatalf("different-call dupe = %t, want false, err = %v", dupe, err)
+	}
+}
+
 // TestDupeCheckIsScopedToProfile ensures working the same call/band under a
 // different station profile is not reported as a dupe: separate profiles
 // (e.g. home vs. portable) are logically separate logs.

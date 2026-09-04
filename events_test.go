@@ -401,6 +401,47 @@ func TestLoadEventCatalogNAQPCWHasRealScoringRules(t *testing.T) {
 	}
 }
 
+// TestLoadEventCatalogARRLSSCWHasRealScoringRules guards the curated
+// ARRL-SS-CW entry's actual scoring config, sourced from
+// contests.arrl.org/ContestRules/SS-Rules.pdf: Rule 5.1 is a flat 2 points
+// per QSO (no continent/country tiering, unlike CQ WW/CQ 160/ARRL DX/WPX)
+// times a Rule 5.2/5.3 "arrl_section" multiplier — every ARRL/RAC section
+// worked, counted once for the whole contest rather than per band. Rule 2.2
+// ("Each station may be contacted only once, regardless of band") makes this
+// the one configured event whose dupe_scope drops the band scope entirely.
+// No RST is exchanged (the exchange is serial/precedence/call/check/section),
+// matching CW Open/NAQP-CW's cw_exchange_only/cabrillo_omit_rst shape.
+func TestLoadEventCatalogARRLSSCWHasRealScoringRules(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	ss := events[eventIndex(t, events, "ARRL-SS-CW")]
+	if ss.Capability != catalogCapabilityScoringReady {
+		t.Fatalf("ARRL-SS-CW capability = %q, want %q", ss.Capability, catalogCapabilityScoringReady)
+	}
+	if ss.Scoring == nil || ss.Scoring.PointsPerQSO != 2 {
+		t.Fatalf("ARRL-SS-CW scoring = %+v, want PointsPerQSO 2", ss.Scoring)
+	}
+	mults := ss.Scoring.effectiveMultipliers()
+	want := []multiplierRule{{Kind: "arrl_section", Per: "contest"}}
+	if len(mults) != len(want) || mults[0] != want[0] {
+		t.Fatalf("ARRL-SS-CW multipliers = %+v, want %+v", mults, want)
+	}
+	if ss.ADIFContestID != "ARRL-SS-CW" {
+		t.Fatalf("ARRL-SS-CW adif_contest_id = %q, want ARRL-SS-CW", ss.ADIFContestID)
+	}
+	if ss.CabrilloLayout != "cw_exchange_only" {
+		t.Fatalf("ARRL-SS-CW cabrillo_layout = %q, want cw_exchange_only", ss.CabrilloLayout)
+	}
+	if !ss.CabrilloOmitRST {
+		t.Fatalf("ARRL-SS-CW cabrillo_omit_rst = false, want true")
+	}
+	if ss.DupeScope != "call" {
+		t.Fatalf("ARRL-SS-CW dupe_scope = %q, want call", ss.DupeScope)
+	}
+}
+
 // TestReceivedExchangeAutofillExcludedIsCaseInsensitiveAndSafeOnBlank guards
 // the helper autofillReceivedExchange calls on every keystroke: matching
 // must not depend on cty.dat's exact letter casing, and an unresolved

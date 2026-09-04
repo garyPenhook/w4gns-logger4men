@@ -332,7 +332,7 @@ type multiplierRule struct {
 // loudly at startup instead of silently scoring zero multipliers.
 func validMultiplierKind(kind string) bool {
 	switch strings.TrimSpace(kind) {
-	case "unique_call", "dxcc", "cqzone", "ituzone", "prefix", "exchange_area", "tn_county", "sac_area", "naqp_area":
+	case "unique_call", "dxcc", "cqzone", "ituzone", "prefix", "exchange_area", "tn_county", "sac_area", "naqp_area", "arrl_section":
 		return true
 	default:
 		return false
@@ -477,12 +477,16 @@ type eventSession struct {
 }
 
 // validDupeScope reports whether scope is one the dupe checker understands
-// (see store.isDupe): blank means the casual 15-minute window, and the two
-// named scopes select session- or contest-wide checking. Any other value
-// would silently fall through to contest-wide scope, hiding a config typo.
+// (see store.isDupe): blank means the casual 15-minute window, "call+band"/
+// "call+band+session" select contest-/session-wide checking scoped to a
+// band, and "call" drops the band scope entirely — ARRL Sweepstakes Rule 2.2
+// ("Each station may be contacted only once, regardless of band") is the
+// motivating case: every other configured event allows re-working the same
+// callsign once per band. Any other value would silently fall through to
+// contest-wide scope, hiding a config typo.
 func validDupeScope(scope string) bool {
 	switch strings.TrimSpace(scope) {
-	case "", "call+band", "call+band+session":
+	case "", "call", "call+band", "call+band+session":
 		return true
 	default:
 		return false

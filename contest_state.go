@@ -87,6 +87,13 @@ type contestState struct {
 	// station's received exchange text.
 	naqpAreaByBand map[string]map[string]struct{}
 	naqpAreaAll    map[string]struct{}
+	// arrlSectionByBand/arrlSectionAll mirror naqpAreaByBand/naqpAreaAll for
+	// the "arrl_section" multiplier kind (arrl_section.go's arrlSectionCode):
+	// the ARRL/RAC section parsed from the worked station's received exchange
+	// text, ARRL Sweepstakes' only multiplier (counted once per contest, not
+	// per band, per Rule 5.2/5.3).
+	arrlSectionByBand map[string]map[string]struct{}
+	arrlSectionAll    map[string]struct{}
 	// pointCategoryCountry records the worked entity's cty.dat country name
 	// for every scored "CALL|BAND" key, independent of whether the operator's
 	// own station resolved — a pointsRule.CountryGroup check (e.g. SAC's
@@ -155,6 +162,8 @@ func newContestState() *contestState {
 		sacAreaAll:             make(map[string]struct{}),
 		naqpAreaByBand:         make(map[string]map[string]struct{}),
 		naqpAreaAll:            make(map[string]struct{}),
+		arrlSectionByBand:      make(map[string]map[string]struct{}),
+		arrlSectionAll:         make(map[string]struct{}),
 		pointCategory:          make(map[string]qsoPointCategory),
 		pointCategoryContinent: make(map[string]string),
 		pointCategoryCountry:   make(map[string]string),
@@ -223,6 +232,7 @@ func (c *contestState) record(q qso) {
 		recordMultiplierStringValue(c.exchangeAreaByBand, c.exchangeAreaAll, band, exchangeAreaCode(q.srxString))
 		recordMultiplierStringValue(c.tnCountyByBand, c.tnCountyAll, band, tnCountyCode(q.srxString))
 		recordMultiplierStringValue(c.naqpAreaByBand, c.naqpAreaAll, band, naqpAreaCode(q.srxString))
+		recordMultiplierStringValue(c.arrlSectionByBand, c.arrlSectionAll, band, arrlSectionCode(q.srxString))
 	}
 	if table, err := sharedDXCCTable(); err == nil {
 		if entity, found := table.lookup(call); found {
@@ -337,8 +347,14 @@ func (c *contestState) continentSummary(continent, band string) (worked bool, co
 }
 
 // isWorkedOnBand reports whether call has already been logged on band —
-// the same test as the dupe check, exposed here so future panels and
-// scoring agree with the store-backed store.isDupe check used live.
+// the same test as the dupe check for every event using dupe_scope
+// "call+band"/"call+band+session", exposed here so panels agree with the
+// store-backed store.isDupe check used live. It is per-band even for an
+// event configured with dupe_scope "call" (ARRL Sweepstakes: a station is a
+// dupe on every band once worked on any one of them) — Check Partial's
+// bold/dim styling is cosmetic only, so this display-only mismatch is a
+// documented gap rather than a live scoring/dupe error; store.isDupe remains
+// the actual gate at insert time.
 func (c *contestState) isWorkedOnBand(call, band string) bool {
 	_, ok := c.workedCallBand[strings.ToUpper(strings.TrimSpace(call))+"|"+strings.ToUpper(strings.TrimSpace(band))]
 	return ok
@@ -509,6 +525,15 @@ func (c *contestState) multiplierCount(rule multiplierRule) int {
 			return total
 		}
 		return len(c.naqpAreaAll)
+	case "arrl_section":
+		if strings.TrimSpace(rule.Per) == "band" {
+			total := 0
+			for _, set := range c.arrlSectionByBand {
+				total += len(set)
+			}
+			return total
+		}
+		return len(c.arrlSectionAll)
 	}
 	var byBand map[string]map[int]struct{}
 	var all map[int]struct{}
@@ -634,6 +659,22 @@ func (c *contestState) wouldBeNewMultiplier(rules *scoringRules, call, band, exc
 				_, already = c.naqpAreaByBand[band][area]
 			} else {
 				_, already = c.naqpAreaAll[area]
+			}
+			if already {
+				workedBefore = true
+			} else {
+				newMult = true
+			}
+		case "arrl_section":
+			section := arrlSectionCode(exchangeText)
+			if section == "" {
+				continue
+			}
+			var already bool
+			if strings.TrimSpace(rule.Per) == "band" {
+				_, already = c.arrlSectionByBand[band][section]
+			} else {
+				_, already = c.arrlSectionAll[section]
 			}
 			if already {
 				workedBefore = true

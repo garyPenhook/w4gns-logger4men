@@ -58,9 +58,9 @@ the log, submitted contest results, or external services.
 - 🔧 **Audit and implement scoring per contest before presenting the catalog as
   correct.** Every one of the 429 event records now declares and is validated
   against an explicit `capability`: 9 intentionally generic templates are
-  `selection-only`, 411 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
-  `CQ-160-CW`, `ARRL-DX-CW`, `CQ-WPX-CW`, `TNQP`, `SAC-CW`, and `NAQP-CW` are
-  `scoring-ready`. **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
+  `selection-only`, 410 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
+  `CQ-160-CW`, `ARRL-DX-CW`, `CQ-WPX-CW`, `TNQP`, `SAC-CW`, `NAQP-CW`, and
+  `ARRL-SS-CW` are `scoring-ready`. **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
   side-asymmetric around a fixed "Scandinavian" country group — Norway,
   Finland, Sweden, Iceland, Denmark, and the territories the rules list by
   their own prefix block (Svalbard, Jan Mayen, Åland Islands, Market Reef,
@@ -676,6 +676,49 @@ every panel *and* scoring so they always agree.
   (`TestContestStateScoreNAQPAreaMultiplierFromReceivedExchange`,
   `TestContestStateWouldBeNewMultiplierNAQPArea`), `events_test.go`
   (`TestLoadEventCatalogNAQPCWHasRealScoringRules`).
+- ✅ **Real per-contest wiring: ARRL November Sweepstakes, CW's actual scoring
+  rules**, including a dupe-scope gap this entry uncovered. Sourced from
+  contests.arrl.org/ContestRules/SS-Rules.pdf: Rule 5.1 is a flat 2 points per
+  QSO (no continent/country tiering, unlike CQ WW/CQ 160/ARRL DX/WPX) times a
+  Rule 5.2/5.3 multiplier — every ARRL/RAC section worked, counted once for
+  the whole contest (not per band, unlike every multiplier kind wired so
+  far). **New `arrl_section` multiplier kind** (`arrl_section.go`,
+  `arrlSectionCode`) resolves it from the worked station's received-exchange
+  text: SS's full exchange is serial + precedence + call + check + section,
+  which — following naqp_area.go's "cram more than one exchange element into
+  the single free-text field" precedent — the operator types as "precedence
+  check section" after the serial (already its own field, `q.srx`), so only
+  the last whitespace-separated token is checked. The canonical table is the
+  85-value ARRL/RAC Section Abbreviation List (arrl.org/files/file/Field-Day/
+  Generic/ARRL-RAC%20Section%20List.pdf, revised 2025); `GTA`→`GH` and
+  `NT`→`TER` aliases cover the two sections' prior abbreviations, which
+  remain common in contest-logger use after the official rename.
+  `contest_state.go` extends the index with `arrlSectionByBand`/
+  `arrlSectionAll` (recorded in `record()`, summed in `multiplierCount()`)
+  and wires the as-you-type "NEW MULT" flag in `wouldBeNewMultiplier`. Rule
+  2.2 ("Each station may be contacted only once, regardless of band") is
+  genuinely different from every other configured event, which allows
+  re-working a station once per band: the existing `dupe_scope` schema only
+  offered `call+band`/`call+band+session`, both of which filter on band in
+  `store.isDupe`'s query, so neither could express a whole-contest,
+  band-agnostic dupe check. **New `dupe_scope: "call"`** (`events.go`
+  `validDupeScope`; `store.go` `isDupe`) drops the band filter entirely for
+  this one case, leaving Check Partial's per-band worked/dupe styling
+  (`contestState.isWorkedOnBand`, cosmetic only — the real gate is
+  `store.isDupe`) as a documented, out-of-scope display nuance, the same
+  class of approximation as NAQP's last-token exchange heuristic. Curated
+  `ARRL-SS-CW` (`events/contestcalendar.json`) carries the real `scoring`
+  block plus `adif_contest_id: ARRL-SS-CW` (ADIF Contest ID Enumeration),
+  `dupe_scope: "call"`, and `cabrillo_layout: cw_exchange_only` +
+  `cabrillo_omit_rst: true` (no RST is exchanged), promoting `capability` to
+  `scoring-ready`; the generated `SD-ARRLSSC` duplicate already falls out via
+  the existing curated-vs-generated de-dup (shared `ARRL-SS-CW` token). Tests:
+  `arrl_section_test.go` (`TestARRLSectionCode`,
+  `TestARRLSectionCodesHas85Values`), `contest_state_test.go`
+  (`TestContestStateScoreARRLSectionMultiplierCountsOncePerContest`,
+  `TestContestStateWouldBeNewMultiplierARRLSection`), `store_test.go`
+  (`TestDupeCheckHonorsCallScopeRegardlessOfBand`), `events_test.go`
+  (`TestLoadEventCatalogARRLSSCWHasRealScoringRules`).
 - ✅ **CSV export** (`Ctrl+R`). `csv_export.go` (`exportCSV`, `writeCSVAtomic`,
   `csvField`/`csvRow` — RFC 4180 quoting, CRLF rows) streams the active
   contest's QSOs (same `contest_id` scoping as Cabrillo/ADIF export) to
