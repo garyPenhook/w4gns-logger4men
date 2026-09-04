@@ -1443,6 +1443,52 @@ func TestScreenHotkeysSwitchBetweenQSOEntryAndStationSetup(t *testing.T) {
 	}
 }
 
+// TestScreenHotkeysF6LabelMatchesActualBinding guards the footer's F6
+// caption against the real per-screen "f6" case in each updateXxx function:
+// the cluster screen binds F6 to Disconnect (not the default QSO Details),
+// and several screens (e.g. station setup) don't bind F6 at all, so the
+// footer must not promise a keystroke that does something else or nothing.
+func TestScreenHotkeysF6LabelMatchesActualBinding(t *testing.T) {
+	cases := []struct {
+		screen screen
+		want   string
+		absent bool
+	}{
+		{qsoEntryScreen, "F6: QSO Details", false},
+		{clusterScreen, "F6: Disconnect", false},
+		{stationSetupScreen, "F6:", true},
+	}
+	for _, c := range cases {
+		got := screenHotkeys(c.screen)
+		if c.absent {
+			if strings.Contains(got, c.want) {
+				t.Errorf("screen %v: footer unexpectedly mentions %q:\n%s", c.screen, c.want, got)
+			}
+			continue
+		}
+		if !strings.Contains(got, c.want) {
+			t.Errorf("screen %v: footer missing %q:\n%s", c.screen, c.want, got)
+		}
+	}
+}
+
+// TestScreenHotkeysLinesAreReasonablyNarrow guards against the footer
+// collapsing back into one over-wide line: the prior two-line layout's
+// second line ran to 231 characters, wrapping or truncating mid-label
+// (visibly breaking the F6 caption) at typical terminal widths.
+func TestScreenHotkeysLinesAreReasonablyNarrow(t *testing.T) {
+	got := screenHotkeys(qsoEntryScreen)
+	lines := strings.Split(got, "\n")
+	if len(lines) != 3 {
+		t.Fatalf("screenHotkeys produced %d lines, want 3:\n%s", len(lines), got)
+	}
+	for i, line := range lines {
+		if len(line) > 160 {
+			t.Errorf("line %d is %d chars, want <=160:\n%s", i, len(line), line)
+		}
+	}
+}
+
 func TestF3OpensK3LRClusterScreen(t *testing.T) {
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {

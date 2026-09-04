@@ -3575,8 +3575,6 @@ func (m model) clusterView() string {
 		}
 		b.WriteString(fmt.Sprintf(" %-8s %-13s %-10s %-12s %s\n", spot.Received.Format("15:04:05"), spot.Spotter, spot.Frequency, spot.Callsign, comment))
 	}
-	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("F4: Filters  •  F5: Connect K3LR  •  F6: Disconnect  •  Esc/F1: QSO Entry"))
 	return b.String()
 }
 
@@ -3776,9 +3774,32 @@ func screenHotkeys(current screen) string {
 	} else if current == helpScreen {
 		escape = "Esc: Back"
 	}
-	line1 := "W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF"
-	line2 := "F6: QSO Details  •  F7: Contest/Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo  •  Ctrl+R: Export CSV  •  Ctrl+W: Continents Worked  •  Ctrl+P: POST mode  •  Ctrl+G: Help  •  " + escape
-	return hotkeyStyle.Render(line1) + "\n" + hotkeyStyle.Render(line2)
+	// f5Label/f6Label reflect what F5/F6 actually do on the current screen
+	// (see the "f5"/"f6" cases in each updateXxx function) rather than a
+	// single caption applied everywhere: the cluster screen binds F5 to
+	// Connect and F6 to Disconnect — not the default Import ADIF/QSO
+	// Details — and several screens (station setup, cluster filters, ADIF
+	// import, continents, help) don't bind F6 at all, so showing "QSO
+	// Details" unconditionally on those screens promised a keystroke that
+	// either did something else or nothing.
+	f5Label := "F5: Import ADIF  •  "
+	f6Label := ""
+	switch current {
+	case qsoEntryScreen, qsoContestScreen, eventCatalogScreen:
+		f6Label = "F6: QSO Details  •  "
+	case clusterScreen:
+		f5Label = "F5: Connect K3LR  •  "
+		f6Label = "F6: Disconnect  •  "
+	}
+	// Three rows, not two: the combined hotkey list is too wide for a single
+	// or even double row at typical terminal widths (the prior two-line
+	// layout's second line ran to 231 characters, which wrapped or truncated
+	// mid-label depending on terminal width, making F6 in particular read as
+	// broken/inconsistent). Balanced by rendered length, not item count.
+	line1 := "W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  " + strings.TrimSuffix(f5Label, "  •  ")
+	line2 := f6Label + "F7: Contest/Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo"
+	line3 := "Ctrl+R: Export CSV  •  Ctrl+W: Continents Worked  •  Ctrl+P: POST mode  •  Ctrl+G: Help  •  " + escape
+	return hotkeyStyle.Render(line1) + "\n" + hotkeyStyle.Render(line2) + "\n" + hotkeyStyle.Render(line3)
 }
 
 func main() {
