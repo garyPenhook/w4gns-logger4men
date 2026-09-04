@@ -367,7 +367,7 @@ func TestDupeCheckUsesFifteenMinuteWindow(t *testing.T) {
 	if _, err := st.insertQSO(q); err != nil {
 		t.Fatalf("insert current-window QSO: %v", err)
 	}
-	dupe, err := st.isDupe("W4GNS", "20M", "", "", "", 0, 0, now)
+	dupe, err := st.isDupe("W4GNS", "20M", "", "", "", 0, 0, now, time.Time{})
 	if err != nil || !dupe {
 		t.Fatalf("dupe inside window = %t, err = %v", dupe, err)
 	}
@@ -377,7 +377,7 @@ func TestDupeCheckUsesFifteenMinuteWindow(t *testing.T) {
 	if _, err := st.insertQSO(q); err != nil {
 		t.Fatalf("insert older QSO: %v", err)
 	}
-	dupe, err = st.isDupe("K1ABC", "20M", "", "", "", 0, 0, now)
+	dupe, err = st.isDupe("K1ABC", "20M", "", "", "", 0, 0, now, time.Time{})
 	if err != nil || dupe {
 		t.Fatalf("dupe outside window = %t, err = %v", dupe, err)
 	}
@@ -400,11 +400,11 @@ func TestDupeCheckHonorsCallBandSessionScope(t *testing.T) {
 		t.Fatalf("insert QSO: %v", err)
 	}
 
-	dupe, err := st.isDupe("W4GNS", "20M", "CWT-1900", "CWT", "call+band+session", 0, 0, now)
+	dupe, err := st.isDupe("W4GNS", "20M", "CWT-1900", "CWT", "call+band+session", 0, 0, now, time.Time{})
 	if err != nil || !dupe {
 		t.Fatalf("same-session dupe = %t, err = %v", dupe, err)
 	}
-	dupe, err = st.isDupe("W4GNS", "20M", "CWT-0300", "CWT", "call+band+session", 0, 0, now)
+	dupe, err = st.isDupe("W4GNS", "20M", "CWT-0300", "CWT", "call+band+session", 0, 0, now, time.Time{})
 	if err != nil || dupe {
 		t.Fatalf("different-session dupe = %t, want false, err = %v", dupe, err)
 	}
@@ -428,11 +428,11 @@ func TestDupeCheckHonorsCallBandContestScope(t *testing.T) {
 		t.Fatalf("insert QSO: %v", err)
 	}
 
-	dupe, err := st.isDupe("W4GNS", "20M", "ARRL-DX-CW", "ARRL-DX-CW", "call+band", 0, 0, now)
+	dupe, err := st.isDupe("W4GNS", "20M", "ARRL-DX-CW", "ARRL-DX-CW", "call+band", 0, 0, now, time.Time{})
 	if err != nil || !dupe {
 		t.Fatalf("whole-contest dupe (3h later) = %t, err = %v", dupe, err)
 	}
-	dupe, err = st.isDupe("W4GNS", "15M", "ARRL-DX-CW", "ARRL-DX-CW", "call+band", 0, 0, now)
+	dupe, err = st.isDupe("W4GNS", "15M", "ARRL-DX-CW", "ARRL-DX-CW", "call+band", 0, 0, now, time.Time{})
 	if err != nil || dupe {
 		t.Fatalf("different-band dupe = %t, want false, err = %v", dupe, err)
 	}
@@ -455,11 +455,11 @@ func TestDupeCheckIsScopedToProfile(t *testing.T) {
 	if _, err := st.insertQSO(q); err != nil {
 		t.Fatalf("insert QSO: %v", err)
 	}
-	dupe, err := st.isDupe("W4GNS", "20M", "", "", "", 1, 0, now)
+	dupe, err := st.isDupe("W4GNS", "20M", "", "", "", 1, 0, now, time.Time{})
 	if err != nil || !dupe {
 		t.Fatalf("same-profile dupe = %t, err = %v", dupe, err)
 	}
-	dupe, err = st.isDupe("W4GNS", "20M", "", "", "", 2, 0, now)
+	dupe, err = st.isDupe("W4GNS", "20M", "", "", "", 2, 0, now, time.Time{})
 	if err != nil || dupe {
 		t.Fatalf("cross-profile dupe = %t, want false, err = %v", dupe, err)
 	}
@@ -615,6 +615,74 @@ func TestDeleteQSORemovesRow(t *testing.T) {
 	}
 }
 
+// TestSetQSOUnscoredTogglesFlagAndPersists covers the /X command's store
+// layer: setQSOUnscored must flip only the unscored column (leaving every
+// other field untouched) and the change must survive a fresh qsoByID load.
+func TestSetQSOUnscoredTogglesFlagAndPersists(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	q := validTestQSO()
+	id, err := st.insertQSO(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := st.qsoByID(q.profileID, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.unscored {
+		t.Fatal("newly inserted qso is unscored = true, want false")
+	}
+
+	if err := st.setQSOUnscored(q.profileID, id, true); err != nil {
+		t.Fatalf("setQSOUnscored(true) returned error: %v", err)
+	}
+	loaded, err = st.qsoByID(q.profileID, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !loaded.unscored {
+		t.Fatal("unscored = false after setQSOUnscored(true), want true")
+	}
+	if loaded.call != q.call {
+		t.Fatalf("call = %q after setQSOUnscored, want unchanged %q", loaded.call, q.call)
+	}
+
+	if err := st.setQSOUnscored(q.profileID, id, false); err != nil {
+		t.Fatalf("setQSOUnscored(false) returned error: %v", err)
+	}
+	loaded, err = st.qsoByID(q.profileID, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.unscored {
+		t.Fatal("unscored = true after setQSOUnscored(false), want false")
+	}
+}
+
+// TestSetQSOUnscoredRejectsWrongProfile guards the same profile-scoping
+// every other store mutation enforces: one profile must not be able to flag
+// another profile's QSO via a guessed id.
+func TestSetQSOUnscoredRejectsWrongProfile(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	q := validTestQSO()
+	id, err := st.insertQSO(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.setQSOUnscored(q.profileID+1, id, true); err == nil {
+		t.Fatal("setQSOUnscored with the wrong profile_id succeeded, want an error")
+	}
+}
+
 // TestIsDupeExcludesGivenID covers the parameter the edit workflow relies
 // on: re-saving an edited QSO must not flag itself as a dupe of its own
 // prior state.
@@ -631,11 +699,11 @@ func TestIsDupeExcludesGivenID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	dupe, err := st.isDupe("W4GNS", "20M", "", "", "", 0, 0, q.time)
+	dupe, err := st.isDupe("W4GNS", "20M", "", "", "", 0, 0, q.time, time.Time{})
 	if err != nil || !dupe {
 		t.Fatalf("dupe without exclusion = %t, err = %v, want true", dupe, err)
 	}
-	dupe, err = st.isDupe("W4GNS", "20M", "", "", "", 0, id, q.time)
+	dupe, err = st.isDupe("W4GNS", "20M", "", "", "", 0, id, q.time, time.Time{})
 	if err != nil || dupe {
 		t.Fatalf("dupe excluding its own id = %t, err = %v, want false", dupe, err)
 	}

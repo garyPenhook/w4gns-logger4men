@@ -918,6 +918,224 @@ func TestDeleteRequiresSecondDConfirmation(t *testing.T) {
 	}
 }
 
+// TestZapDeletesMostRecentlyLoggedQSO covers the ZAP typed command: typing
+// ZAP into the Call field and pressing Enter while entering a new QSO
+// deletes the single most recent QSO instead of logging "ZAP" as a callsign.
+func TestZapDeletesMostRecentlyLoggedQSO(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.fields[fieldCall].SetValue("W1AW")
+	m, _ = m.logCurrentQSO()
+	if count, _ := st.count(m.activeStation.ID); count != 1 {
+		t.Fatalf("count after logging = %d, want 1", count)
+	}
+
+	m.focusField(fieldCall)
+	m.fields[fieldCall].SetValue("ZAP")
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
+
+	if count, err := st.count(m.activeStation.ID); err != nil || count != 0 {
+		t.Fatalf("count after ZAP = %d, err = %v, want 0", count, err)
+	}
+	if !strings.Contains(m.statusMsg, "ZAP") || !strings.Contains(m.statusMsg, "W1AW") {
+		t.Fatalf("statusMsg = %q, want a ZAP confirmation naming W1AW", m.statusMsg)
+	}
+	if m.fields[fieldCall].Value() != "" {
+		t.Fatalf("Call field = %q after ZAP, want cleared", m.fields[fieldCall].Value())
+	}
+}
+
+// TestZapWithNoQSOsIsANoop guards against ZAP panicking or erroring when
+// there's nothing to delete yet.
+func TestZapWithNoQSOsIsANoop(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.focusField(fieldCall)
+	m.fields[fieldCall].SetValue("ZAP")
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
+
+	if !strings.Contains(m.statusMsg, "no QSO to delete") {
+		t.Fatalf("statusMsg = %q, want a no-op confirmation", m.statusMsg)
+	}
+}
+
+// TestSlashZDeletesQSOCurrentlyLoadedForEditing covers the /Z typed command:
+// typing /Z into the Call field and pressing Enter while an existing QSO is
+// loaded for editing deletes it instead of saving whatever's on screen.
+func TestSlashZDeletesQSOCurrentlyLoadedForEditing(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.fields[fieldCall].SetValue("W1AW")
+	m, _ = m.logCurrentQSO()
+	target := m.recentQSOs[0]
+	m.beginEditQSO(target)
+	if m.editingQSOID != target.id {
+		t.Fatalf("editingQSOID = %d, want %d", m.editingQSOID, target.id)
+	}
+
+	m.fields[fieldCall].SetValue("/Z")
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
+
+	if m.editingQSOID != 0 {
+		t.Fatalf("editingQSOID = %d after /Z, want 0", m.editingQSOID)
+	}
+	if count, err := st.count(m.activeStation.ID); err != nil || count != 0 {
+		t.Fatalf("count after /Z = %d, err = %v, want 0", count, err)
+	}
+	if !strings.Contains(m.statusMsg, "/Z") {
+		t.Fatalf("statusMsg = %q, want a /Z confirmation", m.statusMsg)
+	}
+}
+
+// TestSlashXTogglesUnscoredFlagAndExcludesFromScore covers the /X typed
+// command end to end: it flips the flag on the recalled QSO without
+// otherwise touching it, and a QSO so flagged is excluded from
+// contestState's score while still appearing in Cabrillo output as an
+// X-QSO: line rather than being dropped entirely.
+func TestSlashXTogglesUnscoredFlagAndExcludesFromScore(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.contestFields[contestName].SetValue("TEST-CONTEST")
+	m.fields[fieldCall].SetValue("W1AW")
+	m.contestFields[contestSerialSent].SetValue("001")
+	m.contestFields[contestExchangeRcvd].SetValue("599")
+	m, _ = m.logCurrentQSO()
+	target := m.recentQSOs[0]
+
+	event := eventDefinition{ID: "TEST-CONTEST", Scoring: &scoringRules{PointsPerQSO: 1, Multiplier: "unique_call"}}
+	before, err := computeContestScore(context.Background(), m.activeStation, event, "TEST-CONTEST", st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.total() != 1 {
+		t.Fatalf("score before /X = %d, want 1", before.total())
+	}
+
+	m.beginEditQSO(target)
+	m.fields[fieldCall].SetValue("/X")
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
+
+	if m.editingQSOID != 0 {
+		t.Fatalf("editingQSOID = %d after /X, want 0", m.editingQSOID)
+	}
+	if !strings.Contains(m.statusMsg, "/X") || !strings.Contains(m.statusMsg, "unscored") {
+		t.Fatalf("statusMsg = %q, want an /X unscored confirmation", m.statusMsg)
+	}
+	if count, err := st.count(m.activeStation.ID); err != nil || count != 1 {
+		t.Fatalf("count after /X = %d, err = %v, want 1 (still logged, not deleted)", count, err)
+	}
+
+	after, err := computeContestScore(context.Background(), m.activeStation, event, "TEST-CONTEST", st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.total() != 0 {
+		t.Fatalf("score after /X = %d, want 0 (unscored QSO must not count)", after.total())
+	}
+
+	var buf strings.Builder
+	if _, _, err := exportCabrillo(context.Background(), &buf, m.activeStation, event, "TEST-CONTEST", st); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "X-QSO:") {
+		t.Fatalf("Cabrillo output missing X-QSO: line for unscored QSO:\n%s", buf.String())
+	}
+	if strings.Contains(buf.String(), "\nQSO:") {
+		t.Fatalf("Cabrillo output has a plain QSO: line, want only X-QSO: for the unscored contact:\n%s", buf.String())
+	}
+
+	// Toggling /X again restores it to scored.
+	m.beginEditQSO(target)
+	m.fields[fieldCall].SetValue("/X")
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
+	if !strings.Contains(m.statusMsg, "restored to scored") {
+		t.Fatalf("statusMsg = %q, want a restored-to-scored confirmation", m.statusMsg)
+	}
+	restored, err := computeContestScore(context.Background(), m.activeStation, event, "TEST-CONTEST", st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restored.total() != 1 {
+		t.Fatalf("score after restoring /X = %d, want 1", restored.total())
+	}
+}
+
+// TestSetDupeResetsBaselineSoEarlierQSOIsNoLongerADupe covers the SETDUPE
+// typed command: after resetting the baseline to now, a station worked
+// earlier no longer blocks re-working it, but a station worked after the
+// reset still does.
+func TestSetDupeResetsBaselineSoEarlierQSOIsNoLongerADupe(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.fields[fieldCall].SetValue("W1AW")
+	m, _ = m.logCurrentQSO()
+	// Backdate the first contact well before the SETDUPE reset below: real
+	// QSOs are seconds apart, but this test logs several in the same
+	// instant, and time_on's one-second resolution would otherwise make the
+	// "since" floor's >= inclusive of a same-second QSO it's meant to
+	// exclude.
+	if _, err := st.db.Exec(`UPDATE qso SET qso_date = '20200101', time_on = '000000' WHERE id = ?`, m.recentQSOs[0].id); err != nil {
+		t.Fatal(err)
+	}
+
+	m.focusField(fieldCall)
+	m.fields[fieldCall].SetValue("SETDUPE")
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(model)
+	if m.dupeBaselineAfter.IsZero() {
+		t.Fatal("SETDUPE did not set dupeBaselineAfter")
+	}
+	if !strings.Contains(m.statusMsg, "SETDUPE") {
+		t.Fatalf("statusMsg = %q, want a SETDUPE confirmation", m.statusMsg)
+	}
+
+	m.fields[fieldCall].SetValue("W1AW")
+	m, _ = m.logCurrentQSO()
+	if count, err := st.count(m.activeStation.ID); err != nil || count != 2 {
+		t.Fatalf("count after re-working W1AW post-SETDUPE = %d, err = %v, want 2 (not blocked as a dupe)", count, err)
+	}
+
+	// A QSO logged after the reset is still a real dupe.
+	m.fields[fieldCall].SetValue("W1AW")
+	m, _ = m.logCurrentQSO()
+	if count, err := st.count(m.activeStation.ID); err != nil || count != 2 {
+		t.Fatalf("count after a genuine post-reset dupe = %d, err = %v, want 2 (should have been rejected)", count, err)
+	}
+	if !strings.Contains(m.statusMsg, "DUPE") {
+		t.Fatalf("statusMsg = %q, want a DUPE rejection for the post-reset repeat", m.statusMsg)
+	}
+}
+
 func TestReturningToCallResetsQSOTimer(t *testing.T) {
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {

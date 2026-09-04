@@ -25,6 +25,12 @@ type contestState struct {
 	// uniqueCalls is the set of distinct callsigns worked in the contest,
 	// regardless of band — the "unique_call" multiplier rule.
 	uniqueCalls map[string]struct{}
+	// scoredCallBand/scoredUniqueCalls mirror workedCallBand/uniqueCalls but
+	// omit any QSO flagged /X (unscored). Dupe/Check-Partial/rate/continent
+	// all still see an /X QSO as fully worked (it did happen; the flag only
+	// says it shouldn't count) — only score() reads these two sets.
+	scoredCallBand    map[string]struct{}
+	scoredUniqueCalls map[string]struct{}
 	// times holds every logged QSO's start time, in the same chronological
 	// order they were recorded — the rate meter's only input (Appendix B/D
 	// "Rate meter (Q/hr L10/L100/overall, Q/Mult)").
@@ -38,10 +44,12 @@ type contestState struct {
 // newContestState returns an empty index, ready for QSOs to be recorded.
 func newContestState() *contestState {
 	return &contestState{
-		byCall:         make(map[string][]qso),
-		workedCallBand: make(map[string]struct{}),
-		uniqueCalls:    make(map[string]struct{}),
-		continentBand:  make(map[string]map[string]int),
+		byCall:            make(map[string][]qso),
+		workedCallBand:    make(map[string]struct{}),
+		uniqueCalls:       make(map[string]struct{}),
+		scoredCallBand:    make(map[string]struct{}),
+		scoredUniqueCalls: make(map[string]struct{}),
+		continentBand:     make(map[string]map[string]int),
 	}
 }
 
@@ -55,8 +63,13 @@ func (c *contestState) record(q qso) {
 	}
 	band := strings.ToUpper(strings.TrimSpace(q.band))
 	c.byCall[call] = append(c.byCall[call], q)
-	c.workedCallBand[call+"|"+band] = struct{}{}
+	key := call + "|" + band
+	c.workedCallBand[key] = struct{}{}
 	c.uniqueCalls[call] = struct{}{}
+	if !q.unscored {
+		c.scoredCallBand[key] = struct{}{}
+		c.scoredUniqueCalls[call] = struct{}{}
+	}
 	if !q.time.IsZero() {
 		c.times = append(c.times, q.time)
 	}
@@ -135,9 +148,9 @@ func (c *contestState) score(rules *scoringRules) contestScore {
 		return contestScore{}
 	}
 	var out contestScore
-	out.qsoPoints = len(c.workedCallBand) * rules.PointsPerQSO
+	out.qsoPoints = len(c.scoredCallBand) * rules.PointsPerQSO
 	if rules.Multiplier == "unique_call" {
-		out.multipliers = len(c.uniqueCalls)
+		out.multipliers = len(c.scoredUniqueCalls)
 	}
 	return out
 }

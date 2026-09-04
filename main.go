@@ -170,6 +170,11 @@ type qso struct {
 	time       time.Time // QSO start time (UTC)
 	timeOff    time.Time // QSO end time (UTC)
 	profileID  int64
+	// unscored is the /X (logged-but-unscored) flag: the QSO stays in the log
+	// and Cabrillo output (as an X-QSO: line) but is excluded from
+	// contestState's scoring tallies. Toggled via store.setQSOUnscored, not
+	// updateQSO — it isn't one of the operator-editable form fields.
+	unscored bool
 
 	// Station-identity snapshot taken from the active profile at log time, so
 	// later edits to the station profile never rewrite the operating context
@@ -223,6 +228,14 @@ type model struct {
 	preEditContestName         string
 	preEditContestSerialSent   string
 	preEditContestExchangeSent string
+
+	// dupeBaselineAfter is the SETDUPE command's effect: zero means no
+	// baseline (the normal dupe-scope rules apply unbounded in time), a
+	// non-zero value means only QSOs logged at or after this instant count
+	// as a prior work for dupe purposes. Reset to zero on contest switch
+	// (selectEvent) since a stale baseline from a different contest/session
+	// would be meaningless there.
+	dupeBaselineAfter time.Time
 
 	// qrzPending maps a normalized callsign to a FIFO queue of logged QSO ids
 	// still awaiting QRZ enrichment. A QRZ callsign lookup fires while the
@@ -1224,6 +1237,117 @@ func (m *model) restorePreEditContestSelection() {
 	m.preEditContestName, m.preEditContestSerialSent, m.preEditContestExchangeSent = "", "", ""
 }
 
+// handleCallFieldCommand recognizes SD-style commands typed into the Call
+// field and confirmed with Enter, rather than a callsign: ZAP and SETDUPE
+// while logging a new QSO, /Z and /X while an existing QSO is loaded for
+// editing (beginEditQSO leaves focus on Call, so these are reachable the
+// moment a recalled QSO is on screen). Returns true when msg was consumed as
+// a command, so the caller must not fall through to the normal Enter
+// handling (advance-field / logCurrentQSO).
+func (m *model) handleCallFieldCommand() bool {
+	if m.focusIdx != fieldCall {
+		return false
+	}
+	command := strings.ToUpper(strings.TrimSpace(m.fields[fieldCall].Value()))
+	if m.editingQSOID != 0 {
+		switch command {
+		case "/Z":
+			m.deleteEditingQSO()
+			return true
+		case "/X":
+			m.toggleEditingQSOUnscored()
+			return true
+		}
+		return false
+	}
+	switch command {
+	case "ZAP":
+		m.zapLastQSO()
+		return true
+	case "SETDUPE":
+		m.setDupeBaseline()
+		return true
+	}
+	return false
+}
+
+// deleteEditingQSO is the /Z command: permanently removes the QSO currently
+// loaded for editing (SD's "mark old QSO for delete") instead of saving
+// changes to it, then leaves edit mode the same way cancelEditQSO does.
+func (m *model) deleteEditingQSO() {
+	id, call := m.editingQSOID, m.editingOriginal.call
+	if err := m.store.deleteQSO(m.activeStation.ID, id); err != nil {
+		m.statusMsg = fmt.Sprintf("db error: %v", err)
+		return
+	}
+	m.editingQSOID = 0
+	m.editingOriginal = qso{}
+	m.clearQSOForm()
+	m.restorePreEditContestSelection()
+	m.rebuildContestIndex()
+	m.refreshTableRows()
+	m.statusMsg = fmt.Sprintf("/Z: deleted QSO #%d (%s)", id, call)
+}
+
+// toggleEditingQSOUnscored is the /X command: flips the logged-but-unscored
+// flag on the QSO currently loaded for editing (SD's X-QSO) and leaves edit
+// mode without touching any other field.
+func (m *model) toggleEditingQSOUnscored() {
+	id, call := m.editingQSOID, m.editingOriginal.call
+	unscored := !m.editingOriginal.unscored
+	if err := m.store.setQSOUnscored(m.activeStation.ID, id, unscored); err != nil {
+		m.statusMsg = fmt.Sprintf("db error: %v", err)
+		return
+	}
+	m.editingQSOID = 0
+	m.editingOriginal = qso{}
+	m.clearQSOForm()
+	m.restorePreEditContestSelection()
+	m.rebuildContestIndex()
+	m.refreshTableRows()
+	if unscored {
+		m.statusMsg = fmt.Sprintf("/X: QSO #%d (%s) marked unscored", id, call)
+	} else {
+		m.statusMsg = fmt.Sprintf("/X: QSO #%d (%s) restored to scored", id, call)
+	}
+}
+
+// zapLastQSO is the ZAP command: permanently deletes the single most
+// recently logged QSO for the active station profile (SD's quick "oops,
+// undo that" — no confirmation, matching SD's own ZAP behavior).
+func (m *model) zapLastQSO() {
+	recent, err := m.store.recentQSOs(m.activeStation.ID, 1)
+	if err != nil {
+		m.statusMsg = fmt.Sprintf("db error: %v", err)
+		return
+	}
+	if len(recent) == 0 {
+		m.statusMsg = "ZAP: no QSO to delete"
+		m.clearQSOForm()
+		return
+	}
+	last := recent[0]
+	if err := m.store.deleteQSO(m.activeStation.ID, last.id); err != nil {
+		m.statusMsg = fmt.Sprintf("db error: %v", err)
+		return
+	}
+	m.rebuildContestIndex()
+	m.refreshTableRows()
+	m.clearQSOForm()
+	m.statusMsg = fmt.Sprintf("ZAP: deleted QSO #%d (%s)", last.id, last.call)
+}
+
+// setDupeBaseline is the SETDUPE command: resets the dupe-check baseline to
+// now (see model.dupeBaselineAfter), so a station worked earlier in the
+// contest no longer blocks working it again — for multi-period sprints the
+// event catalog doesn't model as distinct sessions.
+func (m *model) setDupeBaseline() {
+	m.dupeBaselineAfter = time.Now().UTC()
+	m.clearQSOForm()
+	m.checkDupe()
+	m.statusMsg = "SETDUPE: dupe check now ignores QSOs logged before now"
+}
+
 // dupeCheckScope resolves the contest_id/event/dupe_scope to check against
 // for the currently selected contest (blank fields mean "no known contest",
 // which isDupe treats as the casual 15-minute window). Shared by the live
@@ -1273,7 +1397,7 @@ func (m *model) checkDupe() {
 			m.statusMsg = fmt.Sprintf("contest %q not found in event catalog — dupe check uses the 15-minute casual window", raw)
 		}
 	}
-	dupe, err := m.store.isDupe(call, m.qsoBand(), contestID, eventID, dupeScope, m.activeStation.ID, m.editingQSOID, time.Now())
+	dupe, err := m.store.isDupe(call, m.qsoBand(), contestID, eventID, dupeScope, m.activeStation.ID, m.editingQSOID, time.Now(), m.dupeBaselineAfter)
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
 		return
@@ -1510,6 +1634,7 @@ func (m *model) selectEvent(event eventDefinition, session eventSession) {
 	m.contestFields[contestExchangeSent].Placeholder = event.SentExchangeHint
 	m.contestFields[contestExchangeRcvd].Placeholder = event.RcvdExchangeHint
 	m.contestExchangeRcvdEdited = false
+	m.dupeBaselineAfter = time.Time{}
 	m.statusMsg = event.Name + " selected"
 	m.exchangeChoiceFocus = -1
 	m.openQSOContest()
@@ -1767,7 +1892,7 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 	// chance to catch a real contest duplicate before it's committed.
 	// editingQSOID excludes the record itself from the check when editing.
 	contestID, eventID, dupeScope := m.dupeCheckScope()
-	dupe, err := m.store.isDupe(call, m.qsoBand(), contestID, eventID, dupeScope, m.activeStation.ID, m.editingQSOID, time.Now())
+	dupe, err := m.store.isDupe(call, m.qsoBand(), contestID, eventID, dupeScope, m.activeStation.ID, m.editingQSOID, time.Now(), m.dupeBaselineAfter)
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
 		return m, nil
@@ -2353,6 +2478,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focusField(nextFocus)
 			return m, nil
 		case "enter":
+			if m.handleCallFieldCommand() {
+				return m, nil
+			}
 			if m.focusIdx == len(m.entrySlots())-1 {
 				var cmd tea.Cmd
 				m, cmd = m.logCurrentQSO()
@@ -2730,6 +2858,12 @@ func (m model) helpPanelView() string {
 		"Rate meter  Q/hr (last 10 / last 100 / overall) and Q/Mult, shown under Recent QSOs/DX Spots once something's logged",
 		"Zone auto-fill  CQ/ITU zone exchange fields prefill from the resolved DXCC entity; typing into the field stops autofill for that QSO",
 	)
+	section("Typed commands (type into Call, then Enter)",
+		"ZAP  Delete the most recently logged QSO (while entering a new QSO)",
+		"SETDUPE  Reset the dupe-check baseline to now — QSOs logged before this no longer count as dupes",
+		"/Z  Delete the QSO currently loaded for editing (F9 to recall one first)",
+		"/X  Toggle the recalled QSO's logged-but-unscored (X-QSO) flag — still logged/exported, excluded from CLAIMED-SCORE",
+	)
 
 	b.WriteString(helpStyle.Render("Esc/Ctrl+G: back to " + screenName(m.helpReturnScreen) + "  •  F1: QSO Entry"))
 	return b.String()
@@ -3013,7 +3147,11 @@ func (m model) View() string {
 		b.WriteString(dupeStyle.Render("DUPE"))
 		b.WriteString("\n\n")
 	case m.editingQSOID != 0:
-		b.WriteString(editingStyle.Render(fmt.Sprintf("EDITING #%d — Esc cancels, final Enter saves", m.editingQSOID)))
+		hint := "EDITING #%d — Esc cancels, final Enter saves, /Z deletes, /X marks unscored"
+		if m.editingOriginal.unscored {
+			hint = "EDITING #%d [X-QSO unscored] — Esc cancels, final Enter saves, /Z deletes, /X restores"
+		}
+		b.WriteString(editingStyle.Render(fmt.Sprintf(hint, m.editingQSOID)))
 		b.WriteString("\n\n")
 	default:
 		b.WriteString("\n")

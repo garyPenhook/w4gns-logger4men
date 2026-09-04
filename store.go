@@ -249,6 +249,7 @@ func (s *store) migrate() error {
 		{name: "county", definition: "TEXT"},
 		{name: "email", definition: "TEXT"},
 		{name: "park_name", definition: "TEXT"},
+		{name: "unscored", definition: "INTEGER NOT NULL DEFAULT 0"},
 	} {
 		exists, err := s.columnExists("qso", column.name)
 		if err != nil {
@@ -571,7 +572,14 @@ func (s *store) insertQSOChunk(ctx context.Context, qsos []qso) (int, error) {
 //
 // excludeID, when non-zero, omits that row's own id from the match — used
 // when re-saving an edited QSO so it doesn't count as a dupe of itself.
-func (s *store) isDupe(call, band, contestID, eventID, dupeScope string, profileID, excludeID int64, now time.Time) (bool, error) {
+//
+// since, when non-zero, additionally requires the matching QSO to have been
+// logged at or after that instant — the SETDUPE command's effect (SD parity):
+// the operator resets the dupe baseline to "now" mid-contest so a station
+// worked earlier no longer blocks working it again (e.g. a multi-period
+// sprint whose periods the event catalog doesn't model as distinct
+// sessions). A zero since applies no such floor, the pre-SETDUPE behavior.
+func (s *store) isDupe(call, band, contestID, eventID, dupeScope string, profileID, excludeID int64, now, since time.Time) (bool, error) {
 	var (
 		query string
 		args  []any
@@ -592,6 +600,10 @@ func (s *store) isDupe(call, band, contestID, eventID, dupeScope string, profile
 	if excludeID != 0 {
 		query += ` AND id != ?`
 		args = append(args, excludeID)
+	}
+	if !since.IsZero() {
+		query += ` AND (qso_date || time_on) >= ?`
+		args = append(args, since.UTC().Format("20060102150405"))
 	}
 	var n int
 	if err := s.db.QueryRow(query, args...).Scan(&n); err != nil {
@@ -647,12 +659,12 @@ func (s *store) qsoByID(profileID, id int64) (qso, error) {
 		COALESCE(sig_info, ''), COALESCE(park_name, ''), COALESCE(comment, ''), COALESCE(contest_id, ''),
 		COALESCE(stx, ''), COALESCE(stx_string, ''), COALESCE(srx, ''), COALESCE(srx_string, ''), profile_id,
 		COALESCE(my_gridsquare, ''), COALESCE(station_callsign, ''), COALESCE(operator_name, ''),
-		COALESCE(my_rig, ''), COALESCE(my_antenna, ''), COALESCE(tx_pwr, '')
+		COALESCE(my_rig, ''), COALESCE(my_antenna, ''), COALESCE(tx_pwr, ''), unscored
 		FROM qso WHERE id = ? AND profile_id = ?`, id, profileID).Scan(
 		&q.id, &q.call, &date, &timeOn, &dateOff, &timeOff, &q.band, &q.frequency, &q.mode, &q.rstSent, &q.rstRcvd,
 		&q.name, &q.qth, &q.grid, &q.state, &q.county, &q.email, &q.country, &dxccNumber, &cqZone, &ituZone, &q.potaRef, &q.parkName, &q.comment, &q.contestID,
 		&q.stx, &q.stxString, &q.srx, &q.srxString, &q.profileID,
-		&q.myGridSquare, &q.stationCallsign, &q.operatorName, &q.myRig, &q.myAntenna, &q.txPower,
+		&q.myGridSquare, &q.stationCallsign, &q.operatorName, &q.myRig, &q.myAntenna, &q.txPower, &q.unscored,
 	)
 	if err != nil {
 		return qso{}, fmt.Errorf("load qso %d: %w", id, err)
@@ -689,6 +701,21 @@ func (s *store) updateQSO(id int64, q qso) error {
 	)
 	if err != nil {
 		return fmt.Errorf("update qso %d: %w", id, err)
+	}
+	return nil
+}
+
+// setQSOUnscored flips the /X (logged-but-unscored) flag on one QSO. Unlike
+// updateQSO this touches only the unscored column, not the operator-editable
+// fields, so toggling /X doesn't require re-validating or re-resolving DXCC
+// context for a QSO whose call/band/exchange aren't changing.
+func (s *store) setQSOUnscored(profileID, id int64, unscored bool) error {
+	res, err := s.db.Exec(`UPDATE qso SET unscored = ? WHERE id = ? AND profile_id = ?`, unscored, id, profileID)
+	if err != nil {
+		return fmt.Errorf("set qso %d unscored=%v: %w", id, unscored, err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return fmt.Errorf("set qso %d unscored=%v: no matching row", id, unscored)
 	}
 	return nil
 }

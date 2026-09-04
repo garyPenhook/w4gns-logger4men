@@ -184,7 +184,29 @@ every panel *and* scoring so they always agree.
 
 **Phase 3 — corrections, mult data, output parity**
 - ⏳ Log-wide **recompute on any edit** (dupes/mults/points) — SD's differentiator.
-- ⏳ `/Z` (mark old for delete), `/X` (logged-but-unscored), `ZAP`, `SETDUPE`.
+- ✅ `/Z` (mark old for delete), `/X` (logged-but-unscored), `ZAP`, `SETDUPE`.
+  Typed into the Call field and confirmed with Enter, intercepted in
+  `handleCallFieldCommand` (`main.go`) before the normal Enter-to-advance/
+  Enter-to-save handling. **ZAP** (`zapLastQSO`) deletes the most recently
+  logged QSO while entering a new one. **`/Z`** (`deleteEditingQSO`) and
+  **`/X`** (`toggleEditingQSOUnscored`) only fire while a QSO is loaded for
+  editing (`beginEditQSO` leaves focus on Call): `/Z` deletes it instead of
+  saving; `/X` flips a new `qso.unscored` / `store.setQSOUnscored` DB flag
+  that keeps the QSO logged and in Cabrillo output (as an `X-QSO:` line,
+  `cabrilloQSOLine`) but excludes it from `contestState.score()` via new
+  `scoredCallBand`/`scoredUniqueCalls` sets kept alongside the existing
+  worked/dupe sets — so an X-QSO still counts for dupe/Check-Partial/rate/
+  continent (it happened) but not for `CLAIMED-SCORE`. **SETDUPE**
+  (`setDupeBaseline`) resets `model.dupeBaselineAfter` to now; `store.isDupe`
+  gained a `since` parameter so a station worked earlier no longer blocks
+  re-working it — for multi-period sprints the event catalog doesn't model
+  as distinct sessions. Reset on contest switch (`selectEvent`). In-app Help
+  documents all four. Tests: `main_test.go` (`TestZapDeletesMostRecently…`,
+  `TestZapWithNoQSOsIsANoop`, `TestSlashZDeletes…`,
+  `TestSlashXTogglesUnscoredFlagAndExcludesFromScore`,
+  `TestSetDupeResetsBaseline…`), `store_test.go`
+  (`TestSetQSOUnscoredTogglesFlagAndPersists`,
+  `TestSetQSOUnscoredRejectsWrongProfile`).
 - ⏳ Area-mult `.mlt` tables + data-driven **multiplier/points schema** in `events.go`
   (`MULTSCOUNT`, `MULTSBOTH`, `POINTSAREA`, `MAXBAND/MINBAND`, `TIMES`, …).
 - ✅ **CSV export** (`Ctrl+R`). `csv_export.go` (`exportCSV`, `writeCSVAtomic`,

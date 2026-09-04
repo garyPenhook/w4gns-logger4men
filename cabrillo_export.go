@@ -194,17 +194,25 @@ func cabrilloQSOLine(q qso, profile stationProfile, event eventDefinition) (stri
 	sentExch := cabrilloText(cabrilloExchange(q.stx, q.stxString), 13)
 	rcvdCall := cabrilloText(q.call, 13)
 	rcvdExch := cabrilloText(cabrilloExchange(q.srx, q.srxString), 13)
+	// The Cabrillo v3 spec's X-QSO: line type keeps a /X-flagged QSO visible
+	// in the submission (an auditor can see it happened) while telling the
+	// scoring committee not to count it — the export-side half of "logged
+	// but unscored".
+	label := "QSO:"
+	if q.unscored {
+		label = "X-QSO:"
+	}
 	if event.CabrilloOmitRST {
-		return fmt.Sprintf("QSO: %5d CW %s %s %-13s %-13s %-13s %-13s",
-			freqKHz,
+		return fmt.Sprintf("%s %5d CW %s %s %-13s %-13s %-13s %-13s",
+			label, freqKHz,
 			q.time.UTC().Format("2006-01-02"),
 			q.time.UTC().Format("1504"),
 			sentCall, sentExch,
 			rcvdCall, rcvdExch,
 		), nil
 	}
-	return fmt.Sprintf("QSO: %5d CW %s %s %-13s %-3s %-13s %-13s %-3s %-13s",
-		freqKHz,
+	return fmt.Sprintf("%s %5d CW %s %s %-13s %-3s %-13s %-13s %-3s %-13s",
+		label, freqKHz,
 		q.time.UTC().Format("2006-01-02"),
 		q.time.UTC().Format("1504"),
 		sentCall, cabrilloText(q.rstSent, 3), sentExch,
@@ -321,7 +329,7 @@ func (s *store) forEachQSOForContest(ctx context.Context, profileID int64, conte
 	rows, err := s.db.QueryContext(ctx, `SELECT call, qso_date, time_on, COALESCE(qso_date_off, ''), COALESCE(time_off, ''), band,
 		COALESCE(freq, ''), mode, COALESCE(rst_sent, ''), COALESCE(rst_rcvd, ''),
 		COALESCE(stx, ''), COALESCE(stx_string, ''), COALESCE(srx, ''), COALESCE(srx_string, ''),
-		COALESCE(station_callsign, '')
+		COALESCE(station_callsign, ''), unscored
 		FROM qso WHERE profile_id = ? AND contest_id = ? ORDER BY qso_date, time_on, id`, profileID, contestID)
 	if err != nil {
 		return fmt.Errorf("query QSOs for Cabrillo export: %w", err)
@@ -331,7 +339,7 @@ func (s *store) forEachQSOForContest(ctx context.Context, profileID int64, conte
 		var q qso
 		var date, timeOn, dateOff, timeOff string
 		if err := rows.Scan(&q.call, &date, &timeOn, &dateOff, &timeOff, &q.band, &q.frequency, &q.mode, &q.rstSent, &q.rstRcvd,
-			&q.stx, &q.stxString, &q.srx, &q.srxString, &q.stationCallsign); err != nil {
+			&q.stx, &q.stxString, &q.srx, &q.srxString, &q.stationCallsign, &q.unscored); err != nil {
 			return fmt.Errorf("scan QSO for Cabrillo export: %w", err)
 		}
 		q.time, _ = time.Parse("20060102150405", date+timeOn)
