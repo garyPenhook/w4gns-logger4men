@@ -42,14 +42,15 @@ the log, submitted contest results, or external services.
   selection/entry-only until its sponsor-specific schema is verified.
 
 - 🔧 **Audit and implement scoring per contest before presenting the catalog as
-  correct.** Every one of the 462 event records now declares and is validated
-  against an explicit `capability`: 10 intentionally generic templates are
-  `selection-only`, 448 are `entry-aware`, CWT is `cabrillo-ready`, and only
-  `CW-OPEN`, `CQ-WW-CW`, and `CQ-160-CW` are `scoring-ready`. The Events
-  screen shows this status, so an operator can tell an entry-only template
-  from a checked submission before export. The actual scoring audit remains:
-  every event except those three still has no `scoring` block and must not be
-  promoted until its rules are tested against authoritative examples.
+  correct.** Every one of the 429 event records now declares and is validated
+  against an explicit `capability`: 9 intentionally generic templates are
+  `selection-only`, 415 are `entry-aware`, CWT is `cabrillo-ready`, and
+  `CW-OPEN`, `CQ-WW-CW`, `CQ-160-CW`, and `ARRL-DX-CW` are `scoring-ready`.
+  The Events screen shows this status, so an operator can tell an entry-only
+  template from a checked submission before export. The actual scoring audit
+  remains: every event except those four still has no `scoring` block and
+  must not be promoted until its rules are tested against authoritative
+  examples.
 
 - 🔧 **Zone autofill no longer infers rules from prose hints.** It requires an
   explicit `received_exchange_autofill` catalog value; ambiguous events such as
@@ -399,6 +400,27 @@ every panel *and* scoring so they always agree.
   wiring ARRL DX CW (asymmetric DXCC-vs-state/province mults) and CQ WPX CW
   (prefix mult + band-tiered points) next. Test: `events_test.go`
   (`TestLoadEventCatalogCQ160HasRealScoringRules`).
+- ✅ **Real per-contest wiring: ARRL International DX Contest, CW's actual
+  scoring rules.** Curated `ARRL-DX-CW` (`events/contestcalendar.json`) now
+  carries a real `scoring` block sourced from
+  `contests.arrl.org/ContestRules/DX-Rules.pdf`: a flat 3 points per QSO
+  (§5.1) and a DXCC-entity multiplier counted once per band (§5.2.1/§5.2.2).
+  The rules are asymmetric by side — W/VE entrants count DXCC entities except
+  USA/Canada as their multiplier; DX entrants instead count US
+  states/DC/Canadian provinces and territories (§5.2.3), which this app can't
+  express yet since states/provinces come from the received exchange text,
+  not the worked callsign (the same schema gap CQ-160-CW's DX-side multiplier
+  left open). This config is therefore only correct for a W/VE-side entrant —
+  the case this app's station profile is for — and would silently overcount a
+  DX-side entrant's multipliers if selected there; a future exchange-derived
+  multiplier kind is needed before this event can be promoted for DX-side
+  operation. `adif_contest_id` (`ARRL-DX-CW`, confirmed against the ADIF
+  Contest ID Enumeration) and `cabrillo_layout: cw_rst_exchange` (the
+  exchange is one free-text field after RST on both sides — state/province
+  for W/VE, power for DX — the same shape CQ WW/CQ 160 already use) were
+  added alongside the scoring block, promoting the event's `capability` to
+  `scoring-ready`. Test: `events_test.go`
+  (`TestLoadEventCatalogARRLDXCWHasRealScoringRules`).
 - ✅ **CSV export** (`Ctrl+R`). `csv_export.go` (`exportCSV`, `writeCSVAtomic`,
   `csvField`/`csvRow` — RFC 4180 quoting, CRLF rows) streams the active
   contest's QSOs (same `contest_id` scoping as Cabrillo/ADIF export) to

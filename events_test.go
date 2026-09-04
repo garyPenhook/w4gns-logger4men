@@ -254,6 +254,42 @@ func TestLoadEventCatalogCQ160HasRealScoringRules(t *testing.T) {
 	}
 }
 
+// TestLoadEventCatalogARRLDXCWHasRealScoringRules guards the curated
+// ARRL-DX-CW entry's actual scoring config (roadmap §3 Phase 3 "real
+// per-contest wiring"), sourced from
+// contests.arrl.org/ContestRules/DX-Rules.pdf rather than guessed: a flat 3
+// points per QSO (§5.1) and a DXCC-entity multiplier counted once per band
+// (§5.2.1/§5.2.2). The rules are asymmetric — DX entrants count US
+// states/DC/Canadian provinces (§5.2.3) as their multiplier instead of DXCC
+// entities — but that side needs an exchange-derived multiplier kind the
+// schema doesn't have yet (states and provinces come from the received
+// exchange text, not the worked callsign), the same gap CQ-160-CW's DX-side
+// multiplier left open. This config is therefore only correct for a W/VE-side
+// entrant, which matches this app's station profile.
+func TestLoadEventCatalogARRLDXCWHasRealScoringRules(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	arrl := events[eventIndex(t, events, "ARRL-DX-CW")]
+	if arrl.Scoring == nil {
+		t.Fatal("ARRL-DX-CW must have a Scoring rule")
+	}
+	if arrl.Scoring.PointsPerQSO != 3 {
+		t.Fatalf("ARRL-DX-CW points_per_qso = %d, want 3", arrl.Scoring.PointsPerQSO)
+	}
+	mults := arrl.Scoring.effectiveMultipliers()
+	if len(mults) != 1 || mults[0].Kind != "dxcc" || mults[0].Per != "band" {
+		t.Fatalf("ARRL-DX-CW multipliers = %+v, want [{dxcc band}]", mults)
+	}
+	if arrl.ADIFContestID != "ARRL-DX-CW" {
+		t.Fatalf("ARRL-DX-CW adif_contest_id = %q, want ARRL-DX-CW", arrl.ADIFContestID)
+	}
+	if !arrl.cabrilloReady() {
+		t.Fatal("ARRL-DX-CW must have a checked Cabrillo layout")
+	}
+}
+
 // TestSDContestCatalogLoadsWithDistinctSideVariants guards the imported SD
 // template catalog: the many contests load alongside the curated events with
 // unique IDs, and side-variant entries that submit under one Cabrillo contest

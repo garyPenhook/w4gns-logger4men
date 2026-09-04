@@ -1019,7 +1019,7 @@
   },
   {
     "id": "ARRL-DX-CW",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "ARRL Inter. DX Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -1035,9 +1035,20 @@
     "sent_serial": false,
     "sent_exchange_hint": "W/VE: RST + (state/province) non-W/VE: RST + power",
     "received_exchange_hint": "W/VE: RST + (state/province) non-W/VE: RST + power",
+    "adif_contest_id": "ARRL-DX-CW",
+    "cabrillo_layout": "cw_rst_exchange",
     "dupe_scope": "call+band",
     "rules_url": "https://www.arrl.org/arrl-dx",
     "score_submission_url": "",
+    "scoring": {
+      "points_per_qso": 3,
+      "multipliers": [
+        {
+          "kind": "dxcc",
+          "per": "band"
+        }
+      ]
+    },
     "sessions": [
       {
         "id": "0000ZFeb20",
