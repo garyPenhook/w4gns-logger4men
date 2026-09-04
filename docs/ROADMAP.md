@@ -168,9 +168,24 @@ the log, submitted contest results, or external services.
   This pass adds deterministic coverage for atomic initial enqueueing,
   persisted upload acknowledgement, QRZ request correlation, identity rotation,
   POST duplicate timing, persisted scoring context, and grid bearings. Native
-  Windows replacement, full `drainOutbox` lifecycle, TUI screens, and reconnect
-  scheduling still need dedicated tests; keep the existing `go test`, `go vet`,
-  race, cross-build, and vulnerability gates.
+  Windows replacement, TUI screens, and reconnect scheduling still need
+  dedicated tests; keep the existing `go test`, `go vet`, race, cross-build,
+  and vulnerability gates.
+- ✅ **Full `drainOutbox`/shutdown-drain lifecycle, verified with Go 1.27's
+  new `goroutineleak` profiler.** `TestShutdownDrainLeavesNoLeakedGoroutines`
+  (`goroutineleak_test.go`) reproduces `main()`'s exact shutdown sequence
+  (cancel `bgCtx`, then `bgTasks.Wait()`) with real QRZ/WRL outbox uploads
+  (`httptest` servers, `qrzLogbookAPI`/`wrlContactsAPI` override) and an ADIF
+  import all in flight at once — the three `bgTasks`-tracked job kinds that
+  exist today. `waitForBgTasksOrDumpLeaks` bounds the wait so a regression
+  (a job that fails to call `wg.Done()` on some return path, or never
+  registered `wg.Add(1)` before its goroutine started) fails the test in
+  seconds with the exact stuck stack from `runtime/pprof`'s `goroutineleak`
+  profile, instead of hanging until `go test`'s own timeout with no
+  diagnostic. `assertNoGoroutineLeaks` then confirms the profile is empty
+  after drain — sanity-checked against a deliberately-never-`Done()`
+  `sync.WaitGroup` in a throwaway program, which the profile correctly
+  reported with a full stack trace.
 
 ## 1. Done (already shipped)
 
