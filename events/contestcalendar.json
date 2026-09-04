@@ -1105,7 +1105,7 @@
   },
   {
     "id": "NA-SPRINT-CW",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "North American Sprint, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -1115,10 +1115,22 @@
       "40M",
       "20M"
     ],
-    "sent_serial": false,
-    "sent_exchange_hint": "[other station's call] + [your call] + [serial no.] + [your name] + [your state/province/country]",
-    "received_exchange_hint": "[other station's call] + [your call] + [serial no.] + [your name] + [your state/province/country]",
+    "sent_serial": true,
+    "sent_exchange_hint": "Serial No. + Name + (State/Province/Country)",
+    "received_exchange_hint": "Serial No. + Name + (State/Province/Country)",
     "dupe_scope": "call+band",
+    "adif_contest_id": "NA-SPRINT-CW",
+    "cabrillo_layout": "cw_exchange_only",
+    "cabrillo_omit_rst": true,
+    "scoring": {
+      "points_per_qso": 1,
+      "multipliers": [
+        {
+          "kind": "naqp_area",
+          "per": "contest"
+        }
+      ]
+    },
     "rules_url": "https://ncjweb.com/Sprint-Rules.pdf",
     "score_submission_url": "",
     "sessions": [

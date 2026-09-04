@@ -58,9 +58,9 @@ the log, submitted contest results, or external services.
 - 🔧 **Audit and implement scoring per contest before presenting the catalog as
   correct.** Every one of the 429 event records now declares and is validated
   against an explicit `capability`: 9 intentionally generic templates are
-  `selection-only`, 409 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
+  `selection-only`, 408 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
   `CQ-160-CW`, `ARRL-DX-CW`, `CQ-WPX-CW`, `TNQP`, `SAC-CW`, `NAQP-CW`,
-  `ARRL-SS-CW`, and `IARU-HF` are `scoring-ready`. **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
+  `ARRL-SS-CW`, `IARU-HF`, and `NA-SPRINT-CW` are `scoring-ready`. **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
   side-asymmetric around a fixed "Scandinavian" country group — Norway,
   Finland, Sweden, Iceland, Denmark, and the territories the rules list by
   their own prefix block (Svalbard, Jan Mayen, Åland Islands, Market Reef,
@@ -771,6 +771,39 @@ every panel *and* scoring so they always agree.
   `TestContestStateWouldBeNewMultiplierIARUZoneAndHQ`), `events_test.go`
   (`TestLoadEventCatalogIARUHFHasRealScoringRules`,
   `TestValidateScoringRules` new zone-rule cases).
+- ✅ **Real per-contest wiring: North American Sprint, CW's actual scoring
+  rules**, needing no new schema — Rule 10 (ncjweb.com/Sprint-Rules.pdf) is a
+  flat 1 point per QSO times the existing `naqp_area` multiplier kind (the
+  same US-state/DC/Canadian-province/other-North-America-DXCC table NAQP CW
+  uses; Rule 10's 13-province list and its Newfoundland-Labrador combination
+  match NAQP's Rule 11 exactly, and `naqpAreaCode`'s existing
+  continent-must-be-NA check already excludes the non-NA "DX" exchange
+  Sprint Rule 7 has non-North-American entrants send instead of a country),
+  counted once for the whole contest (`per: "contest"`) rather than again
+  per band the way NAQP counts it — already a generically supported
+  `Per` value for this multiplier kind, so no `contest_state.go` change was
+  needed, only the catalog config. Closing out this entry surfaced a
+  pre-existing data bug: curated `NA-SPRINT-CW`
+  (`events/contestcalendar.json`) had `sent_serial: false`, even though Rule
+  7's exchange is explicitly "a sequential serial number" plus name and
+  location (no RST) — the worked example in the rules text itself
+  ("N6TR K7GM 154 RICK NC") shows the serial; fixed to `sent_serial: true`
+  so the app's running-serial field and Rcv # column actually appear for
+  this contest. `cabrillo_layout: cw_exchange_only` +
+  `cabrillo_omit_rst: true` (no RST, matching CW Open/NAQP-CW/ARRL SS'
+  shape) and `adif_contest_id: NA-SPRINT-CW` (confirmed against the ADIF
+  Contest ID Enumeration) were added alongside, promoting `capability` to
+  `scoring-ready`; the generated `SD-NASPRCW` duplicate is dropped via the
+  existing curated-vs-generated de-dup (shared `NA-SPRINT-CW` Cabrillo
+  token, already matching with no `cabrillo_contest` override needed on
+  either side). Not addressed here (a documented limitation, not a rules
+  gap, same class as `naqpAreaCode`'s own documented caveats): Rule 9 treats
+  `4U1UN` (the Vienna International Centre special callsign) as a North
+  American entity for this contest despite cty.dat classifying it under
+  Europe's continent, so a Sprint contact with that one callsign would not
+  register as a multiplier under the generic `naqp_area` lookup — a
+  vanishingly rare edge case, not fixed with special-case code. Tests:
+  `events_test.go` (`TestLoadEventCatalogNASprintCWHasRealScoringRules`).
 - ✅ **CSV export** (`Ctrl+R`). `csv_export.go` (`exportCSV`, `writeCSVAtomic`,
   `csvField`/`csvRow` — RFC 4180 quoting, CRLF rows) streams the active
   contest's QSOs (same `contest_id` scoping as Cabrillo/ADIF export) to

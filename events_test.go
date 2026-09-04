@@ -487,6 +487,55 @@ func TestLoadEventCatalogIARUHFHasRealScoringRules(t *testing.T) {
 	}
 }
 
+// TestLoadEventCatalogNASprintCWHasRealScoringRules guards the curated
+// NA-SPRINT-CW entry's actual scoring config, sourced from
+// ncjweb.com/Sprint-Rules.pdf: Rule 10 ("Multiply total valid contacts by
+// the sum of the contacted US states ... Canadian provinces/territories
+// ... and other North American countries") is a flat 1 point per QSO times
+// a "naqp_area" multiplier — the same US-state/DC/Canadian-province/NA-DXCC
+// table NAQP-CW uses (Rule 10's 13-province list and Newfoundland-Labrador
+// combination match Rule 11's exactly) — but counted once for the whole
+// contest rather than again per band, unlike NAQP. Rule 7's exchange is
+// serial + name + location with no RST, the same cw_exchange_only/
+// cabrillo_omit_rst shape as CW Open/NAQP-CW/ARRL SS, so sent_serial (which
+// this entry previously left false, a pre-existing data bug: Rule 7
+// requires "a sequential serial number") is corrected to true.
+func TestLoadEventCatalogNASprintCWHasRealScoringRules(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	sprint := events[eventIndex(t, events, "NA-SPRINT-CW")]
+	if sprint.Capability != catalogCapabilityScoringReady {
+		t.Fatalf("NA-SPRINT-CW capability = %q, want %q", sprint.Capability, catalogCapabilityScoringReady)
+	}
+	if sprint.Scoring == nil || sprint.Scoring.PointsPerQSO != 1 {
+		t.Fatalf("NA-SPRINT-CW scoring = %+v, want PointsPerQSO 1", sprint.Scoring)
+	}
+	mults := sprint.Scoring.effectiveMultipliers()
+	want := []multiplierRule{{Kind: "naqp_area", Per: "contest"}}
+	if len(mults) != len(want) || mults[0] != want[0] {
+		t.Fatalf("NA-SPRINT-CW multipliers = %+v, want %+v", mults, want)
+	}
+	if !sprint.SentSerial {
+		t.Fatalf("NA-SPRINT-CW sent_serial = false, want true")
+	}
+	if sprint.ADIFContestID != "NA-SPRINT-CW" {
+		t.Fatalf("NA-SPRINT-CW adif_contest_id = %q, want NA-SPRINT-CW", sprint.ADIFContestID)
+	}
+	if sprint.CabrilloLayout != "cw_exchange_only" {
+		t.Fatalf("NA-SPRINT-CW cabrillo_layout = %q, want cw_exchange_only", sprint.CabrilloLayout)
+	}
+	if !sprint.CabrilloOmitRST {
+		t.Fatalf("NA-SPRINT-CW cabrillo_omit_rst = false, want true")
+	}
+	for _, event := range events {
+		if event.ID == "SD-NASPRCW" {
+			t.Fatalf("generated SD-NASPRCW should have been de-duped against curated NA-SPRINT-CW")
+		}
+	}
+}
+
 // TestReceivedExchangeAutofillExcludedIsCaseInsensitiveAndSafeOnBlank guards
 // the helper autofillReceivedExchange calls on every keystroke: matching
 // must not depend on cty.dat's exact letter casing, and an unresolved

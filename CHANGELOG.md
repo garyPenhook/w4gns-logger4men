@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.23.0
+
+- Wired the North American Sprint, CW's real scoring rules: flat 1 point per QSO times a state/province/other-North-America-entity multiplier (the same table NAQP CW uses) counted once for the whole contest rather than per band, sourced from ncjweb.com's Sprint rules. Also fixed a pre-existing data bug where this contest was configured with no sent serial number, despite the rules requiring one in every exchange.
+
 ### v1.22.0
 
 - Wired the IARU HF World Championship, CW's real scoring rules: a zone-tiered points formula (1 point for the worked station's own ITU zone or an IARU HQ/Official contact, 3 for a different zone on your own continent, 5 for a different continent) times a multiplier for every distinct ITU zone and HQ/Official station worked per band, sourced from contests.arrl.org's official rules. New `pointsRule.Zone` schema and `iaru_zone`/`iaru_hq` multiplier kinds read the worked station's actually-exchanged zone/abbreviation rather than a callsign lookup, since IARU's exchange (not geography) is what's scored.
