@@ -188,6 +188,17 @@ type contestState struct {
 	// means the worked station sent an HQ/Official abbreviation rather than a
 	// zone (Rule 5.1.2).
 	pointCategoryZone map[string]qsoPointCategory
+	// distanceKmByKey holds, per "CALL|BAND" key (mirrors pointCategory), the
+	// great-circle distance in kilometers between the operator's own grid
+	// square at log time (q.myGridSquare) and the worked station's grid
+	// square as actually exchanged (q.srxString) — the Stew Perry Topband
+	// Distance Challenge's points formula (pointsRule.Distance) is a
+	// function of this value rather than a country/continent/zone category,
+	// so it's stored directly instead of a qsoPointCategory bucket. Only set
+	// (scored QSOs only) when both grids parse as valid Maidenhead locators;
+	// a QSO missing either one contributes 0 distance points rather than
+	// guessing.
+	distanceKmByKey map[string]float64
 }
 
 // qsoPointCategory classifies a worked station relative to the operator's own
@@ -253,6 +264,7 @@ func newContestState() *contestState {
 		pointCategoryContinent: make(map[string]string),
 		pointCategoryCountry:   make(map[string]string),
 		pointCategoryZone:      make(map[string]qsoPointCategory),
+		distanceKmByKey:        make(map[string]float64),
 	}
 }
 
@@ -332,6 +344,12 @@ func (c *contestState) record(q qso) {
 			recordMultiplierValue(c.iaruZoneByBand, c.iaruZoneAll, band, zone)
 			if c.stationZoneResolved && zone == c.stationITUZone {
 				c.pointCategoryZone[key] = pointCategorySameCountry
+			}
+		}
+		if workedGrid, err := ParseGridSquare(q.srxString); err == nil {
+			if myGrid, err := ParseGridSquare(q.myGridSquare); err == nil {
+				_, distanceKm := GreatCircleBearingDistance(myGrid.Latitude, myGrid.Longitude, workedGrid.Latitude, workedGrid.Longitude)
+				c.distanceKmByKey[key] = distanceKm
 			}
 		}
 	}
@@ -531,6 +549,9 @@ func (c *contestState) score(rules *scoringRules) contestScore {
 // entity didn't resolve — see setStation/record) contributes 0 rather than
 // guessing a tier.
 func (c *contestState) pointsTotal(rule *pointsRule) int {
+	if rule.Distance != nil {
+		return c.distancePointsTotal(rule.Distance)
+	}
 	if rule.Zone != nil {
 		return c.zonePointsTotal(rule.Zone)
 	}
@@ -594,6 +615,22 @@ func (c *contestState) zonePointsTotal(rule *zonePointsRule) int {
 	return total
 }
 
+// distancePointsTotal sums a pointsRule.Distance rule over every scored
+// (call, band) QSO, reading distanceKmByKey (populated by record() from the
+// two stations' grid squares). A QSO with no recorded distance (either grid
+// didn't parse) contributes 0 rather than guessing.
+func (c *contestState) distancePointsTotal(rule *distancePointsRule) int {
+	total := 0
+	for key := range c.scoredCallBand {
+		distanceKm, ok := c.distanceKmByKey[key]
+		if !ok {
+			continue
+		}
+		total += 1 + int(distanceKm)/rule.PerKm
+	}
+	return total
+}
+
 // bandFromCallBandKey extracts the band half of a "CALL|BAND" key
 // (scoredCallBand/pointCategory's key shape, built in record()).
 func bandFromCallBandKey(key string) string {
@@ -621,6 +658,8 @@ func wpxLowBand(band string) bool {
 // on each band it's worked, matching CQ WW-style scoring).
 func (c *contestState) multiplierCount(rule multiplierRule) int {
 	switch strings.TrimSpace(rule.Kind) {
+	case "none":
+		return 1
 	case "prefix":
 		if strings.TrimSpace(rule.Per) == "band" {
 			total := 0

@@ -60,8 +60,8 @@ the log, submitted contest results, or external services.
   against an explicit `capability`: 9 intentionally generic templates are
   `selection-only`, 405 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
   `CQ-160-CW`, `ARRL-DX-CW`, `CQ-WPX-CW`, `TNQP`, `SAC-CW`, `NAQP-CW`,
-  `ARRL-SS-CW`, `IARU-HF`, `NA-SPRINT-CW`, `DARC-WAEDC-CW`, `HELVETIA`, and
-  `RDXC` are `scoring-ready`. **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
+  `ARRL-SS-CW`, `IARU-HF`, `NA-SPRINT-CW`, `DARC-WAEDC-CW`, `HELVETIA`,
+  `RDXC`, and `STEW-PERRY` are `scoring-ready`. **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
   side-asymmetric around a fixed "Scandinavian" country group — Norway,
   Finland, Sweden, Iceland, Denmark, and the territories the rules list by
   their own prefix block (Svalbard, Jan Mayen, Åland Islands, Market Reef,
@@ -998,6 +998,55 @@ every panel *and* scoring so they always agree.
   `TestContestStateScoreDXCCOrWAEMultiplier`,
   `TestContestStateWouldBeNewMultiplierDXCCOrWAE`), `events_test.go`
   (`TestLoadEventCatalogRDXCHasRealScoringRules`).
+- ✅ **Real per-contest wiring: Stew Perry Topband Distance Challenge's actual
+  scoring rules**, a genuinely new points shape (continuous distance rather
+  than a country/continent/zone tier) and the first curated event with no
+  multiplier at all. Sourced from kkn.net/stew's rules page: "Count a
+  minimum of one point per QSO and an additional point for every 500
+  kilometers distance" between the two stations' 4-character grid squares
+  (the contest's entire exchange — RST is explicitly optional and not
+  scored), and "Final score equals the total number of QSO points. There is
+  no multiplier for different grids worked." **New `pointsRule.Distance`**
+  (`events.go` `distancePointsRule{PerKm}`, mutually exclusive with every
+  other points field, enforced by `validateScoringRules`) is computed in
+  `contest_state.go`'s `record()` from the worked station's grid as actually
+  exchanged (`q.srxString`, the same exchange-is-authoritative precedent as
+  `exchange_area.go`/`canton.go`) and the operator's own grid as snapshotted
+  on the QSO at log time (`q.myGridSquare`, already persisted per-QSO —
+  reading it here means a later station-profile edit can't retroactively
+  change a logged QSO's score), reusing `grid.go`'s existing
+  `ParseGridSquare` and `heading.go`'s `GreatCircleBearingDistance` rather
+  than adding new geometry. New `distanceKmByKey map[string]float64`
+  stores each scored QSO's distance (unset, so 0 points, if either grid
+  doesn't parse); `distancePointsTotal`
+  sums `1 + distanceKm/PerKm` over every scored QSO. **New `"none"`
+  multiplier kind** (`validMultiplierKind`, `contestState.multiplierCount`)
+  lets an event declare it genuinely has no multiplier: `contestScore.
+  total()` multiplies QSO points by the summed multiplier count, so an empty
+  `Multipliers` list (which `validateScoringRules` already rejects as "no
+  multiplier configured" for every other event) can't simply mean zero here
+  — `"none"` contributes a constant 1 instead, leaving the total equal to
+  the QSO points sum. Curated `STEW-PERRY`
+  (`events/contestcalendar.json`) carries the real `scoring` block plus
+  `adif_contest_id: STEW-PERRY` (confirmed against the ADIF Contest ID
+  Enumeration) and `cabrillo_layout: cw_rst_exchange` (RST + one free-text
+  exchange field — the grid square — matching the Cabrillo QSO template
+  `QSO: freq mo date time call rst exch call rst exch`, RST defaulting to
+  599 even though the rules call it optional), promoting `capability` to
+  `scoring-ready`; the generated `SD-STEW` duplicate is dropped via the
+  existing curated-vs-generated de-dup (shared `STEW-PERRY` Cabrillo token).
+  **Deliberately out of scope, a data gap rather than a formula gap:** the
+  rules also multiply a QSO's points 2x/4x when the worked station declares
+  itself Low Power/QRP, and multiply the operator's own final score 1.5x/3x
+  for its own declared power category — neither is exchanged over the air
+  (the exchange is only the grid square) or derivable from anything this
+  app's QSO/Cabrillo model captures today, so this is left unimplemented
+  rather than guessed, the same class of documented gap as WAE's QTC bonus
+  or CQ 160/ARRL DX CW's own-country `dxcc`-multiplier exclusion. Tests:
+  `contest_state_test.go`
+  (`TestContestStateScorePointsRuleStewPerryDistance`,
+  `TestContestStateScoreNoneMultiplierAlwaysCountsOne`), `events_test.go`
+  (`TestLoadEventCatalogStewPerryHasRealScoringRules`).
 - ✅ **CSV export** (`Ctrl+R`). `csv_export.go` (`exportCSV`, `writeCSVAtomic`,
   `csvField`/`csvRow` — RFC 4180 quoting, CRLF rows) streams the active
   contest's QSOs (same `contest_id` scoping as Cabrillo/ADIF export) to

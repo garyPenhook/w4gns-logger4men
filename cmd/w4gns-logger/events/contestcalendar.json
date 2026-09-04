@@ -875,7 +875,7 @@
   },
   {
     "id": "STEW-PERRY",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "Stew Perry Topband Challenge",
     "organizer": "",
     "kind": "annual contest",
@@ -889,6 +889,12 @@
     "dupe_scope": "call+band",
     "rules_url": "https://www.kkn.net/stew/",
     "score_submission_url": "",
+    "adif_contest_id": "STEW-PERRY",
+    "cabrillo_layout": "cw_rst_exchange",
+    "scoring": {
+      "points": {"distance": {"per_km": 500}},
+      "multipliers": [{"kind": "none", "per": "contest"}]
+    },
     "sessions": [
       {
         "id": "1500ZOct17",

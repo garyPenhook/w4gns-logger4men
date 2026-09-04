@@ -158,6 +158,14 @@ func validateScoringRules(eventID, label string, rules *scoringRules) error {
 			return fmt.Errorf("event %q must not combine %s.zone with country/continent-based points fields", eventID, label)
 		}
 	}
+	if d := p.Distance; d != nil {
+		if d.PerKm <= 0 {
+			return fmt.Errorf("event %q has a non-positive %s.distance.per_km value %d", eventID, label, d.PerKm)
+		}
+		if p.SameCountry != 0 || p.SameContinent != 0 || p.OtherContinent != 0 || len(p.CountryGroup) > 0 || p.Zone != nil {
+			return fmt.Errorf("event %q must not combine %s.distance with any other points field", eventID, label)
+		}
+	}
 	for continent, value := range p.SameContinentOverrides {
 		if !validContinentCode(continent) {
 			return fmt.Errorf("event %q has a %s.same_continent_overrides entry for unsupported continent %q", eventID, label, continent)
@@ -329,6 +337,33 @@ type pointsRule struct {
 	// Rule 5.1) — mutually exclusive with SameCountry/SameContinent/
 	// OtherContinent/CountryGroup, enforced by validateScoringRules.
 	Zone *zonePointsRule `json:"zone,omitempty"`
+	// Distance, when set, replaces every tier above with a continuous
+	// distance-based formula (the Stew Perry Topband Distance Challenge's
+	// shape, kkn.net/stew rules: "Count a minimum of one point per QSO and
+	// an additional point for every 500 kilometers distance") — mutually
+	// exclusive with every other field, enforced by validateScoringRules.
+	Distance *distancePointsRule `json:"distance,omitempty"`
+}
+
+// distancePointsRule is the Stew Perry Topband Distance Challenge's points
+// formula: 1 point minimum, plus 1 more point per PerKm kilometers of
+// great-circle distance between the two stations' 4-character Maidenhead
+// grid squares (the contest's entire exchange — RST is optional and not
+// scored). Distance is computed from the worked station's received-exchange
+// text (contestState.record, mirroring exchange_area.go/canton.go's
+// exchange-is-authoritative precedent) and the operator's own grid square as
+// snapshotted on the QSO at log time (qso.myGridSquare), not a live station
+// profile lookup, so a later profile edit can't retroactively change a
+// logged QSO's score. Deliberately not implemented (out of scope, a data
+// gap rather than a formula gap): the rules also multiply a QSO's points 2x/
+// 4x when the worked station declares itself Low Power/QRP, and multiply
+// the operator's own final score 1.5x/3x for its own declared power class —
+// none of that is exchanged over the air (the exchange is only the grid
+// square) or derivable from anything this app's QSO/Cabrillo model
+// captures, so a QSO with no resolvable grid on either side simply
+// contributes 0 points rather than guessing.
+type distancePointsRule struct {
+	PerKm int `json:"per_km"`
 }
 
 // zonePointsRule is the IARU HF World Championship's points formula (Rule
@@ -356,10 +391,17 @@ type multiplierRule struct {
 
 // validMultiplierKind reports whether kind is a multiplier the scorer (see
 // contestState.multiplierCount) knows how to count, so a config typo fails
-// loudly at startup instead of silently scoring zero multipliers.
+// loudly at startup instead of silently scoring zero multipliers. "none" is
+// the explicit multiplier-free declaration (Stew Perry Topband's own rules:
+// "There is no multiplier for different grids worked" — final score is
+// simply the QSO points total): contestScore.total() multiplies qsoPoints by
+// the summed multiplier count, so an event with genuinely no multiplier
+// concept still needs a rule contributing a constant 1 rather than an empty
+// Multipliers list, which validateScoringRules would otherwise reject as
+// "no multiplier configured" the same way it does for every other event.
 func validMultiplierKind(kind string) bool {
 	switch strings.TrimSpace(kind) {
-	case "unique_call", "dxcc", "cqzone", "ituzone", "prefix", "exchange_area", "tn_county", "sac_area", "naqp_area", "arrl_section", "iaru_zone", "iaru_hq", "wae_country", "dxcc_non_wae", "canton", "oblast", "dxcc_or_wae":
+	case "unique_call", "dxcc", "cqzone", "ituzone", "prefix", "exchange_area", "tn_county", "sac_area", "naqp_area", "arrl_section", "iaru_zone", "iaru_hq", "wae_country", "dxcc_non_wae", "canton", "oblast", "dxcc_or_wae", "none":
 		return true
 	default:
 		return false

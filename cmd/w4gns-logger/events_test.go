@@ -1211,3 +1211,41 @@ func TestLoadEventCatalogRDXCHasRealScoringRules(t *testing.T) {
 		}
 	}
 }
+
+// TestLoadEventCatalogStewPerryHasRealScoringRules guards the curated
+// STEW-PERRY entry's actual scoring config, sourced from kkn.net/stew's
+// rules: "Count a minimum of one point per QSO and an additional point for
+// every 500 kilometers distance" between the two stations' grid squares —
+// a genuinely new points shape (continuous distance, not a country/
+// continent/zone tier) — and "There is no multiplier for different grids
+// worked", i.e. the final score is simply the QSO points total, requiring
+// the explicit "none" multiplier kind rather than an empty Multipliers list.
+func TestLoadEventCatalogStewPerryHasRealScoringRules(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	stew := events[eventIndex(t, events, "STEW-PERRY")]
+	if stew.Capability != catalogCapabilityScoringReady {
+		t.Fatalf("STEW-PERRY capability = %q, want %q", stew.Capability, catalogCapabilityScoringReady)
+	}
+	if !stew.cabrilloReady() {
+		t.Fatal("STEW-PERRY must have a checked Cabrillo layout")
+	}
+	if stew.ADIFContestID != "STEW-PERRY" {
+		t.Fatalf("STEW-PERRY adif_contest_id = %q, want STEW-PERRY", stew.ADIFContestID)
+	}
+	if stew.Scoring == nil || stew.Scoring.Points == nil || stew.Scoring.Points.Distance == nil {
+		t.Fatal("STEW-PERRY must have a Distance-based Scoring.Points rule")
+	}
+	if perKm := stew.Scoring.Points.Distance.PerKm; perKm != 500 {
+		t.Fatalf("STEW-PERRY scoring.points.distance.per_km = %d, want 500", perKm)
+	}
+	mults := stew.Scoring.effectiveMultipliers()
+	if len(mults) != 1 || mults[0].Kind != "none" {
+		t.Fatalf("STEW-PERRY multipliers = %+v, want a single %q kind", mults, "none")
+	}
+	if stew.DXScoring != nil {
+		t.Fatal("STEW-PERRY scoring is side-symmetric; DXScoring must be nil")
+	}
+}

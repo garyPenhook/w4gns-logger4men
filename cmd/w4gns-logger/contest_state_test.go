@@ -1412,3 +1412,50 @@ func TestContestStateWouldBeNewMultiplierDXCCOrWAE(t *testing.T) {
 		t.Fatalf("Japan (new mult) = newMult=%v workedBefore=%v, want true/false", newMult, workedBefore)
 	}
 }
+
+// TestContestStateScorePointsRuleStewPerryDistance exercises the Stew Perry
+// Topband Distance Challenge's points formula (kkn.net/stew: "Count a
+// minimum of one point per QSO and an additional point for every 500
+// kilometers distance"), computed from the operator's own grid square as
+// snapshotted on the QSO (myGridSquare) and the worked station's grid square
+// as exchanged (srxString) — a continuous distance value, not a country/
+// continent/zone tier, so it needs no setStation call. A QSO with no
+// resolvable grid on either side contributes 0 rather than guessing.
+func TestContestStateScorePointsRuleStewPerryDistance(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "W1AW", band: "160M", myGridSquare: "FN31", srxString: "FN31"})  // 0 km -> 1 point
+	state.record(qso{call: "W2AZ", band: "160M", myGridSquare: "FN31", srxString: "EN91"})  // ~666 km -> 2 points
+	state.record(qso{call: "JA1AA", band: "160M", myGridSquare: "FN31", srxString: "JO91"}) // ~6655 km -> 14 points
+	state.record(qso{call: "K3XX", band: "160M", myGridSquare: "FN31", srxString: ""})      // unresolvable exchange -> 0 points
+
+	rules := &scoringRules{
+		Points: &pointsRule{Distance: &distancePointsRule{PerKm: 500}},
+	}
+	if score := state.score(rules); score.qsoPoints != 17 {
+		t.Fatalf("qsoPoints = %d, want 17 (1 + 2 + 14 + 0)", score.qsoPoints)
+	}
+}
+
+// TestContestStateScoreNoneMultiplierAlwaysCountsOne exercises the "none"
+// multiplier kind (Stew Perry's own rules: "There is no multiplier for
+// different grids worked" — final score is simply the QSO points total),
+// which must contribute a constant 1 regardless of how many QSOs are
+// logged, so contestScore.total()'s qsoPoints*multipliers formula doesn't
+// zero out an event with no real multiplier concept.
+func TestContestStateScoreNoneMultiplierAlwaysCountsOne(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "W1AW", band: "160M"})
+	state.record(qso{call: "W2AZ", band: "80M"})
+
+	rules := &scoringRules{
+		PointsPerQSO: 3,
+		Multipliers:  []multiplierRule{{Kind: "none", Per: "contest"}},
+	}
+	score := state.score(rules)
+	if score.multipliers != 1 {
+		t.Fatalf("multipliers = %d, want 1", score.multipliers)
+	}
+	if score.total() != 6 {
+		t.Fatalf("total = %d, want 6 (2 QSOs * 3 points * 1 multiplier)", score.total())
+	}
+}

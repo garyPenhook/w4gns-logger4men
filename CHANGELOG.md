@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.27.0
+
+- Wired the Stew Perry Topband Distance Challenge's real scoring rules: 1 point minimum plus 1 more point for every 500 km of great-circle distance between the two stations' grid squares, with no multiplier ("There is no multiplier for different grids worked") — sourced from kkn.net/stew's official rules. New `pointsRule.Distance` schema is the first continuous (non-tiered) points formula in the catalog; new `"none"` multiplier kind lets a contest declare it genuinely has no multiplier without `scoringRules` rejecting the config. Deliberately out of scope: the rules' 2x/4x per-QSO bonus for working a Low Power/QRP station and the operator's own 1.5x/3x final-score bonus for its own declared power class — neither is exchanged over the air (only the grid square is) or captured anywhere in this app's QSO model.
+
 ### v1.26.0
 
 - Wired the Russian DX Contest's real scoring rules: same-country/same-continent/other-continent points (2/3/5) for every entrant, except a non-Russian entrant scores a flat 10 for any Russian-flagged contact (European Russia, Asiatic Russia, Kaliningrad, or Franz Josef Land), times an oblast multiplier (the contest's own 91-code table) and a "DXCC + WAE" country multiplier, both counted per band — sourced from rdxc.org's official rules.
