@@ -227,33 +227,18 @@ func (c contestScore) total() int { return c.qsoPoints * c.multipliers }
 // informational "CLAIMED-SCORE: 0". A same-band duplicate is counted once for
 // points (matching CW Open's "once per band, per session") but its callsign
 // still counts as a multiplier, since a dupe is still a callsign worked.
+// Scoring reads the same contestState index (roadmap Appendix C) that will
+// back the live analysis panels, so the exported CLAIMED-SCORE and whatever
+// the UI shows can never disagree.
 func computeContestScore(ctx context.Context, profile stationProfile, event eventDefinition, contestID string, st *store) (contestScore, error) {
 	if event.Scoring == nil {
 		return contestScore{}, nil
 	}
-	scoredQSOs := make(map[string]struct{}) // dedup key: CALL|BAND
-	uniqueCalls := make(map[string]struct{})
-	var score contestScore
-	err := st.forEachQSOForContest(ctx, profile.ID, contestID, func(q qso) error {
-		call := strings.ToUpper(strings.TrimSpace(q.call))
-		if call == "" {
-			return nil
-		}
-		qsoKey := call + "|" + strings.ToUpper(strings.TrimSpace(q.band))
-		if _, seen := scoredQSOs[qsoKey]; !seen {
-			scoredQSOs[qsoKey] = struct{}{}
-			score.qsoPoints += event.Scoring.PointsPerQSO
-		}
-		uniqueCalls[call] = struct{}{}
-		return nil
-	})
+	state, err := buildContestState(ctx, profile.ID, contestID, st)
 	if err != nil {
 		return contestScore{}, err
 	}
-	if event.Scoring.Multiplier == "unique_call" {
-		score.multipliers = len(uniqueCalls)
-	}
-	return score, nil
+	return state.score(event.Scoring), nil
 }
 
 // exportCabrillo writes a Cabrillo v3 submission for every QSO tagged with

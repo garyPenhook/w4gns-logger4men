@@ -94,7 +94,13 @@ every panel *and* scoring so they always agree.
   toggle is deferred to the analysis-panel UI work below. Tested against
   equator/meridian exact cases, antipode, zero-distance, and a real
   southern/western-hemisphere city pair.
-- ⏳ `contestState` index; refactor `computeContestScore` to read it.
+- ✅ `contestState` index; refactor `computeContestScore` to read it.
+  `contest_state.go` (`byCall`, `workedCallBand`, `uniqueCalls`,
+  `buildContestState`, `.score()`, `.isWorkedOnBand()`); full rebuild per call
+  today (correct and fast enough at contest-log sizes), incremental-on-log
+  wiring deferred to the live TUI model when the as-you-type panels land.
+  Tested: worked-band lookups, full recompute after a call/band edit
+  (Appendix E's hardest case), nil-rules score.
 - ⏳ As-you-type (from 2 chars): **dupe**, **country/zone/continent**, **beam
   heading**, **advance multiplier flag** (incl. double-mult for CQWW-style),
   **band/mode worked-matrix** — in a right-hand analysis panel.
