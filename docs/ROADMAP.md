@@ -4,7 +4,14 @@ Single source of truth for everything we've changed and everything still to
 build to make this a real contest logger, using SD (EI5DI) as the feature
 benchmark. Part 1 is the tracker; the appendices hold the detailed design.
 
-- **Scope:** CW contest logging. The app logs CW only today.
+- **Scope:** this document tracks the *contest* feature set specifically.
+  The app itself is a general-purpose CW logger first — QSO Entry, QSO
+  Details (name/QTH/grid/POTA/notes), ADIF import/export, QRZ/WRL lookups,
+  and the DX cluster all work identically with no contest selected. Contest
+  mode (event catalog, dupe/mult scoring, Cabrillo export, the as-you-type
+  analysis tools) is a layer on top, active only while a contest is selected
+  on the Events (F7) screen — everything below is about deepening that
+  layer, not a description of the whole app. The app logs CW only today.
 - **SD manual reference:** `~/Downloads/sditalia.pdf` (27 pp., Italian ed., 2025);
   its full feature set is cataloged **in English** in Appendix D.
 - **Status legend:** ✅ done · 🔧 in progress · ⏳ planned · 🧪 needs test · ❓ needs a decision
