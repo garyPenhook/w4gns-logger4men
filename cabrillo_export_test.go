@@ -412,6 +412,77 @@ func TestComputeContestScoreARRLDXCWSideAsymmetric(t *testing.T) {
 	}
 }
 
+// waeScoringEvent mirrors arrlDXCWScoringEvent's shape for the WAE DX
+// Contest's own side-asymmetric multiplier (Section 6), but with
+// DomesticCountries as the enumerable European side rather than this app's
+// usual W/VE default — see events/contestcalendar.json's DARC-WAEDC-CW
+// comment.
+func waeScoringEvent() eventDefinition {
+	return eventDefinition{
+		ID:                "DARC-WAEDC-CW",
+		Name:              "WAE DX Contest, CW",
+		Bands:             []string{"80M", "40M", "20M", "15M", "10M"},
+		CabrilloLayout:    "cw_rst_exchange",
+		Scoring:           &scoringRules{PointsPerQSO: 1, Multipliers: []multiplierRule{{Kind: "dxcc_non_wae", Per: "band_weighted"}}},
+		DXScoring:         &scoringRules{PointsPerQSO: 1, Multipliers: []multiplierRule{{Kind: "wae_country", Per: "band_weighted"}}},
+		DomesticCountries: waeCountryNames(),
+	}
+}
+
+// TestComputeContestScoreWAESideAsymmetric exercises effectiveScoring's
+// wiring through computeContestScore end to end for the WAE DX Contest: a
+// European entrant's own callsign resolves to Scoring's dxcc_non_wae
+// multiplier, while a non-European entrant's own callsign (this app's usual
+// station profile) resolves to DXScoring's wae_country multiplier — both
+// weighted by Section 6's band bonus (2x on 20M).
+func TestComputeContestScoreWAESideAsymmetric(t *testing.T) {
+	st, err := openStore(t.TempDir() + "/logger.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	profile, err := st.activeStationProfile()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mk := func(call, band, contestID string) qso {
+		q := validTestQSO()
+		q.call, q.band, q.contestID, q.profileID = call, band, contestID, profile.ID
+		return q
+	}
+	euContestID, dxContestID := "DARC-WAEDC-CW-EU", "DARC-WAEDC-CW-DX"
+	for _, q := range []qso{
+		mk("W1AW", "20M", euContestID),   // European entrant's log: a non-European contact
+		mk("DL1ABC", "20M", dxContestID), // non-European entrant's log: a WAE-list contact
+	} {
+		if _, err := st.insertQSO(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	event := waeScoringEvent()
+
+	euProfile := profile
+	euProfile.Callsign = "G3ABC" // England: European side, Scoring applies
+	euScore, err := computeContestScore(context.Background(), euProfile, event, euContestID, st)
+	if err != nil {
+		t.Fatalf("computeContestScore (European side): %v", err)
+	}
+	if euScore.qsoPoints != 1 || euScore.multipliers != 2 || euScore.total() != 2 {
+		t.Fatalf("European-side score = %d pts x %d mults = %d, want 1 x 2 = 2 (dxcc_non_wae mult from W1AW, 20M weight 2)", euScore.qsoPoints, euScore.multipliers, euScore.total())
+	}
+
+	dxProfile := profile
+	dxProfile.Callsign = "W1AW" // United States: non-European side, DXScoring applies
+	dxScore, err := computeContestScore(context.Background(), dxProfile, event, dxContestID, st)
+	if err != nil {
+		t.Fatalf("computeContestScore (non-European side): %v", err)
+	}
+	if dxScore.qsoPoints != 1 || dxScore.multipliers != 2 || dxScore.total() != 2 {
+		t.Fatalf("non-European-side score = %d pts x %d mults = %d, want 1 x 2 = 2 (wae_country mult from DL1ABC, 20M weight 2)", dxScore.qsoPoints, dxScore.multipliers, dxScore.total())
+	}
+}
+
 // TestExportCabrilloWritesComputedClaimedScore ties the scorer to the header:
 // a CW Open session log must carry the computed CLAIMED-SCORE, not 0.
 func TestExportCabrilloWritesComputedClaimedScore(t *testing.T) {

@@ -359,7 +359,7 @@ type multiplierRule struct {
 // loudly at startup instead of silently scoring zero multipliers.
 func validMultiplierKind(kind string) bool {
 	switch strings.TrimSpace(kind) {
-	case "unique_call", "dxcc", "cqzone", "ituzone", "prefix", "exchange_area", "tn_county", "sac_area", "naqp_area", "arrl_section", "iaru_zone", "iaru_hq":
+	case "unique_call", "dxcc", "cqzone", "ituzone", "prefix", "exchange_area", "tn_county", "sac_area", "naqp_area", "arrl_section", "iaru_zone", "iaru_hq", "wae_country", "dxcc_non_wae":
 		return true
 	default:
 		return false
@@ -373,10 +373,12 @@ func validScoringMultiplier(kind string) bool {
 }
 
 // validMultiplierPer reports whether per is a scope multiplierCount
-// understands.
+// understands. "band_weighted" is WAE's own per-band multiplier bonus
+// (Section 6: countries worked on 80M count 4x, 40M 3x, 20/15/10M 2x) —
+// distinct from "band" (an unweighted per-band count).
 func validMultiplierPer(per string) bool {
 	switch strings.TrimSpace(per) {
-	case "band", "contest":
+	case "band", "contest", "band_weighted":
 		return true
 	default:
 		return false

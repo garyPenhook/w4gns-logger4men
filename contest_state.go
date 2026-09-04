@@ -106,6 +106,21 @@ type contestState struct {
 	// zone, also counted per band alongside the zone multiplier (Rule 5.2.1).
 	iaruSpecialByBand map[string]map[string]struct{}
 	iaruSpecialAll    map[string]struct{}
+	// waeCountryByBand/waeCountryAll mirror sacAreaByBand/sacAreaAll for the
+	// "wae_country" multiplier kind (wae_country.go's isWAECountry): the
+	// worked station's WAE Country List membership, the WAE DX Contest's
+	// multiplier for a non-European entrant (Section 6), keyed by cty.dat
+	// country name since the WAE list has no DXCC-number equivalent.
+	waeCountryByBand map[string]map[string]struct{}
+	waeCountryAll    map[string]struct{}
+	// dxccNonWAEByBand/dxccNonWAEAll mirror dxccByBand/dxccAll but only for a
+	// worked entity whose country is NOT in the WAE Country List — the WAE DX
+	// Contest's multiplier for a European entrant (Section 6: "the number of
+	// countries defined in the DXCC list worked", i.e. non-European DXCC
+	// entities, since a European entrant can only work non-European stations
+	// under Section 5).
+	dxccNonWAEByBand map[string]map[int]struct{}
+	dxccNonWAEAll    map[int]struct{}
 	// pointCategoryCountry records the worked entity's cty.dat country name
 	// for every scored "CALL|BAND" key, independent of whether the operator's
 	// own station resolved — a pointsRule.CountryGroup check (e.g. SAC's
@@ -199,6 +214,10 @@ func newContestState() *contestState {
 		iaruZoneAll:            make(map[int]struct{}),
 		iaruSpecialByBand:      make(map[string]map[string]struct{}),
 		iaruSpecialAll:         make(map[string]struct{}),
+		waeCountryByBand:       make(map[string]map[string]struct{}),
+		waeCountryAll:          make(map[string]struct{}),
+		dxccNonWAEByBand:       make(map[string]map[int]struct{}),
+		dxccNonWAEAll:          make(map[int]struct{}),
 		pointCategory:          make(map[string]qsoPointCategory),
 		pointCategoryContinent: make(map[string]string),
 		pointCategoryCountry:   make(map[string]string),
@@ -297,6 +316,11 @@ func (c *contestState) record(q qso) {
 				recordMultiplierValue(c.cqZoneByBand, c.cqZoneAll, band, entity.CQZone)
 				recordMultiplierValue(c.ituZoneByBand, c.ituZoneAll, band, entity.ITUZone)
 				recordMultiplierStringValue(c.sacAreaByBand, c.sacAreaAll, band, sacAreaCode(entity, call))
+				if isWAECountry(entity.Country) {
+					recordMultiplierStringValue(c.waeCountryByBand, c.waeCountryAll, band, entity.Country)
+				} else {
+					recordMultiplierValue(c.dxccNonWAEByBand, c.dxccNonWAEAll, band, entity.DXCCNumber)
+				}
 				if entity.Country != "" {
 					c.pointCategoryCountry[key] = entity.Country
 				}
@@ -624,6 +648,22 @@ func (c *contestState) multiplierCount(rule multiplierRule) int {
 			return total
 		}
 		return len(c.iaruSpecialAll)
+	case "wae_country":
+		if strings.TrimSpace(rule.Per) == "band_weighted" {
+			total := 0
+			for band, set := range c.waeCountryByBand {
+				total += len(set) * waeBandBonus(band)
+			}
+			return total
+		}
+		if strings.TrimSpace(rule.Per) == "band" {
+			total := 0
+			for _, set := range c.waeCountryByBand {
+				total += len(set)
+			}
+			return total
+		}
+		return len(c.waeCountryAll)
 	}
 	var byBand map[string]map[int]struct{}
 	var all map[int]struct{}
@@ -638,8 +678,17 @@ func (c *contestState) multiplierCount(rule multiplierRule) int {
 		byBand, all = c.ituZoneByBand, c.ituZoneAll
 	case "iaru_zone":
 		byBand, all = c.iaruZoneByBand, c.iaruZoneAll
+	case "dxcc_non_wae":
+		byBand, all = c.dxccNonWAEByBand, c.dxccNonWAEAll
 	default:
 		return 0
+	}
+	if strings.TrimSpace(rule.Per) == "band_weighted" {
+		total := 0
+		for band, set := range byBand {
+			total += len(set) * waeBandBonus(band)
+		}
+		return total
 	}
 	if strings.TrimSpace(rule.Per) == "band" {
 		total := 0
@@ -805,7 +854,7 @@ func (c *contestState) wouldBeNewMultiplier(rules *scoringRules, call, band, exc
 			} else {
 				newMult = true
 			}
-		case "dxcc", "cqzone", "ituzone":
+		case "dxcc", "cqzone", "ituzone", "dxcc_non_wae":
 			if !entityFound {
 				continue
 			}
@@ -819,15 +868,35 @@ func (c *contestState) wouldBeNewMultiplier(rules *scoringRules, call, band, exc
 				value, byBand, all = entity.CQZone, c.cqZoneByBand, c.cqZoneAll
 			case "ituzone":
 				value, byBand, all = entity.ITUZone, c.ituZoneByBand, c.ituZoneAll
+			case "dxcc_non_wae":
+				if isWAECountry(entity.Country) {
+					continue
+				}
+				value, byBand, all = entity.DXCCNumber, c.dxccNonWAEByBand, c.dxccNonWAEAll
 			}
 			if value == 0 {
 				continue
 			}
 			var already bool
-			if strings.TrimSpace(rule.Per) == "band" {
-				_, already = byBand[band][value]
-			} else {
+			if strings.TrimSpace(rule.Per) == "contest" {
 				_, already = all[value]
+			} else {
+				_, already = byBand[band][value]
+			}
+			if already {
+				workedBefore = true
+			} else {
+				newMult = true
+			}
+		case "wae_country":
+			if !entityFound || !isWAECountry(entity.Country) {
+				continue
+			}
+			var already bool
+			if strings.TrimSpace(rule.Per) == "contest" {
+				_, already = c.waeCountryAll[entity.Country]
+			} else {
+				_, already = c.waeCountryByBand[band][entity.Country]
 			}
 			if already {
 				workedBefore = true

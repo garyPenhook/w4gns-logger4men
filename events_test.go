@@ -536,6 +536,84 @@ func TestLoadEventCatalogNASprintCWHasRealScoringRules(t *testing.T) {
 	}
 }
 
+// TestLoadEventCatalogWAEHasRealScoringRules guards the curated
+// DARC-WAEDC-CW entry's actual scoring config, sourced from darc.de's WAEDC
+// rules (Section 8: "total QSOs ... multiplied by the sum of all
+// multipliers weighted by the band bonus factor" — a flat 1 point per QSO,
+// no continent/country tiering unlike CQ WW/ARRL DX) and the WAE Country
+// List's own side-asymmetric multiplier (Section 6): a non-European entrant
+// (this app's own station profile, hence DXScoring) counts distinct WAE
+// Country List entities worked per band, while a European entrant (Scoring)
+// counts distinct non-European DXCC entities worked per band — the reverse
+// of ARRL-DX-CW's DomesticCountries convention, since WAE's own "domestic"
+// side is Europe, not this app's usual W/VE-station-is-domestic default;
+// DomesticCountries here is therefore the enumerable European country list,
+// not this app's own continent. Both sides apply Section 6's band bonus
+// (4x on 80M, 3x on 40M, 2x on 20/15/10M) via the new "band_weighted" Per
+// scope. QTC bonus points (Section 7) and Section 5's EU/non-EU QSO
+// eligibility restriction are deliberately out of scope for this pass — see
+// docs/ROADMAP.md.
+func TestLoadEventCatalogWAEHasRealScoringRules(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	wae := events[eventIndex(t, events, "DARC-WAEDC-CW")]
+	if wae.Capability != catalogCapabilityScoringReady {
+		t.Fatalf("DARC-WAEDC-CW capability = %q, want %q", wae.Capability, catalogCapabilityScoringReady)
+	}
+	if wae.Scoring == nil || wae.Scoring.PointsPerQSO != 1 {
+		t.Fatalf("DARC-WAEDC-CW scoring = %+v, want PointsPerQSO 1", wae.Scoring)
+	}
+	mults := wae.Scoring.effectiveMultipliers()
+	if len(mults) != 1 || mults[0].Kind != "dxcc_non_wae" || mults[0].Per != "band_weighted" {
+		t.Fatalf("DARC-WAEDC-CW multipliers = %+v, want [{dxcc_non_wae band_weighted}]", mults)
+	}
+	if wae.DXScoring == nil || wae.DXScoring.PointsPerQSO != 1 {
+		t.Fatalf("DARC-WAEDC-CW dx_scoring = %+v, want PointsPerQSO 1", wae.DXScoring)
+	}
+	dxMults := wae.DXScoring.effectiveMultipliers()
+	if len(dxMults) != 1 || dxMults[0].Kind != "wae_country" || dxMults[0].Per != "band_weighted" {
+		t.Fatalf("DARC-WAEDC-CW dx_scoring multipliers = %+v, want [{wae_country band_weighted}]", dxMults)
+	}
+	if !countryInList(wae.DomesticCountries, "Fed. Rep. of Germany") || !countryInList(wae.DomesticCountries, "England") {
+		t.Fatalf("DARC-WAEDC-CW domestic_countries must include Germany and England (WAE's own EU side)")
+	}
+	if countryInList(wae.DomesticCountries, "United States") {
+		t.Fatal("DARC-WAEDC-CW domestic_countries must not include United States")
+	}
+	if got := wae.effectiveScoring("Fed. Rep. of Germany"); got != wae.Scoring {
+		t.Fatal("a European station (Germany) must use Scoring")
+	}
+	if got := wae.effectiveScoring("United States"); got != wae.DXScoring {
+		t.Fatal("a non-European station (United States) must use DXScoring")
+	}
+	if got := wae.effectiveScoring(""); got != wae.Scoring {
+		t.Fatal("an unresolved station must conservatively fall back to Scoring")
+	}
+	for _, name := range wae.DomesticCountries {
+		if !isWAECountry(name) {
+			t.Fatalf("domestic_countries entry %q is not in the wae_country.go WAE Country List", name)
+		}
+	}
+	for name := range waeCountries {
+		if !countryInList(wae.DomesticCountries, name) {
+			t.Fatalf("wae_country.go WAE Country List entry %q missing from domestic_countries", name)
+		}
+	}
+	if wae.ADIFContestID != "DARC-WAEDC-CW" {
+		t.Fatalf("DARC-WAEDC-CW adif_contest_id = %q, want DARC-WAEDC-CW", wae.ADIFContestID)
+	}
+	if !wae.cabrilloReady() {
+		t.Fatal("DARC-WAEDC-CW must have a checked Cabrillo layout")
+	}
+	for _, event := range events {
+		if event.ID == "SD-WAEDX" {
+			t.Fatalf("generated SD-WAEDX should have been de-duped against curated DARC-WAEDC-CW")
+		}
+	}
+}
+
 // TestReceivedExchangeAutofillExcludedIsCaseInsensitiveAndSafeOnBlank guards
 // the helper autofillReceivedExchange calls on every keystroke: matching
 // must not depend on cty.dat's exact letter casing, and an unresolved

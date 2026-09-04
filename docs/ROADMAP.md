@@ -58,9 +58,10 @@ the log, submitted contest results, or external services.
 - 🔧 **Audit and implement scoring per contest before presenting the catalog as
   correct.** Every one of the 429 event records now declares and is validated
   against an explicit `capability`: 9 intentionally generic templates are
-  `selection-only`, 408 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
+  `selection-only`, 407 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
   `CQ-160-CW`, `ARRL-DX-CW`, `CQ-WPX-CW`, `TNQP`, `SAC-CW`, `NAQP-CW`,
-  `ARRL-SS-CW`, `IARU-HF`, and `NA-SPRINT-CW` are `scoring-ready`. **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
+  `ARRL-SS-CW`, `IARU-HF`, `NA-SPRINT-CW`, and `DARC-WAEDC-CW` are
+  `scoring-ready`. **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
   side-asymmetric around a fixed "Scandinavian" country group — Norway,
   Finland, Sweden, Iceland, Denmark, and the territories the rules list by
   their own prefix block (Svalbard, Jan Mayen, Åland Islands, Market Reef,
@@ -804,6 +805,77 @@ every panel *and* scoring so they always agree.
   register as a multiplier under the generic `naqp_area` lookup — a
   vanishingly rare edge case, not fixed with special-case code. Tests:
   `events_test.go` (`TestLoadEventCatalogNASprintCWHasRealScoringRules`).
+- ✅ **Real per-contest wiring: WAE DX Contest, CW's actual QSO points and
+  multiplier rules** (QTC traffic-list bonus points and Section 5's EU/non-EU
+  QSO eligibility restriction deliberately out of scope — see below).
+  Sourced from darc.de's WAEDC rules page (Sections 5, 6, 8): Section 8's
+  score formula ("total QSOs ... multiplied by the sum of all multipliers
+  weighted by the band bonus factor") is a flat 1 point per QSO, unlike CQ
+  WW/ARRL DX/WPX's continent-tiered points — so no new points schema was
+  needed. Section 6's multiplier is genuinely side-asymmetric, but in the
+  *opposite* direction from every side-asymmetric event wired so far: a
+  non-European entrant (this app's own station profile) counts distinct **WAE
+  Country List** entities worked per band, while a European entrant counts
+  distinct **non-European DXCC** entities worked per band — WAE's own
+  "domestic" side is Europe, not this app's usual W/VE-station-is-domestic
+  default, so `DomesticCountries` here is (unlike every prior use) the
+  enumerable European side, and `Scoring`/`DXScoring` are assigned the
+  reverse of ARRL-DX-CW's convention (`Scoring` = the European-entrant rules,
+  `DXScoring` = this app's own non-European-entrant rules) — a labeling
+  inversion documented inline in both `events.go` and the catalog entry so it
+  isn't mistaken for a bug. **New `wae_country.go`** (`waeCountries`,
+  `isWAECountry`, `waeCountryNames`) resolves the WAE Country List by
+  cty.dat country name rather than re-deriving prefix matching: every WAE
+  rules-page prefix token was resolved through this app's own embedded
+  cty.dat to build the 69-country set (four tokens don't add a distinct
+  entity under this app's data — 4U1V/Vienna Intl Ctr has no separate cty.dat
+  entity and folds into Austria like OE, and the rules page's `GM/s`/`JW/b`
+  sub-designators are marked non-DXCC in cty.dat and aren't resolvable from
+  an ordinary callsign, so they fold into their parent entities Scotland/
+  Svalbard — the same practical-approximation class as `wpxPrefix`'s
+  non-exhaustive call handling). **New `wae_country`/`dxcc_non_wae`
+  multiplier kinds** (`contest_state.go`: `waeCountryByBand`/`waeCountryAll`,
+  `dxccNonWAEByBand`/`dxccNonWAEAll`, populated in `record()` by checking
+  `isWAECountry` against the worked entity's resolved country) implement the
+  two sides; `dxcc_non_wae` skips any worked entity whose country IS in the
+  WAE list, so an accidental EU-EU contact under a European entrant's config
+  doesn't spuriously add a multiplier even without an enforced eligibility
+  check. **New `multiplierRule.Per: "band_weighted"` scope** (`events.go`
+  `validMultiplierPer`; `contest_state.go` `multiplierCount`) implements
+  Section 6's own band-bonus factor (`wae_country.go` `waeBandBonus`: 4x on
+  80M, 3x on 40M, 2x on 20/15/10M) applied to whichever side's per-band
+  count — a genuinely new multiplier-side capability (SAC's `CountryGroup`/
+  `GroupPoints` and WPX's low-band tiering are both *points*-side weighting,
+  not multiplier-side). Curated `DARC-WAEDC-CW`
+  (`events/contestcalendar.json`) carries the real `scoring`/`dx_scoring`
+  blocks plus `domestic_countries` (the 69-country WAE list, cross-checked
+  1:1 against `wae_country.go`'s own set by test), `adif_contest_id:
+  DARC-WAEDC-CW` (confirmed against the ADIF Contest ID Enumeration), and
+  `cabrillo_layout: cw_rst_exchange` (RST + serial number on both sides,
+  matching CQ WW/CQ 160/ARRL DX/WPX/IARU HF's shape), promoting `capability`
+  to `scoring-ready`. Closing this out also surfaced a pre-existing dedup
+  gap: the generated `SD-WAEDX` entry's own `cabrillo_contest` token
+  (`DARC-WAEDC`, no `-CW` suffix) never matched the curated entry's
+  ID-derived token (`DARC-WAEDC-CW`), so the two survived as an undetected
+  duplicate pair — fixed by adding `"cabrillo_contest": "DARC-WAEDC"` to the
+  curated entry, the same class of fix CWT needed. **Deliberately out of
+  scope, not a rules gap:** Section 7's QTC (traffic list) bonus points need
+  actual QTC send/receive/log functionality this app doesn't have yet (still
+  tracked separately in §4, "WAE QTC send/receive/log"); Section 5's
+  restriction that a contest QSO can only be between a European and a
+  non-European station is unenforced, so — unlike the QSO-eligibility-clean
+  contests wired so far — an operator who logs an invalid same-side contact
+  under this event would still have it scored (though `dxcc_non_wae`'s own
+  WAE-list exclusion means an accidental EU-EU contact can't inflate a
+  European entrant's multiplier, only its QSO-point count). Tests:
+  `wae_country_test.go` (`TestIsWAECountry`, `TestWAECountriesHas69Values`,
+  `TestWAEBandBonus`), `contest_state_test.go`
+  (`TestContestStateScoreWAECountryMultiplierBandWeighted`,
+  `TestContestStateScoreDXCCNonWAEMultiplierBandWeighted`,
+  `TestContestStateWouldBeNewMultiplierWAECountry`,
+  `TestContestStateWouldBeNewMultiplierDXCCNonWAE`), `events_test.go`
+  (`TestLoadEventCatalogWAEHasRealScoringRules`), `cabrillo_export_test.go`
+  (`TestComputeContestScoreWAESideAsymmetric`).
 - ✅ **CSV export** (`Ctrl+R`). `csv_export.go` (`exportCSV`, `writeCSVAtomic`,
   `csvField`/`csvRow` — RFC 4180 quoting, CRLF rows) streams the active
   contest's QSOs (same `contest_id` scoping as Cabrillo/ADIF export) to

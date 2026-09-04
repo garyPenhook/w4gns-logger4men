@@ -402,6 +402,107 @@ func TestContestStateScorePrefixMultiplierCountsOncePerContest(t *testing.T) {
 	}
 }
 
+// TestContestStateScoreWAECountryMultiplierBandWeighted exercises the WAE DX
+// Contest's non-European-entrant multiplier (Section 6): distinct WAE
+// Country List entities worked per band, weighted by Section 6's band bonus
+// (4x 80M, 3x 40M, 2x 20/15/10M) via the "band_weighted" Per scope. A second
+// station from an already-counted WAE country on the same band doesn't add
+// another; a non-WAE country (United States) contributes nothing to this
+// side's multiplier.
+func TestContestStateScoreWAECountryMultiplierBandWeighted(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "DL1ABC", band: "80M"}) // Germany, new on 80M
+	state.record(qso{call: "DL2XYZ", band: "80M"}) // Germany again, same band
+	state.record(qso{call: "ON4ABC", band: "80M"}) // Belgium, new on 80M
+	state.record(qso{call: "G3ABC", band: "40M"})  // England, new on 40M
+	state.record(qso{call: "W1AW", band: "20M"})   // United States, not in WAE list
+
+	rules := &scoringRules{
+		PointsPerQSO: 1,
+		Multipliers:  []multiplierRule{{Kind: "wae_country", Per: "band_weighted"}},
+	}
+	score := state.score(rules)
+	want := 2*4 + 1*3 // 80M: Germany+Belgium x4, 40M: England x3
+	if score.multipliers != want {
+		t.Fatalf("multipliers = %d, want %d", score.multipliers, want)
+	}
+}
+
+// TestContestStateScoreDXCCNonWAEMultiplierBandWeighted exercises the WAE DX
+// Contest's European-entrant multiplier (Section 6): distinct non-European
+// DXCC entities worked per band, weighted by the same band bonus. A WAE-list
+// entity (Germany, Belgium, England) never contributes to this multiplier
+// even though it was logged, since Section 5 restricts a European entrant to
+// working only non-European stations.
+func TestContestStateScoreDXCCNonWAEMultiplierBandWeighted(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "DL1ABC", band: "80M"}) // Germany, WAE-list, excluded
+	state.record(qso{call: "ON4ABC", band: "80M"}) // Belgium, WAE-list, excluded
+	state.record(qso{call: "G3ABC", band: "40M"})  // England, WAE-list, excluded
+	state.record(qso{call: "W1AW", band: "20M"})   // United States, new non-WAE on 20M
+	state.record(qso{call: "K5ABC", band: "20M"})  // United States again, same band
+
+	rules := &scoringRules{
+		PointsPerQSO: 1,
+		Multipliers:  []multiplierRule{{Kind: "dxcc_non_wae", Per: "band_weighted"}},
+	}
+	score := state.score(rules)
+	want := 1 * 2 // 20M: United States x2, WAE-list contacts excluded
+	if score.multipliers != want {
+		t.Fatalf("multipliers = %d, want %d", score.multipliers, want)
+	}
+}
+
+// TestContestStateWouldBeNewMultiplierWAECountry exercises the as-you-type
+// "NEW MULT" flag for the wae_country kind: a repeated WAE-list country on
+// the same band is workedBefore, a new one is newMult, and a non-WAE-list
+// entity (United States) is neither, since it can never contribute to this
+// side's multiplier.
+func TestContestStateWouldBeNewMultiplierWAECountry(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "DL1ABC", band: "20M"})
+
+	rules := &scoringRules{
+		Multipliers: []multiplierRule{{Kind: "wae_country", Per: "band_weighted"}},
+	}
+	germany := dxccEntity{Country: "Fed. Rep. of Germany"}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "DL2XYZ", "20M", "", germany, true); newMult || !workedBefore {
+		t.Fatalf("Germany (already worked on 20M) = newMult=%v workedBefore=%v, want false/true", newMult, workedBefore)
+	}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "ON4ABC", "20M", "", dxccEntity{Country: "Belgium"}, true); !newMult || workedBefore {
+		t.Fatalf("Belgium (new WAE country) = newMult=%v workedBefore=%v, want true/false", newMult, workedBefore)
+	}
+	usa := dxccEntity{Country: "United States"}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "W1AW", "20M", "", usa, true); newMult || workedBefore {
+		t.Fatalf("United States (not WAE) = newMult=%v workedBefore=%v, want false/false", newMult, workedBefore)
+	}
+}
+
+// TestContestStateWouldBeNewMultiplierDXCCNonWAE exercises the as-you-type
+// "NEW MULT" flag for the dxcc_non_wae kind: a repeated non-WAE entity on
+// the same band is workedBefore, a new one is newMult, and a WAE-list entity
+// (Germany) is neither, matching a European entrant's own multiplier scope.
+func TestContestStateWouldBeNewMultiplierDXCCNonWAE(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "W1AW", band: "20M"})
+
+	rules := &scoringRules{
+		Multipliers: []multiplierRule{{Kind: "dxcc_non_wae", Per: "band_weighted"}},
+	}
+	usa := dxccEntity{Country: "United States", DXCCNumber: 291}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "K5ABC", "20M", "", usa, true); newMult || !workedBefore {
+		t.Fatalf("United States (already worked on 20M) = newMult=%v workedBefore=%v, want false/true", newMult, workedBefore)
+	}
+	japan := dxccEntity{Country: "Japan", DXCCNumber: 339}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "JA1ABC", "20M", "", japan, true); !newMult || workedBefore {
+		t.Fatalf("Japan (new non-WAE entity) = newMult=%v workedBefore=%v, want true/false", newMult, workedBefore)
+	}
+	germany := dxccEntity{Country: "Fed. Rep. of Germany", DXCCNumber: 230}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "DL1ABC", "20M", "", germany, true); newMult || workedBefore {
+		t.Fatalf("Germany (WAE-list) = newMult=%v workedBefore=%v, want false/false", newMult, workedBefore)
+	}
+}
+
 // TestContestStateScoreExchangeAreaMultiplierFromReceivedExchange exercises
 // CQ 160 Meter CW's "exchange_area" multiplier: a US state/DC/Canadian
 // province parsed from the worked station's received exchange text (not

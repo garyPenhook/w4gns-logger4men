@@ -361,9 +361,10 @@
   },
   {
     "id": "DARC-WAEDC-CW",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "WAE DX Contest, CW",
     "organizer": "",
+    "cabrillo_contest": "DARC-WAEDC",
     "kind": "annual contest",
     "schedule": "0000Z, Aug 8 to 2359Z, Aug 9",
     "bands": [
@@ -377,6 +378,8 @@
     "sent_exchange_hint": "RST + Serial No.",
     "received_exchange_hint": "RST + Serial No.",
     "dupe_scope": "call+band",
+    "adif_contest_id": "DARC-WAEDC-CW",
+    "cabrillo_layout": "cw_rst_exchange",
     "rules_url": "https://www.darc.de/der-club/referate/conteste/wae-dx-contest/en/",
     "score_submission_url": "",
     "sessions": [
@@ -385,7 +388,36 @@
         "label": "WAE DX Contest, CW",
         "schedule": "0000Z, Aug 8 to 2359Z, Aug 9"
       }
-    ]
+    ],
+    "domestic_countries": [
+      "Aland Islands", "Albania", "Andorra", "Austria", "Azores",
+      "Balearic Islands", "Belarus", "Belgium", "Bosnia-Herzegovina",
+      "Bulgaria", "Corsica", "Crete", "Croatia", "Czech Republic",
+      "Denmark", "Dodecanese", "England", "Estonia", "European Russia",
+      "European Turkey", "Faroe Islands", "Fed. Rep. of Germany",
+      "Finland", "France", "Franz Josef Land", "Gibraltar", "Greece",
+      "Guernsey", "Hungary", "ITU HQ", "Iceland", "Ireland",
+      "Isle of Man", "Italy", "Jan Mayen", "Jersey", "Kaliningrad",
+      "Latvia", "Liechtenstein", "Lithuania", "Luxembourg", "Malta",
+      "Market Reef", "Moldova", "Monaco", "Montenegro", "Mount Athos",
+      "Netherlands", "North Macedonia", "Northern Ireland", "Norway",
+      "Poland", "Portugal", "Republic of Kosovo", "Romania",
+      "San Marino", "Sardinia", "Scotland", "Serbia", "Slovak Republic",
+      "Slovenia", "Sov Mil Order of Malta", "Spain", "Svalbard",
+      "Sweden", "Switzerland", "Ukraine", "Vatican City", "Wales"
+    ],
+    "scoring": {
+      "points_per_qso": 1,
+      "multipliers": [
+        {"kind": "dxcc_non_wae", "per": "band_weighted"}
+      ]
+    },
+    "dx_scoring": {
+      "points_per_qso": 1,
+      "multipliers": [
+        {"kind": "wae_country", "per": "band_weighted"}
+      ]
+    }
   },
   {
     "id": "KEYMAN-S-CLUB-OF-JAPAN-CONTEST",
