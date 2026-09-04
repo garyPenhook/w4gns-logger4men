@@ -1465,7 +1465,7 @@ func (m *model) autofillReceivedExchange(call string) {
 	zone := ""
 	if call != "" {
 		if table, err := sharedDXCCTable(); err == nil {
-			if entity, found := table.lookup(call); found {
+			if entity, found := table.lookup(call); found && !event.receivedExchangeAutofillExcluded(entity.Country) {
 				switch kind {
 				case "cq_zone":
 					if entity.CQZone > 0 {

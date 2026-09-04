@@ -252,6 +252,32 @@ func TestLoadEventCatalogCQ160HasRealScoringRules(t *testing.T) {
 	if len(mults) != 1 || mults[0].Kind != "dxcc" || mults[0].Per != "contest" {
 		t.Fatalf("CQ-160-CW multipliers = %+v, want [{dxcc contest}]", mults)
 	}
+	if cq160.receivedExchangeZoneKind() != "cq_zone" {
+		t.Fatalf("CQ-160-CW received_exchange_autofill = %q, want cq_zone", cq160.receivedExchangeZoneKind())
+	}
+	if !cq160.receivedExchangeAutofillExcluded("United States") || !cq160.receivedExchangeAutofillExcluded("Canada") {
+		t.Fatal("CQ-160-CW must exclude United States and Canada from zone autofill (they send state/province, not a zone)")
+	}
+	if cq160.receivedExchangeAutofillExcluded("England") {
+		t.Fatal("CQ-160-CW must not exclude a DX entity from zone autofill")
+	}
+}
+
+// TestReceivedExchangeAutofillExcludedIsCaseInsensitiveAndSafeOnBlank guards
+// the helper autofillReceivedExchange calls on every keystroke: matching
+// must not depend on cty.dat's exact letter casing, and an unresolved
+// worked-station country (blank) must never match an exclusion list.
+func TestReceivedExchangeAutofillExcludedIsCaseInsensitiveAndSafeOnBlank(t *testing.T) {
+	event := eventDefinition{ReceivedExchangeAutofillDomestic: []string{"United States", "Canada"}}
+	if !event.receivedExchangeAutofillExcluded("united states") {
+		t.Error("expected case-insensitive match for 'united states'")
+	}
+	if event.receivedExchangeAutofillExcluded("") {
+		t.Error("blank country must never be excluded")
+	}
+	if event.receivedExchangeAutofillExcluded("Germany") {
+		t.Error("Germany is not on the exclusion list")
+	}
 }
 
 // TestLoadEventCatalogARRLDXCWHasRealScoringRules guards the curated

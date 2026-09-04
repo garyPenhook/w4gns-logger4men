@@ -56,6 +56,17 @@ type eventDefinition struct {
 	// state/province exchange and a DX zone exchange in that text. An empty
 	// value is the safe default.
 	ReceivedExchangeAutofill string `json:"received_exchange_autofill"`
+	// ReceivedExchangeAutofillDomestic lists cty.dat country names (exact
+	// match, e.g. "United States", "Canada") for which ReceivedExchangeAutofill
+	// must NOT fire. It exists for contests whose exchange is genuinely
+	// side-dependent by the worked station's own entity rather than uniform —
+	// CQ 160 CW has DX stations send a CQ zone but W/VE stations send a
+	// state/province/DC that cty.dat has no way to derive. Autofilling a
+	// guessed zone for a worked W/VE station would silently contradict the
+	// actual (unresolvable-from-callsign) required exchange, so those entities
+	// are excluded rather than guessed. Empty means the kind applies uniformly
+	// (e.g. CQ WW CW, worked on both sides as a CQ zone).
+	ReceivedExchangeAutofillDomestic []string `json:"received_exchange_autofill_domestic,omitempty"`
 	// CabrilloLayout declares that this event's QSO-line shape has been checked
 	// against the sponsor format. Blank means the catalog entry is useful for
 	// selection/entry only and must not be exported as a purported submission.
@@ -278,6 +289,24 @@ func (e eventDefinition) receivedExchangeZoneKind() string {
 	return strings.TrimSpace(e.ReceivedExchangeAutofill)
 }
 
+// receivedExchangeAutofillExcluded reports whether country (a cty.dat
+// dxccEntity.Country value) is on this event's autofill-domestic exclusion
+// list — i.e. the worked station's real exchange isn't the callsign-derived
+// zone ReceivedExchangeAutofill names, so autofillReceivedExchange must leave
+// the field blank rather than prefill a wrong guess.
+func (e eventDefinition) receivedExchangeAutofillExcluded(country string) bool {
+	country = strings.TrimSpace(country)
+	if country == "" {
+		return false
+	}
+	for _, excluded := range e.ReceivedExchangeAutofillDomestic {
+		if strings.EqualFold(strings.TrimSpace(excluded), country) {
+			return true
+		}
+	}
+	return false
+}
+
 func validReceivedExchangeAutofill(kind string) bool {
 	switch strings.TrimSpace(kind) {
 	case "", "cq_zone", "itu_zone":
@@ -431,6 +460,9 @@ func loadEventCatalog() ([]eventDefinition, error) {
 			}
 			if !validReceivedExchangeAutofill(event.ReceivedExchangeAutofill) {
 				return nil, fmt.Errorf("event %q has unsupported received_exchange_autofill %q", event.ID, event.ReceivedExchangeAutofill)
+			}
+			if len(event.ReceivedExchangeAutofillDomestic) > 0 && strings.TrimSpace(event.ReceivedExchangeAutofill) == "" {
+				return nil, fmt.Errorf("event %q has received_exchange_autofill_domestic without received_exchange_autofill", event.ID)
 			}
 			if !validCabrilloLayout(event.CabrilloLayout) {
 				return nil, fmt.Errorf("event %q has unsupported cabrillo_layout %q", event.ID, event.CabrilloLayout)

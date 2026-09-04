@@ -38,8 +38,9 @@ the log, submitted contest results, or external services.
 - 🔧 **Cabrillo export is gated by checked per-event layouts.** The catalog now
   has validated `cabrillo_layout` values, and export refuses any event without
   one while leaving CSV available. The checked CW layouts currently cover CWT,
-  CW Open, CQ WW CW, and CQ 160 CW; every other catalog entry is intentionally
-  selection/entry-only until its sponsor-specific schema is verified.
+  CW Open, CQ WW CW, CQ 160 CW, ARRL DX CW, and CQ WPX CW; every other catalog
+  entry is intentionally selection/entry-only until its sponsor-specific
+  schema is verified.
 
 - 🔧 **Audit and implement scoring per contest before presenting the catalog as
   correct.** Every one of the 429 event records now declares and is validated
@@ -52,10 +53,28 @@ the log, submitted contest results, or external services.
   `scoring` block and must not be promoted until its rules are tested
   against authoritative examples.
 
-- 🔧 **Zone autofill no longer infers rules from prose hints.** It requires an
-  explicit `received_exchange_autofill` catalog value; ambiguous events such as
-  CQ 160 CW therefore do not manufacture a zone. A complete side-aware
-  operator/worked-entity exchange schema is still planned.
+- ✅ **Zone autofill no longer infers rules from prose hints, and is now
+  side-aware by the worked entity.** It requires an explicit
+  `received_exchange_autofill` catalog value (`events.go`
+  `receivedExchangeZoneKind`). For contests where the exchange genuinely
+  differs by which side the *worked* station is on — CQ 160 CW's DX stations
+  send a CQ zone, but W/VE stations send a state/province cty.dat has no way
+  to derive — a new `received_exchange_autofill_domestic` list of exact
+  cty.dat country names (`ReceivedExchangeAutofillDomestic`,
+  `receivedExchangeAutofillExcluded`) excludes those entities from the
+  callsign-derived guess instead of prefilling a value the station will never
+  actually send. `autofillReceivedExchange` (`main.go`) checks the exclusion
+  before filling the zone. Wired into curated `CQ-160-CW`
+  (`received_exchange_autofill: cq_zone`, domestic `["United States",
+  "Canada"]`); `CQ-WW-CW` needed no change since its exchange is a uniform CQ
+  zone on both sides. ARRL DX CW's non-W/VE exchange is power, not a zone, so
+  it's out of scope for this schema — its state/province-vs-DXCC multiplier
+  asymmetry remains the separate open "exchange-derived multiplier kind" gap.
+  The loader rejects a domestic list configured without an autofill kind.
+  Tests: `events_test.go`
+  (`TestLoadEventCatalogCQ160HasRealScoringRules`,
+  `TestReceivedExchangeAutofillExcludedIsCaseInsensitiveAndSafeOnBlank`),
+  `main_test.go` (`TestAutofillReceivedExchangeZoneExcludesDomesticEntities`).
 
 ### P2 — stale state, interoperability, and retry bugs
 

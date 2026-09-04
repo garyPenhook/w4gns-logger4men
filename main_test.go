@@ -675,6 +675,38 @@ func TestAutofillReceivedExchangeZoneIgnoresCursorMovement(t *testing.T) {
 	}
 }
 
+// TestAutofillReceivedExchangeZoneExcludesDomesticEntities guards the
+// side-aware exchange schema (received_exchange_autofill_domestic): CQ 160 CW
+// has DX stations send a CQ zone but W/VE stations send a state/province that
+// cty.dat can't derive, so autofill must fire for a DX call and stay blank
+// for a worked United States/Canada call rather than guess a zone the
+// station never actually sends.
+func TestAutofillReceivedExchangeZoneExcludesDomesticEntities(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	cq160 := m.events[eventIndex(t, m.events, "CQ-160-CW")]
+	m.selectEvent(cq160, cq160.Sessions[0])
+	m.screen = qsoEntryScreen
+	m.focusField(fieldCall)
+
+	m.fields[fieldCall].SetValue("1A0KM")
+	m.checkDupe()
+	if got := m.contestFields[contestExchangeRcvd].Value(); got != "15" {
+		t.Fatalf("autofill for DX call 1A0KM = %q, want CQ zone 15", got)
+	}
+
+	m.fields[fieldCall].SetValue("W1AW")
+	m.checkDupe()
+	if got := m.contestFields[contestExchangeRcvd].Value(); got != "" {
+		t.Fatalf("autofill for domestic call W1AW = %q, want blank (state/province isn't derivable)", got)
+	}
+}
+
 func TestEditQSOFlowSavesChangesWithoutInsertingANewRow(t *testing.T) {
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {

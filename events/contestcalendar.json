@@ -888,6 +888,8 @@
     "received_exchange_hint": "W/VE: RST + (state/province) DX: RST + CQ Zone",
 	"adif_contest_id": "CQ-160-CW",
 	"cabrillo_layout": "cw_rst_exchange",
+	"received_exchange_autofill": "cq_zone",
+	"received_exchange_autofill_domestic": ["United States", "Canada"],
     "dupe_scope": "call+band",
     "rules_url": "http://www.cq160.com/rules.htm",
     "score_submission_url": "",
