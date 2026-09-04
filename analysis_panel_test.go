@@ -156,3 +156,53 @@ func TestAnalysisPanelDupeLine(t *testing.T) {
 		t.Errorf("panel while dupeWarning is set = %q, want a DUPE line", panel)
 	}
 }
+
+// TestAnalysisPanelCheckPartial exercises the roadmap's Check Partial list
+// (Appendix B.3): a fragment typed so far should surface other logged calls
+// containing it, styled by whether logging that candidate on the currently
+// selected band would be new (bold) or a dupe (dim) — not by the in-progress
+// call's own worked state, which the "Worked:"/"NEW MULT" lines already
+// cover.
+func TestAnalysisPanelCheckPartial(t *testing.T) {
+	m := analysisTestModel(t)
+
+	m.fields[fieldCall].SetValue("W1AW")
+	m.fields[fieldBand].SetValue("20M")
+	m, _ = m.logCurrentQSO()
+
+	m.fields[fieldCall].SetValue("K1AW")
+	m.fields[fieldBand].SetValue("40M")
+	m.fields[fieldFrequency].SetValue("7.025")
+	m, _ = m.logCurrentQSO()
+
+	// "1AW" fragments both W1AW and K1AW; on 20M, W1AW is a dupe and K1AW is
+	// new (not yet worked on that band).
+	m.fields[fieldCall].SetValue("1AW")
+	m.fields[fieldBand].SetValue("20M")
+	m.fields[fieldFrequency].SetValue("14.025")
+
+	panel := m.analysisPanel(200)
+	if !strings.Contains(panel, "Partial:") {
+		t.Fatalf("panel = %q, want a Partial: line", panel)
+	}
+	if !strings.Contains(panel, "W1AW") || !strings.Contains(panel, "K1AW") {
+		t.Errorf("panel = %q, want both W1AW and K1AW as candidates", panel)
+	}
+}
+
+// TestAnalysisPanelCheckPartialExcludesExactMatch confirms a fragment that
+// exactly equals an already-logged call doesn't list itself as a candidate
+// — that call already has its own "Worked:" line.
+func TestAnalysisPanelCheckPartialExcludesExactMatch(t *testing.T) {
+	m := analysisTestModel(t)
+
+	m.fields[fieldCall].SetValue("W1AW")
+	m.fields[fieldBand].SetValue("20M")
+	m, _ = m.logCurrentQSO()
+
+	m.fields[fieldCall].SetValue("W1AW")
+	panel := m.analysisPanel(200)
+	if strings.Contains(panel, "Partial:") {
+		t.Errorf("panel = %q, want no Partial: line for an exact-match fragment with no other candidates", panel)
+	}
+}

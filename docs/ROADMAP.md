@@ -126,7 +126,16 @@ every panel *and* scoring so they always agree.
 
 **Phase 2 — databases & partials**
 - ⏳ `roster.go`: `.LST` club rosters (bidirectional call↔name↔number), prefill.
-- ⏳ **Check Partial** panel (prefix + `.`/`,` suffix), ↑ to pull a call.
+  Blocked on open decision #2 (data licensing).
+- ✅ **Check Partial** list. `contestState.checkPartial` (`contest_state.go`)
+  returns prior-logged calls in the active contest containing the in-progress
+  fragment (substring match, self-match excluded, sorted, capped at 5); shown
+  as a `Partial: ...` row in the Analysis panel (`analysis_panel.go`,
+  `checkPartialLine`), bold for a candidate not yet worked on the currently
+  selected band, dim if it would be a dupe there. Scoped to the operator's
+  own log (no `.LST`/`MASTER.DTA` dependency, so it isn't blocked by #2);
+  prefix/suffix mode toggle (`.`/`,`) and ↑-to-pull-into-field are deferred —
+  substring match covers the common case display-only.
 - ⏳ **Super Check Partial** highlight (known-good calls).
 - ⏳ **Worked/Needed by continent** panel; per-band paging.
 - ⏳ **Rate meter** (Q/hr last-10 / last-100 / overall, Q/Mult).

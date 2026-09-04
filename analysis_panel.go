@@ -66,9 +66,39 @@ func (m model) analysisPanel(width int) string {
 		if worked := m.contestIndex.byCall[call]; len(worked) > 0 {
 			lines = append(lines, truncateToWidth("Worked: "+strings.Join(workedBands(worked), " "), width))
 		}
+		if partial := m.checkPartialLine(call, width); partial != "" {
+			lines = append(lines, partial)
+		}
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+// checkPartialLimit caps how many Check Partial candidates are shown, so a
+// short fragment matching most of the log doesn't blow out the panel width.
+const checkPartialLimit = 5
+
+// checkPartialLine renders the Check Partial row (roadmap Appendix B.3):
+// prior-logged calls containing the in-progress fragment, so the operator
+// can complete a call they only half-caught. Each candidate is colored by
+// what logging it *now* — on the band currently selected — would mean:
+// newMultStyle (bold) if that call hasn't been worked on this band yet,
+// helpStyle (dim) if it's a dupe on this band already.
+func (m model) checkPartialLine(fragment string, width int) string {
+	matches := m.contestIndex.checkPartial(fragment, checkPartialLimit)
+	if len(matches) == 0 {
+		return ""
+	}
+	band := m.qsoBand()
+	rendered := make([]string, len(matches))
+	for i, candidate := range matches {
+		if m.contestIndex.isWorkedOnBand(candidate, band) {
+			rendered[i] = helpStyle.Render(candidate)
+		} else {
+			rendered[i] = newMultStyle.Render(candidate)
+		}
+	}
+	return truncateToWidth("Partial: "+strings.Join(rendered, " "), width)
 }
 
 // workedBands returns the de-duplicated, band-plan-ordered list of bands a

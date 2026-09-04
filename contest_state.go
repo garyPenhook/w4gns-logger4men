@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"sort"
 	"strings"
 )
 
@@ -54,6 +55,34 @@ func (c *contestState) record(q qso) {
 func (c *contestState) isWorkedOnBand(call, band string) bool {
 	_, ok := c.workedCallBand[strings.ToUpper(strings.TrimSpace(call))+"|"+strings.ToUpper(strings.TrimSpace(band))]
 	return ok
+}
+
+// checkPartial returns the previously logged calls that contain fragment as
+// a substring — the roadmap's Check Partial list (Appendix B.3): as the
+// operator types a fragment of a call they half-caught, this surfaces
+// candidates from their own log to complete it from. The exact fragment
+// itself is excluded (that call already has its own "Worked:" line), matches
+// are sorted for a stable display order, and the result is capped at limit
+// so the panel can't grow unbounded on a fragment matching most of the log.
+func (c *contestState) checkPartial(fragment string, limit int) []string {
+	fragment = strings.ToUpper(strings.TrimSpace(fragment))
+	if fragment == "" {
+		return nil
+	}
+	var matches []string
+	for call := range c.byCall {
+		if call == fragment {
+			continue
+		}
+		if strings.Contains(call, fragment) {
+			matches = append(matches, call)
+		}
+	}
+	sort.Strings(matches)
+	if len(matches) > limit {
+		matches = matches[:limit]
+	}
+	return matches
 }
 
 // score tallies a contestScore from the index per rules: PointsPerQSO once

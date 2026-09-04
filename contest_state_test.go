@@ -55,6 +55,44 @@ func TestContestStateIsWorkedOnBand(t *testing.T) {
 	}
 }
 
+// TestContestStateCheckPartial exercises the Check Partial candidate list
+// (roadmap Appendix B.3): a substring fragment should surface every other
+// logged call containing it, excluding an exact match to the fragment
+// itself, sorted, and capped at the caller's limit.
+func TestContestStateCheckPartial(t *testing.T) {
+	state := newContestState()
+	for _, call := range []string{"W1AW", "K1AW", "N1AWX", "W4GNS"} {
+		state.record(qso{call: call, band: "20M"})
+	}
+
+	if got := state.checkPartial("", 10); got != nil {
+		t.Fatalf("checkPartial(\"\") = %v, want nil", got)
+	}
+	if got := state.checkPartial("ZZZZZ", 10); got != nil {
+		t.Fatalf("checkPartial with no matches = %v, want nil", got)
+	}
+
+	got := state.checkPartial("1AW", 10)
+	want := []string{"K1AW", "N1AWX", "W1AW"}
+	if len(got) != len(want) {
+		t.Fatalf("checkPartial(1AW) = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("checkPartial(1AW) = %v, want %v", got, want)
+		}
+	}
+
+	// An exact match to the fragment doesn't list itself.
+	if got := state.checkPartial("W1AW", 10); len(got) != 0 {
+		t.Fatalf("checkPartial(W1AW) = %v, want no self-match", got)
+	}
+
+	if got := state.checkPartial("1AW", 2); len(got) != 2 {
+		t.Fatalf("checkPartial(1AW) with limit 2 = %v, want 2 entries", got)
+	}
+}
+
 // TestContestStateRecomputesAfterEdit is Appendix E's hardest case: editing a
 // QSO's call/band must be reflected by a fresh buildContestState call, since
 // the roadmap's "correct any QSO, recompute the whole log instantly"
