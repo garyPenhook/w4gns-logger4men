@@ -41,7 +41,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.16.1"
+const appVersion = "1.17.0"
 
 type screen int
 
@@ -55,6 +55,7 @@ const (
 	qsoDetailsScreen
 	qsoContestScreen
 	continentScreen
+	helpScreen
 )
 
 const (
@@ -327,6 +328,11 @@ type model struct {
 	// Appendix D — bound here to Left/Right instead, since F1 is already the
 	// app-wide "QSO Entry" hotkey on every screen).
 	continentBandFocus int
+	// helpReturnScreen is the screen Ctrl+G was pressed from, so the Help
+	// screen's Esc/F1/Ctrl+G returns the operator exactly where they were
+	// instead of always bouncing to QSO Entry (Help is reachable globally,
+	// unlike the other single-purpose panels).
+	helpReturnScreen screen
 	// contestExchangeRcvdEdited is true once the operator has typed into (or
 	// picked a suggested value for) contestExchangeRcvd this QSO, so
 	// autofillReceivedExchange stops overwriting it — the same
@@ -1463,6 +1469,13 @@ func (m *model) openContinentPanel() {
 	}
 }
 
+// openHelpPanel opens the in-app command reference (Ctrl+G), reachable from
+// any screen (roadmap §3 Phase 3: "in-app HELP for the new commands").
+func (m *model) openHelpPanel() {
+	m.helpReturnScreen = m.screen
+	m.screen = helpScreen
+}
+
 // continentPanelBands returns the bands the Worked/Needed by Continent
 // screen pages through: the active event's allowed bands when one is
 // selected (narrower and more relevant), else every supported amateur band.
@@ -2231,6 +2244,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.openContinentPanel()
 		return m, nil
 	}
+	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "ctrl+g" && m.screen != helpScreen {
+		m.openHelpPanel()
+		return m, nil
+	}
 	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "ctrl+x" {
 		if m.cabrilloExportInProgress {
 			m.statusMsg = "Cabrillo export already in progress…"
@@ -2291,6 +2308,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	if m.screen == continentScreen {
 		return m.updateContinentPanel(msg)
+	}
+	if m.screen == helpScreen {
+		return m.updateHelpPanel(msg)
 	}
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -2635,6 +2655,113 @@ func (m model) continentPanelView() string {
 	return b.String()
 }
 
+// updateHelpPanel drives the in-app command reference (roadmap §3 Phase 3:
+// "in-app HELP for the new commands"). Esc/Ctrl+G return to whichever screen
+// Ctrl+G was pressed from, since Help is reachable globally. F1 is kept
+// consistent with its app-wide meaning on every other screen — always QSO
+// Entry, never "back" — so the hotkey bar's "F1: QSO Entry" stays true here.
+func (m model) updateHelpPanel(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if key, ok := msg.(tea.KeyMsg); ok {
+		switch key.String() {
+		case "ctrl+c":
+			return m, tea.Quit
+		case "f1":
+			m.screen = qsoEntryScreen
+			m.focusField(fieldCall)
+			return m, nil
+		case "esc", "ctrl+g":
+			m.screen = m.helpReturnScreen
+			if m.screen == qsoEntryScreen {
+				m.focusField(fieldCall)
+			}
+			return m, nil
+		}
+	}
+	return m, nil
+}
+
+// helpPanelView renders the static in-app command reference: every screen
+// hotkey, the QSO Entry field/editing keys, and the as-you-type contest
+// tools, so the operator doesn't need docs/ROADMAP.md open to find a command.
+func (m model) helpPanelView() string {
+	var b strings.Builder
+	b.WriteString(screenHotkeys(helpScreen))
+	b.WriteString("\n")
+	b.WriteString(headerStyle.Render("Help — Commands & Keys"))
+	b.WriteString("\n\n")
+
+	section := func(title string, lines ...string) {
+		b.WriteString(statusBarStyle.Render(title))
+		b.WriteString("\n")
+		for _, line := range lines {
+			b.WriteString("  " + line + "\n")
+		}
+		b.WriteString("\n")
+	}
+
+	section("Screens",
+		"F1  QSO Entry",
+		"F2  Station Setup",
+		"F3  DX Cluster",
+		"F4  DX Cluster Filters",
+		"F5  Import ADIF",
+		"F6  QSO Details",
+		"F7  Events (contest catalog)",
+		"F8  Backup to Google Drive",
+		"F9  Browse/Edit Recent QSOs (↑/↓ select, Enter view/edit, d delete, Esc/F9 done)",
+		"Ctrl+W  Worked/Needed by Continent",
+		"Ctrl+G  This help screen",
+		"Esc  Context-dependent: quit QSO Entry, cancel an edit, or back up one screen",
+	)
+	section("Export",
+		"Ctrl+O  Export ADIF",
+		"Ctrl+X  Export Cabrillo (per-session filename when a session-specific contest ID is selected)",
+		"Ctrl+R  Export CSV",
+	)
+	section("QSO Entry",
+		"Tab / Shift+Tab  Move between fields without logging",
+		"Enter  Accept field and advance; on Call with a contest active, fast-paths past auto-filled RST/Band/Freq to the received exchange",
+		"Left/Right (on Band)  Cycle bands",
+		"PgUp/PgDn or mouse wheel  Scroll DX Spots",
+	)
+	section("Contest tools (shown when a contest is active, update as you type the call)",
+		"Analysis panel  Dupe flag, country/CQ/ITU/continent, beam heading+distance, new-multiplier flag, band-worked matrix",
+		"Check Partial  Prior logged calls containing the in-progress fragment — bold: new on this band, dim: dupe here",
+		"Rate meter  Q/hr (last 10 / last 100 / overall) and Q/Mult, shown under Recent QSOs/DX Spots once something's logged",
+		"Zone auto-fill  CQ/ITU zone exchange fields prefill from the resolved DXCC entity; typing into the field stops autofill for that QSO",
+	)
+
+	b.WriteString(helpStyle.Render("Esc/Ctrl+G: back to " + screenName(m.helpReturnScreen) + "  •  F1: QSO Entry"))
+	return b.String()
+}
+
+// screenName gives a short human label for a screen, used by helpPanelView's
+// return hint so the operator knows where Esc/Ctrl+G will land them.
+func screenName(s screen) string {
+	switch s {
+	case qsoEntryScreen:
+		return "QSO Entry"
+	case stationSetupScreen:
+		return "Station Setup"
+	case clusterScreen:
+		return "DX Cluster"
+	case clusterFiltersScreen:
+		return "DX Cluster Filters"
+	case adifImportScreen:
+		return "Import ADIF"
+	case eventCatalogScreen:
+		return "Events"
+	case qsoDetailsScreen:
+		return "QSO Details"
+	case qsoContestScreen:
+		return "QSO Contest"
+	case continentScreen:
+		return "Worked/Needed by Continent"
+	default:
+		return "QSO Entry"
+	}
+}
+
 func (m model) updateCluster(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch message := msg.(type) {
 	case tea.KeyMsg:
@@ -2831,6 +2958,9 @@ func (m model) View() string {
 	}
 	if m.screen == continentScreen {
 		return m.continentPanelView()
+	}
+	if m.screen == helpScreen {
+		return m.helpPanelView()
 	}
 	var b strings.Builder
 	b.WriteString(screenHotkeys(qsoEntryScreen))
@@ -3235,9 +3365,11 @@ func screenHotkeys(current screen) string {
 		escape = "Esc: QSO Entry"
 	} else if current == qsoDetailsScreen || current == qsoContestScreen || current == eventCatalogScreen || current == continentScreen {
 		escape = "Esc: QSO Entry"
+	} else if current == helpScreen {
+		escape = "Esc: Back"
 	}
 	line1 := "W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  F5: Import ADIF"
-	line2 := "F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo  •  Ctrl+R: Export CSV  •  Ctrl+W: Worked/Needed  •  " + escape
+	line2 := "F6: QSO Details  •  F7: Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo  •  Ctrl+R: Export CSV  •  Ctrl+W: Worked/Needed  •  Ctrl+G: Help  •  " + escape
 	return hotkeyStyle.Render(line1) + "\n" + hotkeyStyle.Render(line2)
 }
 

@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.17.0
+
+- Added an in-app Help screen (`Ctrl+G`, from any screen) listing every hotkey, QSO Entry editing key, and contest-active tool (analysis panel, Check Partial, rate meter, zone auto-fill) so you don't need `docs/ROADMAP.md` open to find a command. Esc/`Ctrl+G` return to whichever screen you opened it from; `F1` still always goes to QSO Entry.
+
 ### v1.16.1
 
 - Logged QSOs and their pending uploads are now durable across an OS crash or power loss, not just a clean process exit (the database is fsynced on every commit). This closes a gap where the last few QSOs logged before a power drop — and their queued QRZ/WRL uploads — could be lost silently.

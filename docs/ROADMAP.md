@@ -192,7 +192,13 @@ every panel *and* scoring so they always agree.
   contest ID from the Events (F7) screen — no `CALL1.log`-style renaming
   needed since the existing naming already disambiguates by session.
 - ⏳ SDCHECK parity: **POST** (after-contest) entry mode.
-- ⏳ In-app **HELP** for the new commands.
+- ✅ **In-app HELP** (`Ctrl+G`, reachable from any screen). `helpScreen`
+  (`main.go`), `openHelpPanel`/`updateHelpPanel`/`helpPanelView` — static
+  reference covering every screen hotkey, QSO Entry field/editing keys, and
+  the as-you-type contest tools (analysis panel, Check Partial, rate meter,
+  zone auto-fill); Esc/F1/Ctrl+G returns to whichever screen Ctrl+G was
+  pressed from (`model.helpReturnScreen`), not always QSO Entry, since Help
+  is global rather than contest-scoped like the other panels.
 
 ## 4. Later / hardware-bound / niche
 
