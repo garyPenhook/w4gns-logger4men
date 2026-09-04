@@ -159,6 +159,34 @@ func TestLoadEventCatalogCQWWHasRealScoringRules(t *testing.T) {
 	}
 }
 
+// TestLoadEventCatalogCQ160HasRealScoringRules guards the curated
+// CQ-160-CW entry's actual scoring config (roadmap §3 Phase 3 "real
+// per-contest wiring"), sourced from cq160.com/rules/index.htm rather than
+// guessed: 2/5/10 points for same-country/same-continent/other-continent,
+// plus a DXCC-entity multiplier counted once per contest. The rules also
+// award US-state and Canadian-province multipliers to DX stations, which
+// the schema can't express yet (states/provinces come from the received
+// exchange text, not the worked callsign) — deliberately left out rather
+// than guessed at.
+func TestLoadEventCatalogCQ160HasRealScoringRules(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	cq160 := events[eventIndex(t, events, "CQ-160-CW")]
+	if cq160.Scoring == nil || cq160.Scoring.Points == nil {
+		t.Fatal("CQ-160-CW must have a Points scoring rule")
+	}
+	points := cq160.Scoring.Points
+	if points.SameCountry != 2 || points.SameContinent != 5 || points.OtherContinent != 10 {
+		t.Fatalf("CQ-160-CW points = %+v, want {2,5,10}", points)
+	}
+	mults := cq160.Scoring.effectiveMultipliers()
+	if len(mults) != 1 || mults[0].Kind != "dxcc" || mults[0].Per != "contest" {
+		t.Fatalf("CQ-160-CW multipliers = %+v, want [{dxcc contest}]", mults)
+	}
+}
+
 // TestSDContestCatalogLoadsWithDistinctSideVariants guards the imported SD
 // template catalog: the many contests load alongside the curated events with
 // unique IDs, and side-variant entries that submit under one Cabrillo contest

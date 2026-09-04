@@ -832,6 +832,19 @@
     "dupe_scope": "call+band",
     "rules_url": "http://www.cq160.com/rules.htm",
     "score_submission_url": "",
+    "scoring": {
+      "points": {
+        "same_country": 2,
+        "same_continent": 5,
+        "other_continent": 10
+      },
+      "multipliers": [
+        {
+          "kind": "dxcc",
+          "per": "contest"
+        }
+      ]
+    },
     "sessions": [
       {
         "id": "2200ZJan29",

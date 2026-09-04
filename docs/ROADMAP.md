@@ -277,6 +277,22 @@ every panel *and* scoring so they always agree.
   an override before falling back to the flat `SameContinent` value. Tests:
   `contest_state_test.go` (`TestContestStateScorePointsRulePerContinentOverride`),
   `events_test.go` (`TestLoadEventCatalogCQWWHasRealScoringRules`).
+- ✅ **Real per-contest wiring: CQ 160-Meter CW's actual scoring rules.**
+  Curated `CQ-160-CW` (`events/contestcalendar.json`) now carries a real
+  `scoring` block sourced from cq160.com/rules/index.htm: flat 2/5/10 points
+  for same-country/same-continent/other-continent (no NA-style exception
+  here, unlike CQ WW), plus a DXCC-entity multiplier counted once per
+  contest (`per: "contest"` — the rules explicitly note CQ zones sent in the
+  exchange are location info only and don't count as multipliers). The real
+  rules also award DX stations a US-state/DC/Canadian-province multiplier —
+  left out rather than guessed at, since those come from the *received
+  exchange text*, not the worked callsign, and the current multiplier
+  schema (`dxcc`/`cqzone`/`ituzone`) only resolves multipliers from the
+  callsign side. An exchange-derived multiplier kind is a real schema gap,
+  same shape as the still-open roster/area-mult item, and a candidate for
+  wiring ARRL DX CW (asymmetric DXCC-vs-state/province mults) and CQ WPX CW
+  (prefix mult + band-tiered points) next. Test: `events_test.go`
+  (`TestLoadEventCatalogCQ160HasRealScoringRules`).
 - ✅ **CSV export** (`Ctrl+R`). `csv_export.go` (`exportCSV`, `writeCSVAtomic`,
   `csvField`/`csvRow` — RFC 4180 quoting, CRLF rows) streams the active
   contest's QSOs (same `contest_id` scoping as Cabrillo/ADIF export) to
