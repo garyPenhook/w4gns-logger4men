@@ -109,6 +109,57 @@
     ]
   },
   {
+    "id": "IARU-HF",
+    "capability": "scoring-ready",
+    "name": "IARU HF World Championship, CW",
+    "organizer": "",
+    "kind": "annual contest",
+    "schedule": "1200Z Saturday to 1159Z Sunday, second full weekend in July",
+    "bands": [
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M"
+    ],
+    "sent_serial": false,
+    "sent_exchange_hint": "RST + ITU Zone (HQ stations: Society abbrev.; Officials: AC/R1/R2/R3)",
+    "received_exchange_hint": "RST + ITU Zone (HQ stations: Society abbrev.; Officials: AC/R1/R2/R3)",
+    "adif_contest_id": "IARU-HF",
+    "cabrillo_layout": "cw_rst_exchange",
+    "dupe_scope": "call+band",
+    "rules_url": "https://contests.arrl.org/ContestRules/IARU-HF-Rules.pdf",
+    "score_submission_url": "",
+    "scoring": {
+      "points": {
+        "zone": {
+          "same_zone": 1,
+          "same_continent_different_zone": 3,
+          "other_continent": 5,
+          "special": 1
+        }
+      },
+      "multipliers": [
+        {
+          "kind": "iaru_zone",
+          "per": "band"
+        },
+        {
+          "kind": "iaru_hq",
+          "per": "band"
+        }
+      ]
+    },
+    "sessions": [
+      {
+        "id": "ALL",
+        "label": "IARU HF World Championship, CW",
+        "schedule": "1200Z Saturday to 1159Z Sunday, second full weekend in July"
+      }
+    ]
+  },
+  {
     "id": "QRP-ARCI-HOOTOWL-SPRINT",
     "capability": "entry-aware",
     "name": "QRP ARCI Hootowl Sprint",

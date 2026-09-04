@@ -1000,3 +1000,88 @@ func TestContestStateWouldBeNewMultiplierSACArea(t *testing.T) {
 		t.Fatalf("Germany (non-Scandinavian) = newMult=%v workedBefore=%v, want false/false", newMult, workedBefore)
 	}
 }
+
+// TestContestStateScorePointsRuleZoneTiers exercises the IARU HF World
+// Championship's zone-tiered points formula (pointsRule.Zone, Rule 5.1): a
+// worked station whose exchanged ITU zone matches the operator's own scores
+// SameZone regardless of country, a different zone on the operator's own
+// continent scores SameContinentDifferentZone, a different continent scores
+// OtherContinent, and an HQ/Official exchange (a non-numeric abbreviation)
+// scores Special regardless of zone or continent (Rule 5.1.2). W1AW/K5ABC
+// resolve to ITU zone 8 (NA), VE3ABC to zone 9 (NA), JA1ABC to zone 45 (AS).
+func TestContestStateScorePointsRuleZoneTiers(t *testing.T) {
+	state := newContestState()
+	state.setStation("W1AW")                                          // ITU zone 8, NA
+	state.record(qso{call: "K5ABC", band: "20M", srxString: "8"})     // same zone
+	state.record(qso{call: "VE3ABC", band: "20M", srxString: "9"})    // same continent, different zone
+	state.record(qso{call: "JA1ABC", band: "20M", srxString: "45"})   // other continent
+	state.record(qso{call: "DL1ABC", band: "20M", srxString: "ARRL"}) // HQ/Official
+
+	rules := &scoringRules{
+		Points: &pointsRule{Zone: &zonePointsRule{
+			SameZone:                   1,
+			SameContinentDifferentZone: 3,
+			OtherContinent:             5,
+			Special:                    1,
+		}},
+	}
+	score := state.score(rules)
+	if score.qsoPoints != 10 {
+		t.Fatalf("qsoPoints = %d, want 10 (1 + 3 + 5 + 1)", score.qsoPoints)
+	}
+}
+
+// TestContestStateScoreIARUZoneAndHQMultipliers exercises the iaru_zone/
+// iaru_hq multiplier kinds together (Rule 5.2.1): each distinct exchanged
+// ITU zone and each distinct HQ/Official abbreviation counts once per band;
+// a repeated value on the same band doesn't add another.
+func TestContestStateScoreIARUZoneAndHQMultipliers(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "K5ABC", band: "20M", srxString: "8"})
+	state.record(qso{call: "K5DEF", band: "20M", srxString: "8"})    // same zone, same band: no new mult
+	state.record(qso{call: "VE3ABC", band: "20M", srxString: "9"})   // new zone
+	state.record(qso{call: "VE3XYZ", band: "40M", srxString: "9"})   // same zone, new band
+	state.record(qso{call: "W1AW", band: "20M", srxString: "ARRL"})  // new HQ
+	state.record(qso{call: "NU1AW", band: "20M", srxString: "IARU"}) // new HQ
+
+	rules := &scoringRules{
+		PointsPerQSO: 1,
+		Multipliers: []multiplierRule{
+			{Kind: "iaru_zone", Per: "band"},
+			{Kind: "iaru_hq", Per: "band"},
+		},
+	}
+	score := state.score(rules)
+	if score.multipliers != 5 {
+		t.Fatalf("multipliers = %d, want 5 (zone8/20M + zone9/20M + zone9/40M + ARRL/20M + IARU/20M)", score.multipliers)
+	}
+}
+
+// TestContestStateWouldBeNewMultiplierIARUZoneAndHQ exercises the as-you-type
+// "NEW MULT" flag for both new kinds, which — like exchange_area/tn_county —
+// have no callsign-derived fallback and read only the operator's in-progress
+// received-exchange field text.
+func TestContestStateWouldBeNewMultiplierIARUZoneAndHQ(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "K5ABC", band: "20M", srxString: "8"})
+	state.record(qso{call: "W1AW", band: "20M", srxString: "ARRL"})
+
+	rules := &scoringRules{
+		Multipliers: []multiplierRule{
+			{Kind: "iaru_zone", Per: "band"},
+			{Kind: "iaru_hq", Per: "band"},
+		},
+	}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "K5DEF", "20M", "8", dxccEntity{}, false); newMult || !workedBefore {
+		t.Fatalf("zone 8 (already worked) = newMult=%v workedBefore=%v, want false/true", newMult, workedBefore)
+	}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "VE3ABC", "20M", "9", dxccEntity{}, false); !newMult || workedBefore {
+		t.Fatalf("zone 9 (new zone) = newMult=%v workedBefore=%v, want true/false", newMult, workedBefore)
+	}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "W2AW", "20M", "ARRL", dxccEntity{}, false); newMult || !workedBefore {
+		t.Fatalf("ARRL (already worked) = newMult=%v workedBefore=%v, want false/true", newMult, workedBefore)
+	}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "DL1ABC", "20M", "DARC", dxccEntity{}, false); !newMult || workedBefore {
+		t.Fatalf("DARC (new HQ) = newMult=%v workedBefore=%v, want true/false", newMult, workedBefore)
+	}
+}

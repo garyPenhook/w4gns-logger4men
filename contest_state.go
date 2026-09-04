@@ -94,6 +94,18 @@ type contestState struct {
 	// per band, per Rule 5.2/5.3).
 	arrlSectionByBand map[string]map[string]struct{}
 	arrlSectionAll    map[string]struct{}
+	// iaruZoneByBand/iaruZoneAll mirror arrlSectionByBand/arrlSectionAll for
+	// the "iaru_zone" multiplier kind (iaru_zone.go's iaruExchangeZone): the
+	// ITU zone number as actually exchanged by the worked station, the IARU
+	// HF World Championship's zone multiplier (Rule 5.2.1).
+	iaruZoneByBand map[string]map[int]struct{}
+	iaruZoneAll    map[int]struct{}
+	// iaruSpecialByBand/iaruSpecialAll mirror iaruZoneByBand/iaruZoneAll for
+	// the "iaru_hq" multiplier kind (iaru_zone.go's iaruExchangeSpecial): an
+	// IARU Member Society HQ or Official abbreviation exchanged instead of a
+	// zone, also counted per band alongside the zone multiplier (Rule 5.2.1).
+	iaruSpecialByBand map[string]map[string]struct{}
+	iaruSpecialAll    map[string]struct{}
 	// pointCategoryCountry records the worked entity's cty.dat country name
 	// for every scored "CALL|BAND" key, independent of whether the operator's
 	// own station resolved — a pointsRule.CountryGroup check (e.g. SAC's
@@ -121,6 +133,21 @@ type contestState struct {
 	// America same-continent exception) instead of the flat SameContinent
 	// value. Unset for any other category.
 	pointCategoryContinent map[string]string
+	// stationITUZone/stationZoneResolved are setStation's zone-based
+	// counterpart to stationDXCCNumber/stationResolved: the operator's own
+	// ITU zone (cty.dat), the input a pointsRule.Zone rule needs to classify
+	// each worked QSO as same-zone/same-continent/other-continent.
+	stationITUZone      int
+	stationZoneResolved bool
+	// pointCategoryZone holds, per "CALL|BAND" key, which bucket of a
+	// pointsRule.Zone rule the QSO falls into — populated by record()
+	// independently of pointCategory (country-based), since a zone-tiered
+	// contest classifies by the worked station's actually-exchanged ITU zone
+	// (iaru_zone.go) rather than its cty.dat country. Reuses qsoPointCategory:
+	// pointCategorySameCountry's slot means "same zone", pointCategorySpecial
+	// means the worked station sent an HQ/Official abbreviation rather than a
+	// zone (Rule 5.1.2).
+	pointCategoryZone map[string]qsoPointCategory
 }
 
 // qsoPointCategory classifies a worked station relative to the operator's own
@@ -135,6 +162,10 @@ const (
 	pointCategorySameCountry
 	pointCategorySameContinent
 	pointCategoryOtherContinent
+	// pointCategorySpecial is pointCategoryZone-only: the worked station sent
+	// an IARU HQ/Official abbreviation instead of an ITU zone (Rule 5.1.2),
+	// so it scores zonePointsRule.Special regardless of zone/continent.
+	pointCategorySpecial
 )
 
 // newContestState returns an empty index, ready for QSOs to be recorded.
@@ -164,9 +195,14 @@ func newContestState() *contestState {
 		naqpAreaAll:            make(map[string]struct{}),
 		arrlSectionByBand:      make(map[string]map[string]struct{}),
 		arrlSectionAll:         make(map[string]struct{}),
+		iaruZoneByBand:         make(map[string]map[int]struct{}),
+		iaruZoneAll:            make(map[int]struct{}),
+		iaruSpecialByBand:      make(map[string]map[string]struct{}),
+		iaruSpecialAll:         make(map[string]struct{}),
 		pointCategory:          make(map[string]qsoPointCategory),
 		pointCategoryContinent: make(map[string]string),
 		pointCategoryCountry:   make(map[string]string),
+		pointCategoryZone:      make(map[string]qsoPointCategory),
 	}
 }
 
@@ -187,6 +223,10 @@ func (c *contestState) setStation(callsign string) {
 	c.stationDXCCNumber = entity.DXCCNumber
 	c.stationContinent = entity.Continent
 	c.stationResolved = true
+	if entity.ITUZone > 0 {
+		c.stationITUZone = entity.ITUZone
+		c.stationZoneResolved = true
+	}
 }
 
 // stationCountry resolves callsign's DXCC entity and returns its country
@@ -233,6 +273,15 @@ func (c *contestState) record(q qso) {
 		recordMultiplierStringValue(c.tnCountyByBand, c.tnCountyAll, band, tnCountyCode(q.srxString))
 		recordMultiplierStringValue(c.naqpAreaByBand, c.naqpAreaAll, band, naqpAreaCode(q.srxString))
 		recordMultiplierStringValue(c.arrlSectionByBand, c.arrlSectionAll, band, arrlSectionCode(q.srxString))
+		if special := iaruExchangeSpecial(q.srxString); special != "" {
+			recordMultiplierStringValue(c.iaruSpecialByBand, c.iaruSpecialAll, band, special)
+			c.pointCategoryZone[key] = pointCategorySpecial
+		} else if zone := iaruExchangeZone(q.srxString); zone > 0 {
+			recordMultiplierValue(c.iaruZoneByBand, c.iaruZoneAll, band, zone)
+			if c.stationZoneResolved && zone == c.stationITUZone {
+				c.pointCategoryZone[key] = pointCategorySameCountry
+			}
+		}
 	}
 	if table, err := sharedDXCCTable(); err == nil {
 		if entity, found := table.lookup(call); found {
@@ -260,6 +309,13 @@ func (c *contestState) record(q qso) {
 						c.pointCategoryContinent[key] = entity.Continent
 					default:
 						c.pointCategory[key] = pointCategoryOtherContinent
+					}
+					if _, classified := c.pointCategoryZone[key]; !classified && iaruExchangeZone(q.srxString) > 0 {
+						if entity.Continent != "" && entity.Continent == c.stationContinent {
+							c.pointCategoryZone[key] = pointCategorySameContinent
+						} else {
+							c.pointCategoryZone[key] = pointCategoryOtherContinent
+						}
 					}
 				}
 			}
@@ -415,6 +471,9 @@ func (c *contestState) score(rules *scoringRules) contestScore {
 // entity didn't resolve — see setStation/record) contributes 0 rather than
 // guessing a tier.
 func (c *contestState) pointsTotal(rule *pointsRule) int {
+	if rule.Zone != nil {
+		return c.zonePointsTotal(rule.Zone)
+	}
 	total := 0
 	for key := range c.scoredCallBand {
 		lowBand := wpxLowBand(bandFromCallBandKey(key))
@@ -448,6 +507,28 @@ func (c *contestState) pointsTotal(rule *pointsRule) int {
 				value = rule.LowBandOtherContinent
 			}
 			total += value
+		}
+	}
+	return total
+}
+
+// zonePointsTotal sums a pointsRule.Zone rule over every scored (call, band)
+// QSO, reading pointCategoryZone (populated by record() from the worked
+// station's actually-exchanged ITU zone, not a country/continent lookup). A
+// QSO with no recorded zone category (unresolvable exchange, or the station/
+// worked entity didn't resolve for the continent fallback) contributes 0.
+func (c *contestState) zonePointsTotal(rule *zonePointsRule) int {
+	total := 0
+	for key := range c.scoredCallBand {
+		switch c.pointCategoryZone[key] {
+		case pointCategorySameCountry:
+			total += rule.SameZone
+		case pointCategorySameContinent:
+			total += rule.SameContinentDifferentZone
+		case pointCategoryOtherContinent:
+			total += rule.OtherContinent
+		case pointCategorySpecial:
+			total += rule.Special
 		}
 	}
 	return total
@@ -534,6 +615,15 @@ func (c *contestState) multiplierCount(rule multiplierRule) int {
 			return total
 		}
 		return len(c.arrlSectionAll)
+	case "iaru_hq":
+		if strings.TrimSpace(rule.Per) == "band" {
+			total := 0
+			for _, set := range c.iaruSpecialByBand {
+				total += len(set)
+			}
+			return total
+		}
+		return len(c.iaruSpecialAll)
 	}
 	var byBand map[string]map[int]struct{}
 	var all map[int]struct{}
@@ -546,6 +636,8 @@ func (c *contestState) multiplierCount(rule multiplierRule) int {
 		byBand, all = c.cqZoneByBand, c.cqZoneAll
 	case "ituzone":
 		byBand, all = c.ituZoneByBand, c.ituZoneAll
+	case "iaru_zone":
+		byBand, all = c.iaruZoneByBand, c.iaruZoneAll
 	default:
 		return 0
 	}
@@ -675,6 +767,38 @@ func (c *contestState) wouldBeNewMultiplier(rules *scoringRules, call, band, exc
 				_, already = c.arrlSectionByBand[band][section]
 			} else {
 				_, already = c.arrlSectionAll[section]
+			}
+			if already {
+				workedBefore = true
+			} else {
+				newMult = true
+			}
+		case "iaru_zone":
+			zone := iaruExchangeZone(exchangeText)
+			if zone == 0 {
+				continue
+			}
+			var already bool
+			if strings.TrimSpace(rule.Per) == "band" {
+				_, already = c.iaruZoneByBand[band][zone]
+			} else {
+				_, already = c.iaruZoneAll[zone]
+			}
+			if already {
+				workedBefore = true
+			} else {
+				newMult = true
+			}
+		case "iaru_hq":
+			special := iaruExchangeSpecial(exchangeText)
+			if special == "" {
+				continue
+			}
+			var already bool
+			if strings.TrimSpace(rule.Per) == "band" {
+				_, already = c.iaruSpecialByBand[band][special]
+			} else {
+				_, already = c.iaruSpecialAll[special]
 			}
 			if already {
 				workedBefore = true

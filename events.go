@@ -150,6 +150,14 @@ func validateScoringRules(eventID, label string, rules *scoringRules) error {
 		p.GroupPoints < 0 || p.LowBandGroupPoints < 0 {
 		return fmt.Errorf("event %q has a negative %s points value", eventID, label)
 	}
+	if z := p.Zone; z != nil {
+		if z.SameZone < 0 || z.SameContinentDifferentZone < 0 || z.OtherContinent < 0 || z.Special < 0 {
+			return fmt.Errorf("event %q has a negative %s.zone points value", eventID, label)
+		}
+		if p.SameCountry != 0 || p.SameContinent != 0 || p.OtherContinent != 0 || len(p.CountryGroup) > 0 {
+			return fmt.Errorf("event %q must not combine %s.zone with country/continent-based points fields", eventID, label)
+		}
+	}
 	for continent, value := range p.SameContinentOverrides {
 		if !validContinentCode(continent) {
 			return fmt.Errorf("event %q has a %s.same_continent_overrides entry for unsupported continent %q", eventID, label, continent)
@@ -316,6 +324,25 @@ type pointsRule struct {
 	CountryGroup       []string `json:"country_group,omitempty"`
 	GroupPoints        int      `json:"group_points,omitempty"`
 	LowBandGroupPoints int      `json:"low_band_group_points,omitempty"`
+	// Zone, when set, replaces the country/continent tiers above entirely
+	// with a zone-based formula (the IARU HF World Championship's shape,
+	// Rule 5.1) — mutually exclusive with SameCountry/SameContinent/
+	// OtherContinent/CountryGroup, enforced by validateScoringRules.
+	Zone *zonePointsRule `json:"zone,omitempty"`
+}
+
+// zonePointsRule is the IARU HF World Championship's points formula (Rule
+// 5.1): a worked station's ITU zone, as actually exchanged (iaru_zone.go's
+// iaruExchangeZone, not resolved from its callsign) determines whether it
+// matches the operator's own zone, a different zone on the same continent,
+// or a different continent — except a worked IARU Member Society HQ or
+// Official station (iaruExchangeSpecial), which always scores Special
+// regardless of zone/continent (Rule 5.1.2).
+type zonePointsRule struct {
+	SameZone                   int `json:"same_zone"`
+	SameContinentDifferentZone int `json:"same_continent_different_zone"`
+	OtherContinent             int `json:"other_continent"`
+	Special                    int `json:"special"`
 }
 
 // multiplierRule is one entry in scoringRules.Multipliers: what to count
@@ -332,7 +359,7 @@ type multiplierRule struct {
 // loudly at startup instead of silently scoring zero multipliers.
 func validMultiplierKind(kind string) bool {
 	switch strings.TrimSpace(kind) {
-	case "unique_call", "dxcc", "cqzone", "ituzone", "prefix", "exchange_area", "tn_county", "sac_area", "naqp_area", "arrl_section":
+	case "unique_call", "dxcc", "cqzone", "ituzone", "prefix", "exchange_area", "tn_county", "sac_area", "naqp_area", "arrl_section", "iaru_zone", "iaru_hq":
 		return true
 	default:
 		return false

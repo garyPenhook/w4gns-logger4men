@@ -123,6 +123,8 @@ func TestValidateScoringRules(t *testing.T) {
 		{"negative points value", &scoringRules{Points: &pointsRule{SameCountry: -1}}},
 		{"unsupported same_continent_overrides continent", &scoringRules{Points: &pointsRule{SameContinentOverrides: map[string]int{"ZZ": 1}}}},
 		{"negative same_continent_overrides value", &scoringRules{Points: &pointsRule{SameContinentOverrides: map[string]int{"NA": -1}}}},
+		{"negative zone points value", &scoringRules{Points: &pointsRule{Zone: &zonePointsRule{SameZone: -1}}}},
+		{"zone combined with country/continent fields", &scoringRules{Points: &pointsRule{SameCountry: 1, Zone: &zonePointsRule{SameZone: 1}}}},
 	}
 	for _, tc := range cases {
 		if err := validateScoringRules("EVT", "dx_scoring", tc.rules); err == nil {
@@ -439,6 +441,49 @@ func TestLoadEventCatalogARRLSSCWHasRealScoringRules(t *testing.T) {
 	}
 	if ss.DupeScope != "call" {
 		t.Fatalf("ARRL-SS-CW dupe_scope = %q, want call", ss.DupeScope)
+	}
+}
+
+// TestLoadEventCatalogIARUHFHasRealScoringRules guards the curated IARU-HF
+// entry's actual scoring config, sourced from
+// contests.arrl.org/ContestRules/IARU-HF-Rules.pdf: Rule 5.1's zone-tiered
+// points (1 same zone or HQ/Official special, 3 same continent/different
+// zone, 5 different continent) via pointsRule.Zone, and Rule 5.2.1's zone +
+// HQ/Official multiplier, both counted per band. Also guards that the
+// generated SD-IARUHF entry (events/sd_contests.json) is dropped as a
+// duplicate via the shared "IARU-HF" Cabrillo token, the same curated-vs-
+// generated de-dup every other promoted event relies on.
+func TestLoadEventCatalogIARUHFHasRealScoringRules(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	iaru := events[eventIndex(t, events, "IARU-HF")]
+	if iaru.Capability != catalogCapabilityScoringReady {
+		t.Fatalf("IARU-HF capability = %q, want %q", iaru.Capability, catalogCapabilityScoringReady)
+	}
+	if iaru.Scoring == nil || iaru.Scoring.Points == nil || iaru.Scoring.Points.Zone == nil {
+		t.Fatalf("IARU-HF scoring = %+v, want a Points.Zone rule", iaru.Scoring)
+	}
+	zone := iaru.Scoring.Points.Zone
+	if zone.SameZone != 1 || zone.SameContinentDifferentZone != 3 || zone.OtherContinent != 5 || zone.Special != 1 {
+		t.Fatalf("IARU-HF zone points = %+v, want {1 3 5 1}", zone)
+	}
+	mults := iaru.Scoring.effectiveMultipliers()
+	want := []multiplierRule{{Kind: "iaru_zone", Per: "band"}, {Kind: "iaru_hq", Per: "band"}}
+	if len(mults) != len(want) || mults[0] != want[0] || mults[1] != want[1] {
+		t.Fatalf("IARU-HF multipliers = %+v, want %+v", mults, want)
+	}
+	if iaru.ADIFContestID != "IARU-HF" {
+		t.Fatalf("IARU-HF adif_contest_id = %q, want IARU-HF", iaru.ADIFContestID)
+	}
+	if iaru.CabrilloLayout != "cw_rst_exchange" {
+		t.Fatalf("IARU-HF cabrillo_layout = %q, want cw_rst_exchange", iaru.CabrilloLayout)
+	}
+	for _, event := range events {
+		if event.ID == "SD-IARUHF" {
+			t.Fatalf("generated SD-IARUHF should have been de-duped against curated IARU-HF")
+		}
 	}
 }
 

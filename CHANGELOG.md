@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.22.0
+
+- Wired the IARU HF World Championship, CW's real scoring rules: a zone-tiered points formula (1 point for the worked station's own ITU zone or an IARU HQ/Official contact, 3 for a different zone on your own continent, 5 for a different continent) times a multiplier for every distinct ITU zone and HQ/Official station worked per band, sourced from contests.arrl.org's official rules. New `pointsRule.Zone` schema and `iaru_zone`/`iaru_hq` multiplier kinds read the worked station's actually-exchanged zone/abbreviation rather than a callsign lookup, since IARU's exchange (not geography) is what's scored.
+
 ### v1.21.0
 
 - Wired the ARRL November Sweepstakes, CW's real scoring rules: flat 2 points per QSO times an ARRL/RAC-section multiplier counted once for the whole contest, sourced from contests.arrl.org's official rules. Also adds a dupe check that spans every band rather than one per band, matching Sweepstakes' "each station may be contacted only once, regardless of band" rule.

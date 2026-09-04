@@ -58,9 +58,9 @@ the log, submitted contest results, or external services.
 - 🔧 **Audit and implement scoring per contest before presenting the catalog as
   correct.** Every one of the 429 event records now declares and is validated
   against an explicit `capability`: 9 intentionally generic templates are
-  `selection-only`, 410 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
-  `CQ-160-CW`, `ARRL-DX-CW`, `CQ-WPX-CW`, `TNQP`, `SAC-CW`, `NAQP-CW`, and
-  `ARRL-SS-CW` are `scoring-ready`. **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
+  `selection-only`, 409 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
+  `CQ-160-CW`, `ARRL-DX-CW`, `CQ-WPX-CW`, `TNQP`, `SAC-CW`, `NAQP-CW`,
+  `ARRL-SS-CW`, and `IARU-HF` are `scoring-ready`. **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
   side-asymmetric around a fixed "Scandinavian" country group — Norway,
   Finland, Sweden, Iceland, Denmark, and the territories the rules list by
   their own prefix block (Svalbard, Jan Mayen, Åland Islands, Market Reef,
@@ -719,6 +719,58 @@ every panel *and* scoring so they always agree.
   `TestContestStateWouldBeNewMultiplierARRLSection`), `store_test.go`
   (`TestDupeCheckHonorsCallScopeRegardlessOfBand`), `events_test.go`
   (`TestLoadEventCatalogARRLSSCWHasRealScoringRules`).
+- ✅ **Real per-contest wiring: IARU HF World Championship, CW's actual
+  scoring rules**, a genuinely new points/multiplier shape (zone-tiered
+  rather than country/continent-tiered, and scored from the worked station's
+  actually-exchanged value rather than a cty.dat callsign lookup). Sourced
+  from `contests.arrl.org/ContestRules/IARU-HF-Rules.pdf` (Rules 4-5): every
+  station sends RS(T) plus either its ITU zone, an IARU Member Society HQ
+  abbreviation (Rule 4.2.1), or an Official code `AC`/`R1`/`R2`/`R3` (Rule
+  4.2.2) — **`iaru_zone.go`**'s `iaruExchangeZone`/`iaruExchangeSpecial`
+  parse the worked station's received-exchange text (`qso.srxString`) into
+  whichever it sent, following the same exchange-is-authoritative precedent
+  as `exchange_area.go`/`tn_county.go`/`naqp_area.go`/`arrl_section.go`
+  rather than trusting a cty.dat-derived zone the operator might not
+  actually be in. **New `pointsRule.Zone` schema** (`events.go`
+  `zonePointsRule`) replaces the country/continent tiers entirely (validated
+  mutually exclusive with `SameCountry`/`SameContinent`/`OtherContinent`/
+  `CountryGroup`) with Rule 5.1's own tiers: 1 point for the worked station's
+  own ITU zone or an HQ/Official contact (5.1.1/5.1.2 collapse to the same
+  value), 3 for a different zone on the operator's own continent (5.1.4), 5
+  for a different continent (5.1.5). `contest_state.go` adds
+  `stationITUZone`/`stationZoneResolved` (the operator's own zone,
+  `setStation`) and a parallel `pointCategoryZone` index (independent of the
+  existing country-based `pointCategory`, since a zone-tiered event
+  classifies QSOs on a different basis entirely) and `zonePointsTotal`.
+  **New `iaru_zone`/`iaru_hq` multiplier kinds** (Rule 5.2.1: "the total
+  number of ITU zones worked on each band ... plus IARU member society HQ
+  stations worked on each band"; officials are naturally capped at 4 since
+  only `AC`/`R1`/`R2`/`R3` exist, needing no special-case cap logic) extend
+  `contestState` with `iaruZoneByBand`/`iaruZoneAll` and
+  `iaruSpecialByBand`/`iaruSpecialAll`, wired into `multiplierCount` and the
+  as-you-type `wouldBeNewMultiplier` flag. Curated `IARU-HF`
+  (`events/contestcalendar.json`) carries the real `scoring` block plus
+  `adif_contest_id: IARU-HF` (confirmed against the ADIF Contest ID
+  Enumeration) and `cabrillo_layout: cw_rst_exchange` (RST + one free-text
+  exchange field, the same shape CQ WW/CQ 160/ARRL DX/WPX already use),
+  promoting `capability` to `scoring-ready`; the generated `SD-IARUHF`
+  duplicate is dropped via the existing curated-vs-generated de-dup (shared
+  `IARU-HF` Cabrillo token). Not addressed here (a documented limitation,
+  not a rules gap): unlike `arrl_section.go`/`tn_county.go`'s fixed
+  abbreviation tables, IARU has roughly 160 member societies with no single
+  canonical machine-readable list in this repo, so `iaruExchangeSpecial`
+  accepts any non-numeric exchange token rather than validating it against a
+  known-society list — the same practical-approximation class as
+  `wpxPrefix`'s non-exhaustive call-format handling. This app logs CW only,
+  so the contest's own Phone/Mixed-Mode categories are out of scope, the
+  same standing limitation as every other configured event (roadmap intro).
+  Tests: `iaru_zone_test.go` (`TestIARUExchangeZone`,
+  `TestIARUExchangeSpecial`), `contest_state_test.go`
+  (`TestContestStateScorePointsRuleZoneTiers`,
+  `TestContestStateScoreIARUZoneAndHQMultipliers`,
+  `TestContestStateWouldBeNewMultiplierIARUZoneAndHQ`), `events_test.go`
+  (`TestLoadEventCatalogIARUHFHasRealScoringRules`,
+  `TestValidateScoringRules` new zone-rule cases).
 - ✅ **CSV export** (`Ctrl+R`). `csv_export.go` (`exportCSV`, `writeCSVAtomic`,
   `csvField`/`csvRow` — RFC 4180 quoting, CRLF rows) streams the active
   contest's QSOs (same `contest_id` scoping as Cabrillo/ADIF export) to

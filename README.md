@@ -96,7 +96,7 @@ Press `F6` for optional QSO details: operator name, QTH, grid square, state or p
 TNQP is configured for an out-of-state operator. Its received-exchange field offers Tennessee county codes as you type; use `Up`/`Down` and `Enter` to insert the official four-letter county abbreviation.
 
 <details>
-<summary>Full list of 191 built-in event/contest definitions (click to expand)</summary>
+<summary>Full list of 192 built-in event/contest definitions (click to expand)</summary>
 
 Selected directly with `F7`; grouped by region below. CWops (CWT, CW Open), the K1USN Slow Speed Test, and the Tennessee QSO Party ship as hand-curated definitions with typeahead exchange support; the rest come from `events/contestcalendar.json`, sourced from the [WA7BNM Contest Calendar](https://www.contestcalendar.com/) and its per-contest detail pages. (A separate, larger catalog of 271 contests imported from SD's templates — `events/sd_contests.json` — is also selectable from `F7` but not enumerated here by name; see `docs/ROADMAP.md`.)
 
@@ -106,7 +106,7 @@ Selected directly with `F7`; grouped by region below. CWops (CWT, CW Open), the 
 - K1USN Slow Speed Test (SST)
 - Tennessee QSO Party
 
-**Major & club contests (worldwide/US) (44):**
+**Major & club contests (worldwide/US) (45):**
 - 4 States QRP Group Second Sunday Sprint
 - A1Club AWT
 - ARRL 160-Meter Contest
@@ -122,6 +122,7 @@ Selected directly with `F7`; grouped by region below. CWops (CWT, CW Open), the 
 - Classic Exchange, CW
 - High Speed Club CW Contest
 - Homebrew and Oldtime Equipment Party
+- IARU HF World Championship, CW
 - IARU Region 1 Field Day, CW
 - ICWC Medium Speed Test
 - K1USN SST Open
