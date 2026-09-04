@@ -21,6 +21,55 @@ func eventIndex(t *testing.T, events []eventDefinition, id string) int {
 	return -1
 }
 
+// TestScoringRulesEffectiveMultipliers guards the translation between the
+// legacy scalar Multiplier field (existing CW Open/CWops configs) and the
+// new data-driven Multipliers list (Appendix C): a config using only the old
+// field still scores via one Per:"contest" rule, a config using the new list
+// takes it verbatim, and nil rules produce no rules to sum.
+func TestScoringRulesEffectiveMultipliers(t *testing.T) {
+	var nilRules *scoringRules
+	if got := nilRules.effectiveMultipliers(); got != nil {
+		t.Fatalf("nil rules effectiveMultipliers() = %v, want nil", got)
+	}
+
+	legacy := &scoringRules{Multiplier: "unique_call"}
+	got := legacy.effectiveMultipliers()
+	want := []multiplierRule{{Kind: "unique_call", Per: "contest"}}
+	if len(got) != 1 || got[0] != want[0] {
+		t.Fatalf("legacy effectiveMultipliers() = %v, want %v", got, want)
+	}
+
+	dataDriven := &scoringRules{
+		Multiplier:  "unique_call", // should be ignored: Multipliers takes precedence
+		Multipliers: []multiplierRule{{Kind: "dxcc", Per: "band"}, {Kind: "cqzone", Per: "band"}},
+	}
+	got = dataDriven.effectiveMultipliers()
+	if len(got) != 2 || got[0].Kind != "dxcc" || got[1].Kind != "cqzone" {
+		t.Fatalf("data-driven effectiveMultipliers() = %v, want dxcc+cqzone", got)
+	}
+}
+
+// TestValidMultiplierKindAndPer guards the config-typo guardrails
+// loadEventCatalog relies on when validating scoring.multipliers.
+func TestValidMultiplierKindAndPer(t *testing.T) {
+	for _, kind := range []string{"unique_call", "dxcc", "cqzone", "ituzone"} {
+		if !validMultiplierKind(kind) {
+			t.Errorf("validMultiplierKind(%q) = false, want true", kind)
+		}
+	}
+	if validMultiplierKind("areacode") {
+		t.Error("validMultiplierKind(\"areacode\") = true, want false (not implemented yet)")
+	}
+	for _, per := range []string{"band", "contest"} {
+		if !validMultiplierPer(per) {
+			t.Errorf("validMultiplierPer(%q) = false, want true", per)
+		}
+	}
+	if validMultiplierPer("") || validMultiplierPer("once") {
+		t.Error("validMultiplierPer accepted an unsupported scope")
+	}
+}
+
 // TestReceivedExchangeZoneKindInfersFromHintText guards the heuristic
 // autofillReceivedExchange (main.go) relies on: it must read "cq_zone" or
 // "itu_zone" out of a catalog entry's free-text hint without any per-event

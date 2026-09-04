@@ -48,28 +48,82 @@ type eventDefinition struct {
 // scoringRules is a deliberately small, data-driven model of a contest's score
 // formula: score = (sum of per-QSO points) × multipliers. It covers the
 // "N points per non-duplicate QSO, one multiplier per unique callsign" shape
-// used by CWops events; contests needing a different formula get their own
-// multiplier kind rather than this being hardcoded per contest.
+// used by CWops events, plus (Appendix C) the DXCC-entity/CQ-zone/ITU-zone
+// per-band multiplier shape used by contests like CQ WW — contests needing a
+// different formula still get their own multiplier kind rather than this
+// being hardcoded per contest.
 type scoringRules struct {
 	// PointsPerQSO is awarded once per unique (callsign, band) worked in the
 	// session; a same-band duplicate scores zero, matching CW Open's "once per
 	// band, per session" rule.
 	PointsPerQSO int `json:"points_per_qso"`
-	// Multiplier selects how multipliers are counted. "unique_call" counts each
-	// distinct callsign worked in the session once, regardless of band.
+	// Multiplier is the legacy single-kind field: "unique_call" counts each
+	// distinct callsign worked in the session once, regardless of band. Kept
+	// so existing event configs (CW Open, CWops) don't need editing; a config
+	// listing Multipliers instead takes precedence (see effectiveMultipliers).
 	Multiplier string `json:"multiplier"`
+	// Multipliers is the data-driven multiplier list (Appendix C): each rule
+	// contributes its own count and the counts sum, matching contests that
+	// award more than one kind of multiplier (e.g. CQ WW's countries + zones).
+	// When non-empty it replaces Multiplier entirely rather than adding to it,
+	// so a config can't double-count "unique_call" by accident.
+	Multipliers []multiplierRule `json:"multipliers,omitempty"`
 }
 
-// validScoringMultiplier reports whether kind is a multiplier rule the scorer
-// (see computeContestScore) understands, so a config typo fails loudly at
-// startup instead of silently scoring zero multipliers.
-func validScoringMultiplier(kind string) bool {
+// multiplierRule is one entry in scoringRules.Multipliers: what to count
+// (Kind) and over what scope (Per). "band" mirrors SD's MULTSCOUNT=Band (the
+// same DXCC entity/zone counts again on every band it's worked on); "contest"
+// mirrors MULTSCOUNT=Once (counted a single time no matter how many bands).
+type multiplierRule struct {
+	Kind string `json:"kind"`
+	Per  string `json:"per"`
+}
+
+// validMultiplierKind reports whether kind is a multiplier the scorer (see
+// contestState.multiplierCount) knows how to count, so a config typo fails
+// loudly at startup instead of silently scoring zero multipliers.
+func validMultiplierKind(kind string) bool {
 	switch strings.TrimSpace(kind) {
-	case "unique_call":
+	case "unique_call", "dxcc", "cqzone", "ituzone":
 		return true
 	default:
 		return false
 	}
+}
+
+// validScoringMultiplier is validMultiplierKind under its original name, kept
+// for the legacy Multiplier field's validation call site.
+func validScoringMultiplier(kind string) bool {
+	return validMultiplierKind(kind)
+}
+
+// validMultiplierPer reports whether per is a scope multiplierCount
+// understands.
+func validMultiplierPer(per string) bool {
+	switch strings.TrimSpace(per) {
+	case "band", "contest":
+		return true
+	default:
+		return false
+	}
+}
+
+// effectiveMultipliers returns the multiplier rules score() should sum,
+// translating the legacy scalar Multiplier field into the equivalent single
+// rule when Multipliers wasn't configured. "unique_call" via the legacy field
+// has always counted once across the whole contest regardless of band, so it
+// maps to Per: "contest".
+func (r *scoringRules) effectiveMultipliers() []multiplierRule {
+	if r == nil {
+		return nil
+	}
+	if len(r.Multipliers) > 0 {
+		return r.Multipliers
+	}
+	if kind := strings.TrimSpace(r.Multiplier); kind != "" {
+		return []multiplierRule{{Kind: kind, Per: "contest"}}
+	}
+	return nil
 }
 
 // cabrilloToken returns the effective Cabrillo CONTEST: token for the event:
@@ -215,7 +269,16 @@ func loadEventCatalog() ([]eventDefinition, error) {
 				if event.Scoring.PointsPerQSO < 0 {
 					return nil, fmt.Errorf("event %q has negative points_per_qso %d", event.ID, event.Scoring.PointsPerQSO)
 				}
-				if !validScoringMultiplier(event.Scoring.Multiplier) {
+				if len(event.Scoring.Multipliers) > 0 {
+					for _, rule := range event.Scoring.Multipliers {
+						if !validMultiplierKind(rule.Kind) {
+							return nil, fmt.Errorf("event %q has unsupported multiplier kind %q", event.ID, rule.Kind)
+						}
+						if !validMultiplierPer(rule.Per) {
+							return nil, fmt.Errorf("event %q multiplier %q has unsupported per scope %q", event.ID, rule.Kind, rule.Per)
+						}
+					}
+				} else if !validScoringMultiplier(event.Scoring.Multiplier) {
 					return nil, fmt.Errorf("event %q has unsupported scoring multiplier %q", event.ID, event.Scoring.Multiplier)
 				}
 			}

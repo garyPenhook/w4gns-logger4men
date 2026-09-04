@@ -219,8 +219,40 @@ every panel *and* scoring so they always agree.
   `TestSetDupeResetsBaseline…`), `store_test.go`
   (`TestSetQSOUnscoredTogglesFlagAndPersists`,
   `TestSetQSOUnscoredRejectsWrongProfile`).
-- ⏳ Area-mult `.mlt` tables + data-driven **multiplier/points schema** in `events.go`
-  (`MULTSCOUNT`, `MULTSBOTH`, `POINTSAREA`, `MAXBAND/MINBAND`, `TIMES`, …).
+- ✅ **Data-driven multiplier schema** (`MULTSCOUNT` Band/Once). `events.go`
+  (`multiplierRule{Kind, Per}`, `scoringRules.Multipliers`,
+  `scoringRules.effectiveMultipliers` — the legacy scalar `Multiplier` field
+  still works, translated to one `Per:"contest"` rule, so existing CW
+  Open/CWops configs needed no edits) lets an event award several multiplier
+  kinds that sum together — `dxcc`/`cqzone`/`ituzone`, each either `"band"`
+  (the same entity/zone counts again on every band worked, CQ WW-style) or
+  `"contest"` (counted once). `contest_state.go` extends the index with
+  `dxccByBand`/`dxccAll`, `cqZoneByBand`/`cqZoneAll`,
+  `ituZoneByBand`/`ituZoneAll` (scored-QSOs-only, same `/X` exclusion as
+  `scoredUniqueCalls`), and `score()` sums `multiplierCount` over
+  `effectiveMultipliers()`. The Analysis panel's "NEW MULT" flag (Appendix
+  B.5 "advance multiplier flag," previously `unique_call`-only) now uses a
+  new `wouldBeNewMultiplier` that checks every configured rule, so a
+  DXCC/zone-mult contest gets an accurate live flag too — and as a side
+  effect now reads `scoredUniqueCalls` instead of `uniqueCalls` for the
+  "worked before" line, so a QSO logged `/X` no longer wrongly suppresses
+  the flag. Real per-contest wiring (e.g. giving CQ WW's curated event an
+  actual `Multipliers` list) is deferred: CQ WW's DXCC+zone multiplier count
+  is straightforward from cty.dat, but its points-per-QSO formula depends on
+  continent/country reach, which needs its own schema extension (tracked
+  below) plus sourcing the exact rule text rather than guessing it into a
+  scoring config that exporters trust. Area-mult `.mlt` tables remain
+  blocked on data licensing (decision #2). Tests: `contest_state_test.go`
+  (`TestContestStateScoreSumsDXCCAndZoneMultipliersPerBand`,
+  `TestContestStateScorePerContestMultiplierCountsOnce`,
+  `TestContestStateUnscoredQSOExcludedFromMultiplierCount`,
+  `TestContestStateWouldBeNewMultiplier`), `events_test.go`
+  (`TestScoringRulesEffectiveMultipliers`, `TestValidMultiplierKindAndPer`).
+- ⏳ Area-mult `.mlt` tables + continent/country-tiered **points schema**
+  (`POINTSAREA`, `MAXBAND/MINBAND`, `TIMES`, …) — the multiplier half of this
+  bullet is done above; points still need a `station's own
+  country/continent` input threaded through `score()`/`rate()`, plus
+  `.mlt` data blocked on decision #2.
 - ✅ **CSV export** (`Ctrl+R`). `csv_export.go` (`exportCSV`, `writeCSVAtomic`,
   `csvField`/`csvRow` — RFC 4180 quoting, CRLF rows) streams the active
   contest's QSOs (same `contest_id` scoping as Cabrillo/ADIF export) to

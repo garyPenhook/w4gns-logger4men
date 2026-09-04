@@ -185,6 +185,128 @@ func TestContestStateContinentSummary(t *testing.T) {
 	}
 }
 
+// TestContestStateScoreSumsDXCCAndZoneMultipliersPerBand exercises the
+// data-driven multiplier schema (roadmap Appendix C, e.g. CQ WW's countries
+// + zones): each rule's per-band count is summed into the total multiplier
+// count, and a callsign worked again on a different band counts again for
+// each rule (SD's MULTSCOUNT=Band), matching what the real contest awards.
+func TestContestStateScoreSumsDXCCAndZoneMultipliersPerBand(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "W1AW", band: "20M"})   // USA, CQ zone 5
+	state.record(qso{call: "DL1ABC", band: "20M"}) // Germany, CQ zone 14
+	state.record(qso{call: "W2XYZ", band: "40M"})  // USA again, but a new band
+
+	rules := &scoringRules{
+		PointsPerQSO: 1,
+		Multipliers: []multiplierRule{
+			{Kind: "dxcc", Per: "band"},
+			{Kind: "cqzone", Per: "band"},
+		},
+	}
+	score := state.score(rules)
+	// qsoPoints: 3 unique (call, band) pairs x 1 point.
+	if score.qsoPoints != 3 {
+		t.Fatalf("qsoPoints = %d, want 3", score.qsoPoints)
+	}
+	// dxcc mults: 20M has USA+Germany (2), 40M has USA (1) = 3.
+	// cqzone mults: 20M has zone 5+14 (2), 40M has zone 5 (1) = 3.
+	if score.multipliers != 6 {
+		t.Fatalf("multipliers = %d, want 6 (3 dxcc + 3 cqzone)", score.multipliers)
+	}
+	if score.total() != 18 {
+		t.Fatalf("total() = %d, want 18", score.total())
+	}
+}
+
+// TestContestStateScorePerContestMultiplierCountsOnce mirrors the previous
+// test's log but with Per:"contest" rules, confirming the same DXCC entity
+// or zone worked on multiple bands only counts once toward the multiplier
+// total (SD's MULTSCOUNT=Once).
+func TestContestStateScorePerContestMultiplierCountsOnce(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "W1AW", band: "20M"})
+	state.record(qso{call: "DL1ABC", band: "20M"})
+	state.record(qso{call: "W2XYZ", band: "40M"})
+
+	rules := &scoringRules{
+		PointsPerQSO: 1,
+		Multipliers: []multiplierRule{
+			{Kind: "dxcc", Per: "contest"},
+			{Kind: "cqzone", Per: "contest"},
+		},
+	}
+	score := state.score(rules)
+	// dxcc: USA + Germany = 2 (regardless of band). cqzone: 5 + 14 = 2.
+	if score.multipliers != 4 {
+		t.Fatalf("multipliers = %d, want 4 (2 dxcc + 2 cqzone, deduped across bands)", score.multipliers)
+	}
+}
+
+// TestContestStateUnscoredQSOExcludedFromMultiplierCount extends the /X
+// (unscored) invariant already covered for unique_call scoring to the
+// dxcc/cqzone/ituzone multiplier kinds: an unscored QSO still happened (it
+// would show as worked in Check Partial/continent), but must not contribute
+// a multiplier toward CLAIMED-SCORE.
+func TestContestStateUnscoredQSOExcludedFromMultiplierCount(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "W1AW", band: "20M", unscored: true})
+
+	rules := &scoringRules{
+		PointsPerQSO: 1,
+		Multipliers:  []multiplierRule{{Kind: "dxcc", Per: "band"}},
+	}
+	score := state.score(rules)
+	if score.qsoPoints != 0 || score.multipliers != 0 {
+		t.Fatalf("score of a single unscored QSO = %d pts x %d mults, want 0 x 0", score.qsoPoints, score.multipliers)
+	}
+}
+
+// TestContestStateWouldBeNewMultiplier exercises the advance multiplier flag
+// (roadmap Appendix B.5) for a rule set combining unique_call-independent
+// dxcc/cqzone kinds: a callsign from an already-worked country on the same
+// band isn't a new mult even though the callsign itself is new, and a
+// callsign from a new country is.
+func TestContestStateWouldBeNewMultiplier(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "W1AW", band: "20M"}) // USA, CQ zone 5
+
+	table, err := sharedDXCCTable()
+	if err != nil {
+		t.Fatalf("sharedDXCCTable: %v", err)
+	}
+	rules := &scoringRules{
+		Multipliers: []multiplierRule{{Kind: "dxcc", Per: "band"}},
+	}
+
+	// Another USA call on the same band: not a new DXCC mult.
+	usEntity, found := table.lookup("W2XYZ")
+	if !found {
+		t.Fatal("expected W2XYZ to resolve to a DXCC entity")
+	}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "W2XYZ", "20M", usEntity, true); newMult || !workedBefore {
+		t.Fatalf("W2XYZ/20M (same country, same band) = newMult=%v workedBefore=%v, want false/true", newMult, workedBefore)
+	}
+
+	// A German call on the same band: new DXCC mult.
+	dlEntity, found := table.lookup("DL1ABC")
+	if !found {
+		t.Fatal("expected DL1ABC to resolve to a DXCC entity")
+	}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "DL1ABC", "20M", dlEntity, true); !newMult || workedBefore {
+		t.Fatalf("DL1ABC/20M (new country) = newMult=%v workedBefore=%v, want true/false", newMult, workedBefore)
+	}
+
+	// Same USA country, but a fresh band: new DXCC mult again (Per:"band").
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "W2XYZ", "40M", usEntity, true); !newMult || workedBefore {
+		t.Fatalf("W2XYZ/40M (same country, new band) = newMult=%v workedBefore=%v, want true/false", newMult, workedBefore)
+	}
+
+	// Unresolved prefix: no dxcc/cqzone/ituzone rule can fire.
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "ZZ1XYZ", "20M", dxccEntity{}, false); newMult || workedBefore {
+		t.Fatalf("unresolved prefix = newMult=%v workedBefore=%v, want false/false", newMult, workedBefore)
+	}
+}
+
 // TestContestIndexBuildsOnSelectAndUpdatesIncrementallyOnLog exercises the
 // live model.contestIndex end to end: selecting a contest builds an (empty)
 // index, and logging a QSO updates it incrementally, without a fresh

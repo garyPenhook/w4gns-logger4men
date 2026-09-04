@@ -34,8 +34,11 @@ func (m model) analysisPanel(width int) string {
 	var lines []string
 	lines = append(lines, helpStyle.Render(truncateToWidth("Analysis: "+event.Name, width)))
 
+	var entity dxccEntity
+	var entityFound bool
 	if table, err := sharedDXCCTable(); err == nil {
-		if entity, found := table.lookup(call); found {
+		if e, found := table.lookup(call); found {
+			entity, entityFound = e, true
 			loc := fmt.Sprintf("%s  CQ%d ITU%d %s", entity.Country, entity.CQZone, entity.ITUZone, entity.Continent)
 			lines = append(lines, truncateToWidth(loc, width))
 			if m.activeStation.Latitude != nil && m.activeStation.Longitude != nil &&
@@ -54,11 +57,14 @@ func (m model) analysisPanel(width int) string {
 	switch {
 	case m.dupeWarning:
 		lines = append(lines, truncateToWidth(dupeStyle.Render("DUPE — worked before on this band"), width))
-	case m.contestIndex != nil:
-		if _, worked := m.contestIndex.uniqueCalls[call]; worked {
-			lines = append(lines, truncateToWidth("Worked before — not a new mult", width))
-		} else if event.Scoring != nil && event.Scoring.Multiplier == "unique_call" {
+	case m.contestIndex != nil && event.Scoring != nil:
+		band := m.fields[fieldBand].Value()
+		newMult, workedBefore := m.contestIndex.wouldBeNewMultiplier(event.Scoring, call, band, entity, entityFound)
+		switch {
+		case newMult:
 			lines = append(lines, truncateToWidth(newMultStyle.Render("NEW MULT"), width))
+		case workedBefore:
+			lines = append(lines, truncateToWidth("Worked before — not a new mult", width))
 		}
 	}
 

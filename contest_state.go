@@ -39,6 +39,21 @@ type contestState struct {
 	// "Worked/Needed by continent" panel (Appendix B.9). Keyed by the
 	// two-letter continent code cty.dat/dxcc.go uses (NA, SA, EU, AF, AS, OC).
 	continentBand map[string]map[string]int
+	// dxccByBand/cqZoneByBand/ituZoneByBand hold the distinct DXCC entity
+	// numbers / CQ zones / ITU zones worked on each band — the data-driven
+	// multiplier schema's "per band" counters (Appendix C, multiplierRule
+	// Per: "band"), e.g. CQ WW's countries-worked and zones-worked mults.
+	// dxccAll/cqZoneAll/ituZoneAll mirror them but merge across every band,
+	// for a Per: "contest" (counted once) multiplier. All four are built from
+	// scored QSOs only (mirrors scoredCallBand/scoredUniqueCalls): an /X QSO
+	// still counts as worked for dupe/Check-Partial/rate/continent, but not
+	// for a multiplier.
+	dxccByBand    map[string]map[int]struct{}
+	dxccAll       map[int]struct{}
+	cqZoneByBand  map[string]map[int]struct{}
+	cqZoneAll     map[int]struct{}
+	ituZoneByBand map[string]map[int]struct{}
+	ituZoneAll    map[int]struct{}
 }
 
 // newContestState returns an empty index, ready for QSOs to be recorded.
@@ -50,6 +65,12 @@ func newContestState() *contestState {
 		scoredCallBand:    make(map[string]struct{}),
 		scoredUniqueCalls: make(map[string]struct{}),
 		continentBand:     make(map[string]map[string]int),
+		dxccByBand:        make(map[string]map[int]struct{}),
+		dxccAll:           make(map[int]struct{}),
+		cqZoneByBand:      make(map[string]map[int]struct{}),
+		cqZoneAll:         make(map[int]struct{}),
+		ituZoneByBand:     make(map[string]map[int]struct{}),
+		ituZoneAll:        make(map[int]struct{}),
 	}
 }
 
@@ -74,13 +95,34 @@ func (c *contestState) record(q qso) {
 		c.times = append(c.times, q.time)
 	}
 	if table, err := sharedDXCCTable(); err == nil {
-		if entity, found := table.lookup(call); found && entity.Continent != "" {
-			if c.continentBand[entity.Continent] == nil {
-				c.continentBand[entity.Continent] = make(map[string]int)
+		if entity, found := table.lookup(call); found {
+			if entity.Continent != "" {
+				if c.continentBand[entity.Continent] == nil {
+					c.continentBand[entity.Continent] = make(map[string]int)
+				}
+				c.continentBand[entity.Continent][band]++
 			}
-			c.continentBand[entity.Continent][band]++
+			if !q.unscored {
+				recordMultiplierValue(c.dxccByBand, c.dxccAll, band, entity.DXCCNumber)
+				recordMultiplierValue(c.cqZoneByBand, c.cqZoneAll, band, entity.CQZone)
+				recordMultiplierValue(c.ituZoneByBand, c.ituZoneAll, band, entity.ITUZone)
+			}
 		}
 	}
+}
+
+// recordMultiplierValue adds value to byBand[band] and all, unless value is
+// zero — cty.dat leaves DXCC number/CQ zone/ITU zone at zero when it couldn't
+// resolve one, and a zero shouldn't be countable as a multiplier.
+func recordMultiplierValue(byBand map[string]map[int]struct{}, all map[int]struct{}, band string, value int) {
+	if value == 0 {
+		return
+	}
+	if byBand[band] == nil {
+		byBand[band] = make(map[int]struct{})
+	}
+	byBand[band][value] = struct{}{}
+	all[value] = struct{}{}
 }
 
 // continents lists the standard continent codes cty.dat/dxcc.go use, in the
@@ -139,20 +181,103 @@ func (c *contestState) checkPartial(fragment string, limit int) []string {
 }
 
 // score tallies a contestScore from the index per rules: PointsPerQSO once
-// per unique (call, band) already recorded, multiplied by the multiplier
-// count rules.Multiplier selects. Mirrors the dedup behavior the previous
-// per-call computeContestScore implementation had (a same-band duplicate
-// still counts as a multiplier, since the callsign was still worked).
+// per unique (call, band) already recorded, multiplied by the sum of every
+// rule in rules.effectiveMultipliers(). Mirrors the dedup behavior the
+// previous per-call computeContestScore implementation had (a same-band
+// duplicate still counts as a multiplier, since the callsign was still
+// worked).
 func (c *contestState) score(rules *scoringRules) contestScore {
 	if rules == nil {
 		return contestScore{}
 	}
 	var out contestScore
 	out.qsoPoints = len(c.scoredCallBand) * rules.PointsPerQSO
-	if rules.Multiplier == "unique_call" {
-		out.multipliers = len(c.scoredUniqueCalls)
+	for _, rule := range rules.effectiveMultipliers() {
+		out.multipliers += c.multiplierCount(rule)
 	}
 	return out
+}
+
+// multiplierCount returns how many multipliers rule contributes: the size of
+// the relevant "all" set for Per: "contest", or the sum of the relevant
+// per-band set sizes for Per: "band" (the same DXCC entity/zone counts again
+// on each band it's worked, matching CQ WW-style scoring).
+func (c *contestState) multiplierCount(rule multiplierRule) int {
+	var byBand map[string]map[int]struct{}
+	var all map[int]struct{}
+	switch strings.TrimSpace(rule.Kind) {
+	case "unique_call":
+		return len(c.scoredUniqueCalls)
+	case "dxcc":
+		byBand, all = c.dxccByBand, c.dxccAll
+	case "cqzone":
+		byBand, all = c.cqZoneByBand, c.cqZoneAll
+	case "ituzone":
+		byBand, all = c.ituZoneByBand, c.ituZoneAll
+	default:
+		return 0
+	}
+	if strings.TrimSpace(rule.Per) == "band" {
+		total := 0
+		for _, set := range byBand {
+			total += len(set)
+		}
+		return total
+	}
+	return len(all)
+}
+
+// wouldBeNewMultiplier reports whether logging call on band right now would
+// add a new multiplier under rules (Appendix B.5 "advance multiplier flag"),
+// and separately whether any rule it checked was already satisfied — the
+// analysis panel uses newMult for the "NEW MULT" flag and workedBefore for
+// the dimmer "not a new mult" line, and a rule set combining several kinds
+// (e.g. CQ WW's DXCC-per-band + zone-per-band) can produce either, both, or
+// neither depending on what's already logged. entityFound false (unresolved
+// prefix) skips every dxcc/cqzone/ituzone rule — nothing to check yet.
+func (c *contestState) wouldBeNewMultiplier(rules *scoringRules, call, band string, entity dxccEntity, entityFound bool) (newMult, workedBefore bool) {
+	call = strings.ToUpper(strings.TrimSpace(call))
+	band = strings.ToUpper(strings.TrimSpace(band))
+	for _, rule := range rules.effectiveMultipliers() {
+		switch strings.TrimSpace(rule.Kind) {
+		case "unique_call":
+			if _, worked := c.scoredUniqueCalls[call]; worked {
+				workedBefore = true
+			} else {
+				newMult = true
+			}
+		case "dxcc", "cqzone", "ituzone":
+			if !entityFound {
+				continue
+			}
+			var value int
+			var byBand map[string]map[int]struct{}
+			var all map[int]struct{}
+			switch strings.TrimSpace(rule.Kind) {
+			case "dxcc":
+				value, byBand, all = entity.DXCCNumber, c.dxccByBand, c.dxccAll
+			case "cqzone":
+				value, byBand, all = entity.CQZone, c.cqZoneByBand, c.cqZoneAll
+			case "ituzone":
+				value, byBand, all = entity.ITUZone, c.ituZoneByBand, c.ituZoneAll
+			}
+			if value == 0 {
+				continue
+			}
+			var already bool
+			if strings.TrimSpace(rule.Per) == "band" {
+				_, already = byBand[band][value]
+			} else {
+				_, already = all[value]
+			}
+			if already {
+				workedBefore = true
+			} else {
+				newMult = true
+			}
+		}
+	}
+	return newMult, workedBefore
 }
 
 // rebuildContestIndex rebuilds m.contestIndex from the store for whichever
