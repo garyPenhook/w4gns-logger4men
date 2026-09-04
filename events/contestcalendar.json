@@ -833,7 +833,7 @@
   },
   {
     "id": "NAQP-CW",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "North American QSO Party, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -850,6 +850,18 @@
     "sent_exchange_hint": "NA: Name + (state/DC/province/country) non-NA: Name",
     "received_exchange_hint": "NA: Name + (state/DC/province/country) non-NA: Name",
     "dupe_scope": "call+band",
+    "adif_contest_id": "NAQP-CW",
+    "cabrillo_layout": "cw_exchange_only",
+    "cabrillo_omit_rst": true,
+    "scoring": {
+      "points_per_qso": 1,
+      "multipliers": [
+        {
+          "kind": "naqp_area",
+          "per": "band"
+        }
+      ]
+    },
     "rules_url": "https://www.ncjweb.com/NAQP-Rules.pdf",
     "score_submission_url": "",
     "sessions": [

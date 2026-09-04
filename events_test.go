@@ -364,6 +364,43 @@ func TestLoadEventCatalogTNQPHasRealScoringRules(t *testing.T) {
 	}
 }
 
+// TestLoadEventCatalogNAQPCWHasRealScoringRules guards the curated NAQP-CW
+// entry's actual scoring config, sourced from ncjweb.com/NAQP-Rules.pdf:
+// Rule 13 ("Multiply total valid contacts by the sum of the number of
+// multipliers worked on each band") is a flat 1 point per QSO — not a
+// distance/tier scale — times a Rule 11 "naqp_area" multiplier (US
+// states/DC/Canadian provinces, plus other North American DXCC entities)
+// counted again on every band. No RST is exchanged (Rule 10: name and
+// location only), matching CW Open's cw_exchange_only/cabrillo_omit_rst
+// shape.
+func TestLoadEventCatalogNAQPCWHasRealScoringRules(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	naqp := events[eventIndex(t, events, "NAQP-CW")]
+	if naqp.Capability != catalogCapabilityScoringReady {
+		t.Fatalf("NAQP-CW capability = %q, want %q", naqp.Capability, catalogCapabilityScoringReady)
+	}
+	if naqp.Scoring == nil || naqp.Scoring.PointsPerQSO != 1 {
+		t.Fatalf("NAQP-CW scoring = %+v, want PointsPerQSO 1", naqp.Scoring)
+	}
+	mults := naqp.Scoring.effectiveMultipliers()
+	want := []multiplierRule{{Kind: "naqp_area", Per: "band"}}
+	if len(mults) != len(want) || mults[0] != want[0] {
+		t.Fatalf("NAQP-CW multipliers = %+v, want %+v", mults, want)
+	}
+	if naqp.ADIFContestID != "NAQP-CW" {
+		t.Fatalf("NAQP-CW adif_contest_id = %q, want NAQP-CW", naqp.ADIFContestID)
+	}
+	if naqp.CabrilloLayout != "cw_exchange_only" {
+		t.Fatalf("NAQP-CW cabrillo_layout = %q, want cw_exchange_only", naqp.CabrilloLayout)
+	}
+	if !naqp.CabrilloOmitRST {
+		t.Fatalf("NAQP-CW cabrillo_omit_rst = false, want true")
+	}
+}
+
 // TestReceivedExchangeAutofillExcludedIsCaseInsensitiveAndSafeOnBlank guards
 // the helper autofillReceivedExchange calls on every keystroke: matching
 // must not depend on cty.dat's exact letter casing, and an unresolved

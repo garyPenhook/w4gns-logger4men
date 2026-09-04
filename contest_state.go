@@ -81,6 +81,12 @@ type contestState struct {
 	// station's callsign rather than its received exchange.
 	sacAreaByBand map[string]map[string]struct{}
 	sacAreaAll    map[string]struct{}
+	// naqpAreaByBand/naqpAreaAll mirror sacAreaByBand/sacAreaAll for the
+	// "naqp_area" multiplier kind (naqp_area.go's naqpAreaCode): NAQP's
+	// state/province/other-NA-country value, derived from the worked
+	// station's received exchange text.
+	naqpAreaByBand map[string]map[string]struct{}
+	naqpAreaAll    map[string]struct{}
 	// pointCategoryCountry records the worked entity's cty.dat country name
 	// for every scored "CALL|BAND" key, independent of whether the operator's
 	// own station resolved — a pointsRule.CountryGroup check (e.g. SAC's
@@ -147,6 +153,8 @@ func newContestState() *contestState {
 		tnCountyAll:            make(map[string]struct{}),
 		sacAreaByBand:          make(map[string]map[string]struct{}),
 		sacAreaAll:             make(map[string]struct{}),
+		naqpAreaByBand:         make(map[string]map[string]struct{}),
+		naqpAreaAll:            make(map[string]struct{}),
 		pointCategory:          make(map[string]qsoPointCategory),
 		pointCategoryContinent: make(map[string]string),
 		pointCategoryCountry:   make(map[string]string),
@@ -214,6 +222,7 @@ func (c *contestState) record(q qso) {
 		recordMultiplierStringValue(c.prefixByBand, c.prefixAll, band, wpxPrefix(call))
 		recordMultiplierStringValue(c.exchangeAreaByBand, c.exchangeAreaAll, band, exchangeAreaCode(q.srxString))
 		recordMultiplierStringValue(c.tnCountyByBand, c.tnCountyAll, band, tnCountyCode(q.srxString))
+		recordMultiplierStringValue(c.naqpAreaByBand, c.naqpAreaAll, band, naqpAreaCode(q.srxString))
 	}
 	if table, err := sharedDXCCTable(); err == nil {
 		if entity, found := table.lookup(call); found {
@@ -491,6 +500,15 @@ func (c *contestState) multiplierCount(rule multiplierRule) int {
 			return total
 		}
 		return len(c.sacAreaAll)
+	case "naqp_area":
+		if strings.TrimSpace(rule.Per) == "band" {
+			total := 0
+			for _, set := range c.naqpAreaByBand {
+				total += len(set)
+			}
+			return total
+		}
+		return len(c.naqpAreaAll)
 	}
 	var byBand map[string]map[int]struct{}
 	var all map[int]struct{}
@@ -600,6 +618,22 @@ func (c *contestState) wouldBeNewMultiplier(rules *scoringRules, call, band, exc
 				_, already = c.sacAreaByBand[band][area]
 			} else {
 				_, already = c.sacAreaAll[area]
+			}
+			if already {
+				workedBefore = true
+			} else {
+				newMult = true
+			}
+		case "naqp_area":
+			area := naqpAreaCode(exchangeText)
+			if area == "" {
+				continue
+			}
+			var already bool
+			if strings.TrimSpace(rule.Per) == "band" {
+				_, already = c.naqpAreaByBand[band][area]
+			} else {
+				_, already = c.naqpAreaAll[area]
 			}
 			if already {
 				workedBefore = true

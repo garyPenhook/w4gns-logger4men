@@ -41,7 +41,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.19.0"
+const appVersion = "1.20.0"
 
 type screen int
 
@@ -1531,8 +1531,12 @@ func (m *model) showWorkedCall(call string) {
 // field (m.fields[idx]) or, while a contest is active, a received-exchange
 // field captured inline (m.contestFields[idx]) so the worked station's
 // exchange is logged without leaving the screen for Contest Entry (F7). Base
-// slots always occupy positions 0..fieldCount-1 in the returned order, so the
-// existing focusIdx==fieldCall/fieldBand checks keep working unchanged.
+// slots normally occupy positions 0..fieldCount-1 in the returned order, but
+// RST Sent/Rcvd are dropped entirely while an active event's
+// CabrilloOmitRST is set (e.g. CW Open, NAQP CW: no RST is exchanged in
+// those contests), so callers must not assume a fixed fieldXXX-to-position
+// mapping — use focusedBaseFieldIndex for a position-independent check
+// instead of comparing m.focusIdx to a fieldXXX constant directly.
 type entrySlot struct {
 	contest bool
 	post    bool
@@ -1545,14 +1549,23 @@ type entrySlot struct {
 // received exchange, followed (in POST mode) by the operator-typed Date/Time.
 // A serial-exchange contest (e.g. CW Open) receives a serial plus an exchange;
 // other contests receive just the exchange (zone, state, …). The POST slot is
-// always last so it never disturbs the fixed 0..fieldCount-1 base-slot
-// positions or the fieldCount jump target Enter's fast-path relies on.
+// always last. RST Sent/Rcvd are omitted from the base fields while the
+// active event's CabrilloOmitRST is set: those contests never exchange RST
+// (SD 599/59 default doesn't apply), so prompting for it mid-QSO both wastes
+// keystrokes and implies an exchange that was never sent — Cabrillo export
+// already drops the columns for these events (cw_exchange_only layout), but
+// the on-screen form still showed and cycled through them before this.
 func (m model) entrySlots() []entrySlot {
+	event, contestActive := m.eventForContestID()
+	skipRST := contestActive && event.CabrilloOmitRST
 	slots := make([]entrySlot, 0, fieldCount+3)
 	for i := 0; i < fieldCount; i++ {
+		if skipRST && (i == fieldRSTSent || i == fieldRSTRcvd) {
+			continue
+		}
 		slots = append(slots, entrySlot{idx: i, label: fieldLabels[i]})
 	}
-	if event, ok := m.eventForContestID(); ok {
+	if contestActive {
 		if event.SentSerial {
 			slots = append(slots, entrySlot{contest: true, idx: contestSerialRcvd, label: "Rcv #"})
 		}
@@ -1565,6 +1578,23 @@ func (m model) entrySlots() []entrySlot {
 		slots = append(slots, entrySlot{post: true, idx: postTimestamp, label: "Date/Time UTC"})
 	}
 	return slots
+}
+
+// focusedBaseFieldIndex returns the fieldXXX constant the currently focused
+// slot corresponds to, or -1 if the focus is on a contest/post slot or out of
+// range. entrySlots can omit RST Sent/Rcvd (CabrilloOmitRST events), shifting
+// every later base field's position, so this — not a direct m.focusIdx==
+// fieldBand comparison — is the position-independent way to ask "is the
+// operator on the Band field."
+func (m model) focusedBaseFieldIndex() int {
+	slots := m.entrySlots()
+	if m.focusIdx < 0 || m.focusIdx >= len(slots) {
+		return -1
+	}
+	if s := slots[m.focusIdx]; !s.contest && !s.post {
+		return s.idx
+	}
+	return -1
 }
 
 // focusedInput returns a pointer to the textinput backing the focused slot, so
@@ -2674,7 +2704,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.handleCallFieldCommand() {
 				return m, nil
 			}
-			if m.focusIdx == len(m.entrySlots())-1 {
+			slots := m.entrySlots()
+			if m.focusIdx == len(slots)-1 {
 				var cmd tea.Cmd
 				m, cmd = m.logCurrentQSO()
 				return m, cmd
@@ -2688,11 +2719,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// mid-QSO, so Enter fast-paths straight to the worked station's
 				// received exchange. Tab still visits every field for the rare
 				// correction, per the roadmap's "keep Tab for full field-by-field".
-				// Gated on the contest itself, not just "slots grew past
-				// fieldCount" — POST mode alone (no contest) also grows the
-				// slot list via its trailing Date/Time slot, and RST/Band/Freq
-				// still need a look when re-entering a paper log.
-				nextFocus = fieldCount
+				// Gated on the contest itself, not just "slots grew past the base
+				// fields" — POST mode alone (no contest) also grows the slot list
+				// via its trailing Date/Time slot, and RST/Band/Freq still need a
+				// look when re-entering a paper log. The jump target is the first
+				// contest slot's actual position, not a hardcoded fieldCount:
+				// entrySlots omits RST Sent/Rcvd entirely for a CabrilloOmitRST
+				// event (e.g. CW Open), which shifts where the base fields end.
+				for idx, s := range slots {
+					if s.contest {
+						nextFocus = idx
+						break
+					}
+				}
 			}
 			m.focusField(nextFocus)
 			if leavingCall {
@@ -2717,12 +2756,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.openContestOrCatalog()
 			return m, nil
 		case "left", "down":
-			if m.focusIdx == fieldBand {
+			if m.focusedBaseFieldIndex() == fieldBand {
 				m.selectBand(-1)
 				return m, nil
 			}
 		case "right", "up":
-			if m.focusIdx == fieldBand {
+			if m.focusedBaseFieldIndex() == fieldBand {
 				m.selectBand(1)
 				return m, nil
 			}
@@ -2733,7 +2772,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.scrollClusterSpots(recentQSOsVisibleRows)
 			return m, nil
 		}
-		if m.focusIdx == fieldBand {
+		if m.focusedBaseFieldIndex() == fieldBand {
 			// Band is intentionally a closed selector. This prevents an invalid or
 			// unsupported band label from being entered into a QSO, while allowing
 			// non-key messages (such as textinput cursor-blink ticks) through.

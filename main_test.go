@@ -125,7 +125,10 @@ func TestEnterLeavingCallStartsQSOTimer(t *testing.T) {
 // ergonomic entry order: with a contest active, Enter leaving Call should
 // jump straight to the received exchange, skipping RST/Band/Freq (which are
 // auto-filled and rarely need touching mid-QSO). Tab must still visit every
-// field for the rare correction.
+// remaining field for the rare correction — but CW Open's own rules never
+// exchange RST (cwops.org/cwops-tests/cw-open/: "Sequential Serial Number and
+// Name" only), so its CabrilloOmitRST entry drops RST Sent/Rcvd from
+// entrySlots entirely; Tab from Call lands on Band, not RST Sent.
 func TestEnterAfterCallFastPathsPastAutoFilledFieldsDuringContest(t *testing.T) {
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {
@@ -144,16 +147,62 @@ func TestEnterAfterCallFastPathsPastAutoFilledFieldsDuringContest(t *testing.T) 
 	got := updated.(model)
 
 	slots := got.entrySlots()
-	if want := fieldCount; got.focusIdx != want || !slots[got.focusIdx].contest {
-		t.Fatalf("Enter after Call with a contest active focused slot %d (%+v), want the first received-exchange slot at %d", got.focusIdx, slots[got.focusIdx], want)
+	if got.focusIdx < 0 || got.focusIdx >= len(slots) || !slots[got.focusIdx].contest {
+		t.Fatalf("Enter after Call with a contest active focused slot %d (%+v), want the first received-exchange slot", got.focusIdx, slots)
 	}
 
 	// Tab still moves one field at a time, unaffected by the fast path.
 	got.focusField(fieldCall)
 	updated, _ = got.Update(tea.KeyMsg{Type: tea.KeyTab})
 	got = updated.(model)
-	if got.focusIdx != fieldRSTSent {
-		t.Fatalf("Tab after Call focused slot %d, want %d (RST Sent)", got.focusIdx, fieldRSTSent)
+	if got.focusedBaseFieldIndex() != fieldBand {
+		t.Fatalf("Tab after Call focused slot %d (%+v), want Band — CW Open doesn't exchange RST, so RST Sent/Rcvd are hidden", got.focusIdx, got.entrySlots())
+	}
+}
+
+// TestEntrySlotsHideRSTForCabrilloOmitRSTEvent guards the fix for RST Sent/
+// Rcvd appearing in the QSO Entry form for a contest whose rules never
+// exchange RST (CW Open, NAQP CW): entrySlots must drop both fields
+// entirely rather than show them with an unused "599" default, since
+// Cabrillo export already omits the columns (cw_exchange_only layout) — the
+// on-screen form disagreeing with what's actually exchanged in the contest
+// is confusing and wastes keystrokes.
+func TestEntrySlotsHideRSTForCabrilloOmitRSTEvent(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	cwopen := m.events[eventIndex(t, m.events, "CW-OPEN")]
+	if !cwopen.CabrilloOmitRST {
+		t.Fatal("test assumes CW-OPEN has cabrillo_omit_rst set")
+	}
+	m.selectEvent(cwopen, cwopen.Sessions[0])
+	m.screen = qsoEntryScreen
+	m.focusField(fieldCall)
+
+	for _, s := range m.entrySlots() {
+		if !s.contest && !s.post && (s.idx == fieldRSTSent || s.idx == fieldRSTRcvd) {
+			t.Fatalf("entrySlots included an RST slot (%+v) for a CabrilloOmitRST event", s)
+		}
+	}
+	if view := m.View(); strings.Contains(view, "RST Sent") || strings.Contains(view, "RST Rcvd") {
+		t.Fatalf("QSO Entry view still shows RST fields for CW Open:\n%s", view)
+	}
+
+	// A non-CabrilloOmitRST event (CQ WW CW exchanges RST) still shows both.
+	cqww := m.events[eventIndex(t, m.events, "CQ-WW-CW")]
+	m.selectEvent(cqww, cqww.Sessions[0])
+	found := map[int]bool{}
+	for _, s := range m.entrySlots() {
+		if !s.contest && !s.post {
+			found[s.idx] = true
+		}
+	}
+	if !found[fieldRSTSent] || !found[fieldRSTRcvd] {
+		t.Fatal("entrySlots dropped RST fields for an event that does exchange RST")
 	}
 }
 
@@ -506,10 +555,12 @@ func TestContestReceivedExchangeLoggedInlineOnEntryScreen(t *testing.T) {
 	m.focusField(fieldCall)
 
 	// The entry row now carries the received exchange inline (Rcv # + Rcv Exch),
-	// and the last field is the exchange so a final Enter logs from it.
+	// and the last field is the exchange so a final Enter logs from it. CW Open
+	// doesn't exchange RST, so its two base fields (fieldCount-2) plus the two
+	// contest slots.
 	slots := m.entrySlots()
-	if len(slots) != fieldCount+2 {
-		t.Fatalf("entrySlots len = %d, want %d (base fields + Rcv#/RcvExch)", len(slots), fieldCount+2)
+	if len(slots) != fieldCount-2+2 {
+		t.Fatalf("entrySlots len = %d, want %d (base fields minus RST + Rcv#/RcvExch)", len(slots), fieldCount-2+2)
 	}
 	if !slots[len(slots)-1].contest {
 		t.Fatalf("last entry slot should be the received exchange, got %+v", slots[len(slots)-1])

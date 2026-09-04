@@ -501,6 +501,56 @@ func TestContestStateWouldBeNewMultiplierTNCounty(t *testing.T) {
 	}
 }
 
+// TestContestStateScoreNAQPAreaMultiplierFromReceivedExchange exercises
+// NAQP's "naqp_area" multiplier (Rule 11, ncjweb.com/NAQP-Rules.pdf): a
+// state/province or other-North-America-entity value parsed from the last
+// token of the worked station's received exchange text ("Name Location"),
+// counted per band ("Multipliers count again on each band"). A repeated
+// value on the same band doesn't add another; the same value on a different
+// band does; a non-North-America worked station contributes nothing.
+func TestContestStateScoreNAQPAreaMultiplierFromReceivedExchange(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "W4ABC", band: "20M", srxString: "BOB CA"})   // new: CA/20M
+	state.record(qso{call: "K6XYZ", band: "20M", srxString: "JOE CA"})   // same area+band, no new mult
+	state.record(qso{call: "W6DEF", band: "40M", srxString: "SUE CA"})   // same area, new band
+	state.record(qso{call: "XE1GHI", band: "20M", srxString: "ANA XE"}) // other-NA entity: new mult
+	state.record(qso{call: "JA1JKL", band: "20M", srxString: "KEN"})    // non-NA: no mult
+
+	rules := &scoringRules{
+		PointsPerQSO: 1,
+		Multipliers:  []multiplierRule{{Kind: "naqp_area", Per: "band"}},
+	}
+	score := state.score(rules)
+	if score.multipliers != 3 {
+		t.Fatalf("multipliers = %d, want 3 (CA/20M + CA/40M + Mexico/20M)", score.multipliers)
+	}
+}
+
+// TestContestStateWouldBeNewMultiplierNAQPArea exercises the as-you-type
+// "NEW MULT" flag for the naqp_area kind, which — like exchange_area/
+// tn_county — has no callsign-derived fallback and reads only the operator's
+// in-progress received-exchange field text.
+func TestContestStateWouldBeNewMultiplierNAQPArea(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "W4ABC", band: "20M", srxString: "BOB CA"})
+
+	rules := &scoringRules{
+		Multipliers: []multiplierRule{{Kind: "naqp_area", Per: "band"}},
+	}
+	// Same area, same band, already worked: not a new mult.
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "K6XYZ", "20M", "JOE CA", dxccEntity{}, false); newMult || !workedBefore {
+		t.Fatalf("CA/20M (already worked) = newMult=%v workedBefore=%v, want false/true", newMult, workedBefore)
+	}
+	// Same area, different band: new mult.
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "W6DEF", "40M", "SUE CA", dxccEntity{}, false); !newMult || workedBefore {
+		t.Fatalf("CA/40M (new band) = newMult=%v workedBefore=%v, want true/false", newMult, workedBefore)
+	}
+	// Non-NA worked station: no flag either way.
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "JA1JKL", "20M", "KEN", dxccEntity{}, false); newMult || workedBefore {
+		t.Fatalf("non-NA exchange text = newMult=%v workedBefore=%v, want false/false", newMult, workedBefore)
+	}
+}
+
 // TestContestStateScorePointsRuleWPXBandTiering exercises CQ WPX's
 // band-tiered points (Rule V.B): high bands (10/15/20M) use the base
 // same-continent/other-continent values, low bands (40/80/160M) double them,

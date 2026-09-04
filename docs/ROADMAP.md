@@ -58,8 +58,8 @@ the log, submitted contest results, or external services.
 - 🔧 **Audit and implement scoring per contest before presenting the catalog as
   correct.** Every one of the 429 event records now declares and is validated
   against an explicit `capability`: 9 intentionally generic templates are
-  `selection-only`, 412 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
-  `CQ-160-CW`, `ARRL-DX-CW`, `CQ-WPX-CW`, `TNQP`, and `SAC-CW` are
+  `selection-only`, 411 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
+  `CQ-160-CW`, `ARRL-DX-CW`, `CQ-WPX-CW`, `TNQP`, `SAC-CW`, and `NAQP-CW` are
   `scoring-ready`. **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
   side-asymmetric around a fixed "Scandinavian" country group — Norway,
   Finland, Sweden, Iceland, Denmark, and the territories the rules list by
@@ -195,6 +195,29 @@ the log, submitted contest results, or external services.
   out-of-order paper-log entry remains a product decision.
 
 ### P3 — roadmap/UI accuracy and hardening
+
+- ✅ **QSO Entry no longer prompts for RST on a contest that doesn't exchange
+  it.** `entrySlots` always rendered RST Sent/Rcvd as fixed base fields
+  regardless of the active event, so CW Open and NAQP CW — both
+  `cabrillo_omit_rst: true`, confirmed against cwops.org/cwops-tests/cw-open/
+  ("Sequential Serial Number and Name") and ncjweb.com/NAQP-Rules.pdf (Rule
+  10, name and location only) — still showed two RST input boxes with an
+  unused "599" default on screen, even though Cabrillo export already
+  omitted the columns for these events (`cw_exchange_only` layout): the
+  on-screen form disagreed with what the loaded event actually exchanges.
+  `entrySlots` (`main.go`) now drops RST Sent/Rcvd entirely while the active
+  event's `CabrilloOmitRST` is set. Because base fields no longer always
+  occupy fixed positions 0..`fieldCount`-1, every direct
+  `m.focusIdx == fieldBand` comparison was replaced with a new
+  position-independent `focusedBaseFieldIndex()` helper, and the contest
+  Enter-fast-path's jump target (previously a hardcoded `fieldCount`) is now
+  the resolved index of the first contest slot. `fieldCall` comparisons were
+  left as direct constants since Call is never hidden. Tests:
+  `TestEntrySlotsHideRSTForCabrilloOmitRSTEvent` (also guards that an event
+  that does exchange RST, e.g. CQ WW CW, is unaffected),
+  `TestEnterAfterCallFastPathsPastAutoFilledFieldsDuringContest` and
+  `TestContestReceivedExchangeLoggedInlineOnEntryScreen` updated for the new
+  slot count/positions.
 
 - ✅ **Bearing/distance prefers the worked station's entered grid.** The
   analysis panel uses a valid entered/QRZ-filled grid before falling back to
@@ -618,6 +641,41 @@ every panel *and* scoring so they always agree.
     (`TestContestStateScorePrefixMultiplierCountsOncePerContest`,
     `TestContestStateScorePointsRuleWPXBandTiering`), `events_test.go`
     (`TestLoadEventCatalogCQWPXHasRealScoringRules`).
+- ✅ **Real per-contest wiring: NAQP CW's actual scoring rules**, sourced from
+  ncjweb.com/NAQP-Rules.pdf. Rule 13 ("Multiply total valid contacts by the
+  sum of the number of multipliers worked on each band") is a flat 1 point
+  per QSO — no continent/country tiering, unlike CQ WW/CQ 160/ARRL DX/WPX —
+  times a Rule 11 multiplier: all 50 US states (including Alaska/Hawaii),
+  DC, the 13 Canadian provinces/territories (Newfoundland and Labrador
+  combined into one value, unlike the existing `exchange_area` table's
+  separate NL/LB), and "other North American entities" identified by DXCC
+  prefix, counted again on every band. This is exactly the existing
+  `PointsPerQSO`/`multiplierRule{Per:"band"}` shape (`contest_state.go`
+  `score()`, `total()`), so no new scoring schema was needed. **New
+  `naqp_area` multiplier kind** (`naqp_area.go`, `naqpAreaCode`) reads the
+  worked station's received-exchange text: unlike `exchange_area`/
+  `tn_county` (whose contests exchange location alone), NAQP's exchange is
+  "Name + location" typed into the same single free-text field, so only the
+  last whitespace-separated token is checked against the 64-value state/
+  province table; a miss falls back to a `dxccTable.lookup` on that token
+  as a bare DXCC prefix (Rule 11: "please use the standard DXCC prefix ...
+  in the received location field"), counting a hit outside the US/Canada as
+  a multiplier keyed by its country name. `contest_state.go` extends the
+  index with `naqpAreaByBand`/`naqpAreaAll` (recorded in `record()`, summed
+  in `multiplierCount()`) and wires the as-you-type "NEW MULT" flag in
+  `wouldBeNewMultiplier`. Curated `NAQP-CW` (`events/contestcalendar.json`)
+  carries the real `scoring` block plus `adif_contest_id: NAQP-CW` (ADIF
+  Contest ID Enumeration) and `cabrillo_layout: cw_exchange_only` +
+  `cabrillo_omit_rst: true` (Rule 10: name and location only, no RST — the
+  same shape CW Open uses), promoting `capability` to `scoring-ready`. Not
+  addressed here (a documented limitation, not a rules gap): the
+  last-token heuristic assumes the conventional "name, then location"
+  typing order, matching the practical-approximation class of `wpxPrefix`.
+  Tests: `naqp_area_test.go` (`TestNAQPAreaCode`,
+  `TestNAQPAreaCodesHas64Values`), `contest_state_test.go`
+  (`TestContestStateScoreNAQPAreaMultiplierFromReceivedExchange`,
+  `TestContestStateWouldBeNewMultiplierNAQPArea`), `events_test.go`
+  (`TestLoadEventCatalogNAQPCWHasRealScoringRules`).
 - ✅ **CSV export** (`Ctrl+R`). `csv_export.go` (`exportCSV`, `writeCSVAtomic`,
   `csvField`/`csvRow` — RFC 4180 quoting, CRLF rows) streams the active
   contest's QSOs (same `contest_id` scoping as Cabrillo/ADIF export) to

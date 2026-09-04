@@ -1,5 +1,10 @@
 # Changelog
 
+### v1.20.0
+
+- Wired the North American QSO Party, CW (NAQP CW)'s real scoring rules: flat 1 point per QSO times a state/province/other-North-America-entity multiplier counted again on every band, sourced from ncjweb.com's NAQP rules.
+- QSO Entry no longer shows RST Sent/Rcvd fields for a contest that doesn't exchange RST (CW Open, NAQP CW) — previously both fields were always shown with an unused "599" default, disagreeing with what the contest actually exchanges and wasting keystrokes tabbing past them.
+
 ### v1.19.0
 
 - Fixed selecting an event on the Events screen leaving you unable to log: it landed on the Contest Entry screen, which has no Call field, instead of QSO Entry. Selecting an event now returns to QSO Entry with Call focused so you can start logging immediately.
