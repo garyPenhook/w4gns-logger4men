@@ -312,6 +312,13 @@ type model struct {
 	eventFocus          int
 	eventSessionFocus   int
 	exchangeChoiceFocus int
+	// contestIndex is the in-memory analysis index (contest_state.go) for
+	// whichever contest contestIndexID names — the shared backend the
+	// Analysis panel and (eventually) scoring read so they can't disagree.
+	// nil when no contest is active. Kept live by rebuildContestIndex and its
+	// call sites; see that function's doc comment for the sync rules.
+	contestIndex   *contestState
+	contestIndexID string
 }
 
 // formatSerial renders a running serial number the way contest exchanges are
@@ -343,6 +350,12 @@ var (
 			Foreground(lipgloss.Color("15")).
 			Background(lipgloss.Color("#D8003A")).
 			Padding(0, 2)
+
+	// newMultStyle flags a callsign that would advance a multiplier if
+	// logged now, in the Analysis panel (analysis_panel.go).
+	newMultStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("10"))
 
 	editingStyle = lipgloss.NewStyle().
 			Bold(true).
@@ -1094,6 +1107,14 @@ func (m *model) beginEditQSO(q qso) {
 	m.workedCall = ""
 	m.statusMsg = "editing " + full.call + " — Esc cancels, final Enter saves"
 	m.focusField(fieldCall)
+	// The contestFields[contestName] overwrite above doesn't go through the
+	// per-keystroke Update path that normally notices a contest switch, so
+	// contestIndex wouldn't otherwise resync to the edited QSO's own
+	// contest. rebuildContestIndex directly, not checkDupe: checkDupe would
+	// also re-run showWorkedCall(full.call) and undo the m.workedCall reset
+	// two lines up, flipping the Recent QSOs table to that call's history
+	// instead of leaving it as it was when the edit began.
+	m.rebuildContestIndex()
 }
 
 // cancelEditQSO discards an in-progress edit and returns to a blank
@@ -1104,6 +1125,11 @@ func (m *model) cancelEditQSO() {
 	m.editingOriginal = qso{}
 	m.clearQSOForm()
 	m.restorePreEditContestSelection()
+	// Swapping the contest selection back needs the same contestIndex
+	// resync beginEditQSO triggers on the way in; rebuildContestIndex
+	// directly for the same reason given there (avoid checkDupe's
+	// showWorkedCall side effect).
+	m.rebuildContestIndex()
 	m.statusMsg = "cancelled editing " + call
 }
 
@@ -1138,6 +1164,16 @@ func (m model) dupeCheckScope() (contestID, eventID, dupeScope string) {
 // selected — or the indicator can go stale and disagree with the
 // authoritative check logCurrentQSO performs right before insert.
 func (m *model) checkDupe() {
+	contestID, eventID, dupeScope := m.dupeCheckScope()
+	// checkDupe already runs on every keystroke that could change which
+	// contest is active (Call field, band change, catalog selection, F7
+	// contest-name typing), so this is the one place that needs to notice a
+	// contest switch and keep contestIndex in sync — see
+	// rebuildContestIndex's doc comment for the other sync points (edit
+	// save, delete) that a same-contest data change needs instead.
+	if contestID != m.contestIndexID {
+		m.rebuildContestIndex()
+	}
 	call := normalizeCall(m.fields[fieldCall].Value())
 	m.dupeWarning = false
 	if call == "" {
@@ -1156,7 +1192,6 @@ func (m *model) checkDupe() {
 			m.statusMsg = fmt.Sprintf("contest %q not found in event catalog — dupe check uses the 15-minute casual window", raw)
 		}
 	}
-	contestID, eventID, dupeScope := m.dupeCheckScope()
 	dupe, err := m.store.isDupe(call, m.qsoBand(), contestID, eventID, dupeScope, m.activeStation.ID, m.editingQSOID, time.Now())
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
@@ -1535,6 +1570,9 @@ func (m model) updateRecentQSOsTable(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.statusMsg = "deleted " + q.call
 		m.refreshTableRows()
+		// Unconditional full recompute: the deleted QSO may have belonged to
+		// the active contest (cheap no-op via rebuildContestIndex otherwise).
+		m.rebuildContestIndex()
 		return m, nil
 	default:
 		if m.deleteArmed {
@@ -1626,6 +1664,10 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		m.editingOriginal = qso{}
 		m.clearQSOForm()
 		m.restorePreEditContestSelection()
+		// Unconditional, not checkDupe's lazy diff-check: editing a QSO's
+		// call/band within the contest that's still active afterward doesn't
+		// change contestIndexID, but the underlying data did change.
+		m.rebuildContestIndex()
 		m.statusMsg = "updated " + call
 		m.refreshTableRows()
 		return m, nil
@@ -1655,6 +1697,13 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		return m, nil
 	}
 	m.statusMsg = fmt.Sprintf("logged %s (%s)", call, endedAt.Sub(startedAt).Round(time.Second))
+	// Incremental update instead of a full rebuild — cheap, and correct as
+	// long as the QSO just logged belongs to the contest the index was built
+	// for (checkDupe kept contestIndexID in sync with contestID while the
+	// operator was typing, so this should always hold).
+	if m.contestIndex != nil && strings.TrimSpace(logged.contestID) == m.contestIndexID {
+		m.contestIndex.record(logged)
+	}
 	// Advance the running serial past the one just sent so the next QSO shows
 	// the next number. Deriving it from the value actually logged (rather than
 	// a blind ++) carries forward any manual correction the operator made to
@@ -2584,7 +2633,16 @@ func (m model) View() string {
 	help := "tab/shift+tab: move/edit fields  •  first tab after callsign starts QSO  •  final enter: save next QSO"
 	b.WriteString(helpStyle.Render(help))
 
-	return b.String()
+	left := b.String()
+	// Analysis panel spans the whole right-hand column alongside QSO Entry
+	// (fields + Recent QSOs/DX Spots), not just one row of it — same
+	// width-gating idiom as dxSpotsPanel, applied one level up.
+	const analysisPanelGap = 4
+	panel := m.analysisPanel(m.termWidth - lipgloss.Width(left) - analysisPanelGap)
+	if panel == "" {
+		return left
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, left, strings.Repeat(" ", analysisPanelGap), panel)
 }
 
 func (m model) stationSetupView() string {

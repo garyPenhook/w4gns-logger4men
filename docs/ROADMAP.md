@@ -101,9 +101,16 @@ every panel *and* scoring so they always agree.
   wiring deferred to the live TUI model when the as-you-type panels land.
   Tested: worked-band lookups, full recompute after a call/band edit
   (Appendix E's hardest case), nil-rules score.
-- ⏳ As-you-type (from 2 chars): **dupe**, **country/zone/continent**, **beam
-  heading**, **advance multiplier flag** (incl. double-mult for CQWW-style),
-  **band/mode worked-matrix** — in a right-hand analysis panel.
+- ✅ **As-you-type analysis panel**: dupe, country/CQ/ITU/continent, beam
+  heading+distance, new-multiplier flag (`unique_call` rule only — double-mult
+  and area-code mults wait for the Phase 3 data-driven multiplier schema),
+  band-worked matrix — right-hand column beside QSO Entry, gated by
+  `analysisPanelMinWidth` the same way `dxSpotsPanel` degrades on narrow
+  terminals. `analysis_panel.go` (`analysisPanel`), `main.go`
+  (`model.contestIndex`/`contestIndexID`), `contest_state.go`
+  (`rebuildContestIndex`, the sync point wired into `checkDupe`,
+  `beginEditQSO`/`cancelEditQSO`, edit-save, insert, and delete — full
+  recompute on edit/delete, incremental on log, per Appendix C).
 - ⏳ **Auto-fill zones/area codes** with per-station override carried forward.
 
 **Phase 2 — databases & partials**

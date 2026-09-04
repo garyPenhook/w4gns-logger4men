@@ -73,6 +73,30 @@ func (c *contestState) score(rules *scoringRules) contestScore {
 	return out
 }
 
+// rebuildContestIndex rebuilds m.contestIndex from the store for whichever
+// contest m.dupeCheckScope currently resolves to, and records that contest ID
+// in m.contestIndexID. It is the single sync point that keeps the live index
+// agreeing with the database: callers that change which contest is active
+// (checkDupe, when contestIndexID no longer matches) or that mutate a QSO
+// that could belong to the active contest (edit save, delete) call this
+// directly. A blank contestID (no known contest) clears the index; a store
+// error is treated as best-effort "no index," matching how sharedDXCCTable
+// enrichment failures are already treated elsewhere.
+func (m *model) rebuildContestIndex() {
+	contestID, _, _ := m.dupeCheckScope()
+	m.contestIndexID = contestID
+	if contestID == "" {
+		m.contestIndex = nil
+		return
+	}
+	state, err := buildContestState(context.Background(), m.activeStation.ID, contestID, m.store)
+	if err != nil {
+		m.contestIndex = nil
+		return
+	}
+	m.contestIndex = state
+}
+
 // buildContestState scans every QSO logged under contestID for profileID and
 // returns the resulting index. Called on contest open and whenever a full
 // recompute is needed (e.g. after an edit changes a call or band).
