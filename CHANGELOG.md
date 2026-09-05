@@ -1,5 +1,13 @@
 # Changelog
 
+### v1.29.0
+
+- Wired the Oceania DX Contest, CW's real scoring rules: a flat points value per QSO looked up solely by band (20/10/5/1/2/3 points on 160/80/40/20/15/10M), times the existing CQ WPX-style prefix multiplier counted per band instead of once per contest, sourced from oceaniadxcontest.com's official rules. New `pointsRule.PerBand` schema is the first points formula with no country/continent classification at all. Also fixed a pre-existing catalog de-dup gap: the generated duplicate's Cabrillo token was missing the contest's mode suffix, so it never matched the curated entry's own (correct) token.
+
+### v1.28.0
+
+- Wired the Worked All Germany Contest's real scoring rules: a German entrant scores same-country/continent/other-continent tiers plus a DXCC/WAE country multiplier; a non-German entrant (this app's own profile) scores a flat 3 points per QSO plus a new district multiplier parsed from the worked station's DOK, sourced from darc.de's WAG rules.
+
 ### v1.27.0
 
 - Wired the Stew Perry Topband Distance Challenge's real scoring rules: 1 point minimum plus 1 more point for every 500 km of great-circle distance between the two stations' grid squares, with no multiplier ("There is no multiplier for different grids worked") — sourced from kkn.net/stew's official rules. New `pointsRule.Distance` schema is the first continuous (non-tiered) points formula in the catalog; new `"none"` multiplier kind lets a contest declare it genuinely has no multiplier without `scoringRules` rejecting the config. Deliberately out of scope: the rules' 2x/4x per-QSO bonus for working a Low Power/QRP station and the operator's own 1.5x/3x final-score bonus for its own declared power class — neither is exchanged over the air (only the grid square is) or captured anywhere in this app's QSO model.

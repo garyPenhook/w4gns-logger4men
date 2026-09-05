@@ -732,6 +732,29 @@ func TestContestStateScorePointsRuleWPXBandTiering(t *testing.T) {
 	}
 }
 
+// TestContestStateScorePointsRulePerBand exercises the Oceania DX Contest's
+// flat per-band points shape (pointsRule.PerBand): a QSO's points depend
+// solely on the band it was worked on, with no country/continent
+// classification — unlike wpxLowBand's doubling of an existing tier, this
+// rule needs no station callsign resolved at all (no setStation call).
+func TestContestStateScorePointsRulePerBand(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "VK1ABC", band: "160M"})
+	state.record(qso{call: "ZL1ABC", band: "20M"})
+	state.record(qso{call: "FK8ABC", band: "17M"}) // band not in the map: 0 points
+
+	rules := &scoringRules{
+		Points: &pointsRule{
+			PerBand: map[string]int{"160M": 20, "80M": 10, "40M": 5, "20M": 1, "15M": 2, "10M": 3},
+		},
+	}
+	score := state.score(rules)
+	want := 20 + 1 + 0
+	if score.qsoPoints != want {
+		t.Fatalf("qsoPoints = %d, want %d", score.qsoPoints, want)
+	}
+}
+
 // TestContestStateWouldBeNewMultiplier exercises the advance multiplier flag
 // (roadmap Appendix B.5) for a rule set combining unique_call-independent
 // dxcc/cqzone kinds: a callsign from an already-worked country on the same

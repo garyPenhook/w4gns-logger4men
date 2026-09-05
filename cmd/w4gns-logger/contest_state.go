@@ -566,6 +566,9 @@ func (c *contestState) pointsTotal(rule *pointsRule) int {
 	if rule.Zone != nil {
 		return c.zonePointsTotal(rule.Zone)
 	}
+	if len(rule.PerBand) > 0 {
+		return c.perBandPointsTotal(rule.PerBand)
+	}
 	total := 0
 	for key := range c.scoredCallBand {
 		lowBand := wpxLowBand(bandFromCallBandKey(key))
@@ -638,6 +641,18 @@ func (c *contestState) distancePointsTotal(rule *distancePointsRule) int {
 			continue
 		}
 		total += 1 + int(distanceKm)/rule.PerKm
+	}
+	return total
+}
+
+// perBandPointsTotal sums a pointsRule.PerBand rule over every scored (call,
+// band) QSO — a flat points value looked up by the QSO's own band, with no
+// country/continent classification (the Oceania DX Contest's shape). A band
+// missing from the map contributes 0 rather than guessing.
+func (c *contestState) perBandPointsTotal(perBand map[string]int) int {
+	total := 0
+	for key := range c.scoredCallBand {
+		total += perBand[bandFromCallBandKey(key)]
 	}
 	return total
 }

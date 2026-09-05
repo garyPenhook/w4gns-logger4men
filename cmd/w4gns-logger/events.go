@@ -166,6 +166,19 @@ func validateScoringRules(eventID, label string, rules *scoringRules) error {
 			return fmt.Errorf("event %q must not combine %s.distance with any other points field", eventID, label)
 		}
 	}
+	if len(p.PerBand) > 0 {
+		for band, value := range p.PerBand {
+			if strings.TrimSpace(band) == "" {
+				return fmt.Errorf("event %q has a blank %s.per_band band key", eventID, label)
+			}
+			if value < 0 {
+				return fmt.Errorf("event %q has a negative %s.per_band value for band %q", eventID, label, band)
+			}
+		}
+		if p.SameCountry != 0 || p.SameContinent != 0 || p.OtherContinent != 0 || len(p.CountryGroup) > 0 || p.Zone != nil || p.Distance != nil {
+			return fmt.Errorf("event %q must not combine %s.per_band with any other points field", eventID, label)
+		}
+	}
 	for continent, value := range p.SameContinentOverrides {
 		if !validContinentCode(continent) {
 			return fmt.Errorf("event %q has a %s.same_continent_overrides entry for unsupported continent %q", eventID, label, continent)
@@ -343,6 +356,17 @@ type pointsRule struct {
 	// an additional point for every 500 kilometers distance") — mutually
 	// exclusive with every other field, enforced by validateScoringRules.
 	Distance *distancePointsRule `json:"distance,omitempty"`
+	// PerBand, when set, replaces every tier above with a flat points value
+	// looked up solely by the QSO's own band — no country/continent
+	// classification at all. The Oceania DX Contest's shape
+	// (oceaniadxcontest.com rules: 20/10/5/1/2/3 points on 160/80/40/20/15/
+	// 10M) is the motivating case: unlike WPX's LowBand fields, which double
+	// an existing country/continent tier, OCDX's points depend on the band
+	// alone. Keyed by the same uppercase band string as
+	// eventDefinition.Bands (e.g. "160M"); a band missing from the map
+	// scores 0. Mutually exclusive with every other field, enforced by
+	// validateScoringRules.
+	PerBand map[string]int `json:"per_band,omitempty"`
 }
 
 // distancePointsRule is the Stew Perry Topband Distance Challenge's points

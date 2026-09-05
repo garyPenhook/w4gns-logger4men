@@ -625,7 +625,7 @@
   },
   {
     "id": "OCEANIA-DX-CW",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "Oceania DX Contest, CW",
     "organizer": "",
     "kind": "annual contest",
@@ -642,6 +642,26 @@
     "sent_exchange_hint": "RST + Serial No.",
     "received_exchange_hint": "RST + Serial No.",
     "dupe_scope": "call+band",
+    "adif_contest_id": "OCEANIA-DX-CW",
+    "cabrillo_layout": "cw_rst_exchange",
+    "scoring": {
+      "points": {
+        "per_band": {
+          "160M": 20,
+          "80M": 10,
+          "40M": 5,
+          "20M": 1,
+          "15M": 2,
+          "10M": 3
+        }
+      },
+      "multipliers": [
+        {
+          "kind": "prefix",
+          "per": "band"
+        }
+      ]
+    },
     "rules_url": "https://www.oceaniadxcontest.com/",
     "score_submission_url": "",
     "sessions": [

@@ -125,6 +125,9 @@ func TestValidateScoringRules(t *testing.T) {
 		{"negative same_continent_overrides value", &scoringRules{Points: &pointsRule{SameContinentOverrides: map[string]int{"NA": -1}}}},
 		{"negative zone points value", &scoringRules{Points: &pointsRule{Zone: &zonePointsRule{SameZone: -1}}}},
 		{"zone combined with country/continent fields", &scoringRules{Points: &pointsRule{SameCountry: 1, Zone: &zonePointsRule{SameZone: 1}}}},
+		{"blank per_band band key", &scoringRules{Points: &pointsRule{PerBand: map[string]int{"": 1}}}},
+		{"negative per_band value", &scoringRules{Points: &pointsRule{PerBand: map[string]int{"20M": -1}}}},
+		{"per_band combined with country/continent fields", &scoringRules{Points: &pointsRule{SameCountry: 1, PerBand: map[string]int{"20M": 1}}}},
 	}
 	for _, tc := range cases {
 		if err := validateScoringRules("EVT", "dx_scoring", tc.rules); err == nil {
@@ -1297,5 +1300,56 @@ func TestLoadEventCatalogWAGHasRealScoringRules(t *testing.T) {
 	}
 	if mults := wag.DXScoring.effectiveMultipliers(); len(mults) != 1 || mults[0].Kind != "dok_district" || mults[0].Per != "band" {
 		t.Fatalf("WAG dx_scoring.multipliers = %+v, want one dok_district per band", mults)
+	}
+}
+
+// TestLoadEventCatalogOceaniaDXHasRealScoringRules closes out the Oceania DX
+// Contest, CW catalog entry, sourced from oceaniadxcontest.com's rules PDF:
+// a genuinely new points shape, a flat value per QSO looked up solely by
+// band (20/10/5/1/2/3 points on 160/80/40/20/15/10M) with no
+// country/continent tiering at all — unlike every points-tiered event wired
+// so far — plus the existing CQ WPX-style "prefix" multiplier counted once
+// per band (not once per contest the way WPX itself counts it).
+func TestLoadEventCatalogOceaniaDXHasRealScoringRules(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	ocdx := events[eventIndex(t, events, "OCEANIA-DX-CW")]
+	if ocdx.Capability != catalogCapabilityScoringReady {
+		t.Fatalf("OCEANIA-DX-CW capability = %q, want %q", ocdx.Capability, catalogCapabilityScoringReady)
+	}
+	if !ocdx.cabrilloReady() {
+		t.Fatal("OCEANIA-DX-CW must have a checked Cabrillo layout")
+	}
+	if ocdx.CabrilloLayout != "cw_rst_exchange" {
+		t.Fatalf("OCEANIA-DX-CW cabrillo_layout = %q, want cw_rst_exchange", ocdx.CabrilloLayout)
+	}
+	if ocdx.ADIFContestID != "OCEANIA-DX-CW" {
+		t.Fatalf("OCEANIA-DX-CW adif_contest_id = %q, want OCEANIA-DX-CW", ocdx.ADIFContestID)
+	}
+	if ocdx.Scoring == nil || ocdx.Scoring.Points == nil {
+		t.Fatal("OCEANIA-DX-CW must have a Points-based Scoring rule")
+	}
+	want := map[string]int{"160M": 20, "80M": 10, "40M": 5, "20M": 1, "15M": 2, "10M": 3}
+	if got := ocdx.Scoring.Points.PerBand; len(got) != len(want) {
+		t.Fatalf("OCEANIA-DX-CW scoring.points.per_band = %+v, want %+v", got, want)
+	} else {
+		for band, points := range want {
+			if got[band] != points {
+				t.Fatalf("OCEANIA-DX-CW scoring.points.per_band[%q] = %d, want %d", band, got[band], points)
+			}
+		}
+	}
+	if mults := ocdx.Scoring.effectiveMultipliers(); len(mults) != 1 || mults[0].Kind != "prefix" || mults[0].Per != "band" {
+		t.Fatalf("OCEANIA-DX-CW scoring.multipliers = %+v, want one prefix per band", mults)
+	}
+	if ocdx.DXScoring != nil {
+		t.Fatal("OCEANIA-DX-CW scoring is side-symmetric; DXScoring must be nil")
+	}
+	for _, event := range events {
+		if event.ID == "SD-OCEANIA" {
+			t.Fatalf("generated SD-OCEANIA should have been de-duped against curated OCEANIA-DX-CW")
+		}
 	}
 }

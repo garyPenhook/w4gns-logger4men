@@ -61,7 +61,8 @@ the log, submitted contest results, or external services.
   `selection-only`, 404 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
   `CQ-160-CW`, `ARRL-DX-CW`, `CQ-WPX-CW`, `TNQP`, `SAC-CW`, `NAQP-CW`,
   `ARRL-SS-CW`, `IARU-HF`, `NA-SPRINT-CW`, `DARC-WAEDC-CW`, `HELVETIA`,
-  `RDXC`, `STEW-PERRY`, and `WAG` are `scoring-ready`. **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
+  `RDXC`, `STEW-PERRY`, `WAG`, and `OCEANIA-DX-CW` are `scoring-ready`.
+  **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
   side-asymmetric around a fixed "Scandinavian" country group — Norway,
   Finland, Sweden, Iceland, Denmark, and the territories the rules list by
   their own prefix block (Svalbard, Jan Mayen, Åland Islands, Market Reef,
@@ -1121,6 +1122,38 @@ every panel *and* scoring so they always agree.
   `TestContestStateWouldBeNewMultiplierDOKDistrict`,
   `TestContestStateScorePointsRuleWAGSideAsymmetric`), `events_test.go`
   (`TestLoadEventCatalogWAGHasRealScoringRules`).
+- ✅ **Real per-contest wiring: Oceania DX Contest, CW's actual scoring
+  rules**, the first curated event with a points formula that ignores
+  country/continent entirely — points depend solely on the band a QSO was
+  worked on. Sourced from oceaniadxcontest.com's rules PDF: 20/10/5/1/2/3
+  points on 160/80/40/20/15/10M respectively, times the number of distinct
+  callsign prefixes worked, counted again on every band ("the same prefix
+  may be counted once on each band for multiplier credit") — the existing
+  CQ WPX-style `prefix` multiplier kind (`wpx.go`'s `wpxPrefix`) already
+  covers this unmodified, just with `per: "band"` instead of WPX's own
+  `per: "contest"`; `multiplierCount`/`wouldBeNewMultiplier` already handled
+  both scopes generically, so no `contest_state.go` change was needed for
+  the multiplier half. **New `pointsRule.PerBand` field**
+  (`events.go`, `map[string]int` keyed by the same uppercase band string as
+  `eventDefinition.Bands`) and `contestState.perBandPointsTotal`
+  (`contest_state.go`) implement the points half — mutually exclusive with
+  every other points field, enforced by `validateScoringRules`, the same
+  pattern `Zone`/`Distance` already established. Curated `OCEANIA-DX-CW`
+  (`events/contestcalendar.json`) carries the real `scoring` block plus
+  `adif_contest_id: OCEANIA-DX-CW` (confirmed against the ADIF Contest ID
+  Enumeration) and `cabrillo_layout: cw_rst_exchange` (RST + serial number
+  on both sides), promoting `capability` to `scoring-ready`. Closing this
+  out surfaced a pre-existing de-dup gap of the same class CWT/WAE needed
+  fixed: the generated `SD-OCEANIA` entry's own `cabrillo_contest` token
+  (`OCEANIA-DX`, missing the mode suffix) never matched the curated entry's
+  ID-derived token (`OCEANIA-DX-CW`, the actual official Cabrillo name per
+  LoTW's defined-contests list) — unlike CWT/WAE, the curated side was
+  already correct here, so the fix corrected the generated file's token
+  instead of adding a curated override, which would have broken this
+  event's own Cabrillo `CONTEST:` header. Tests: `contest_state_test.go`
+  (`TestContestStateScorePointsRulePerBand`), `events_test.go`
+  (`TestLoadEventCatalogOceaniaDXHasRealScoringRules`, new `TestValidateScoringRules`
+  cases for `per_band`).
 - ✅ **CSV export** (`Ctrl+R`). `csv_export.go` (`exportCSV`, `writeCSVAtomic`,
   `csvField`/`csvRow` — RFC 4180 quoting, CRLF rows) streams the active
   contest's QSOs (same `contest_id` scoping as Cabrillo/ADIF export) to
