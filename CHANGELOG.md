@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.32.1
+
+- Fix two tests (`TestSaveStationSetupRetriesClusterConnectionWhenCallsignAdded`, `TestSaveStationSetupRotatesClusterAndContestStateOnIdentityChange`) that called `saveStationSetup()` without isolating `XDG_CONFIG_HOME`, silently overwriting a developer's real `~/.config/w4gns-logger/qrz.comXMLlogin` with blank QRZ XML credentials on every `go test` run. No app runtime behavior changed.
+
 ### v1.32.0
 
 - Add IOTA (Islands on the Air) tracking: an `iotaRef`/`islandName` pair on every QSO, ADIF `IOTA`/`APP_W4GNS_LOGGER_ISLAND_NAME` export and import, and DX-Cluster-comment auto-fill (no equivalent third-party spot API exists for IOTA, unlike POTA).
