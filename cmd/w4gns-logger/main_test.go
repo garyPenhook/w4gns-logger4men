@@ -1892,6 +1892,11 @@ func TestDxSpotsPanelLimitsToVisibleRows(t *testing.T) {
 // Station Setup afterward would never retry it, leaving no path to a
 // connection short of manually visiting the DX Cluster (F3) screen.
 func TestSaveStationSetupRetriesClusterConnectionWhenCallsignAdded(t *testing.T) {
+	// saveStationSetup always writes the QRZ XML credentials file; without
+	// this, it would silently overwrite the real developer's
+	// ~/.config/w4gns-logger/qrz.comXMLlogin with blank credentials on every
+	// test run.
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {
 		t.Fatalf("openStore returned error: %v", err)
@@ -1919,6 +1924,10 @@ func TestSaveStationSetupRetriesClusterConnectionWhenCallsignAdded(t *testing.T)
 // changing an already-configured station callsign cannot leave the DX cluster
 // logged in as the old call or scoring against the old station entity.
 func TestSaveStationSetupRotatesClusterAndContestStateOnIdentityChange(t *testing.T) {
+	// See the identical comment in
+	// TestSaveStationSetupRetriesClusterConnectionWhenCallsignAdded: without
+	// this, saveStationSetup would overwrite the real QRZ XML credentials file.
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {
 		t.Fatal(err)
