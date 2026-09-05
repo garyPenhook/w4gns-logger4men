@@ -52,6 +52,14 @@ var csvHeader = []string{
 // that right per-row is more machinery than a CSV listing needs; operators
 // wanting the claimed score already get it from the Cabrillo header.
 func exportCSV(ctx context.Context, writer io.Writer, profile stationProfile, contestID string, st *store) (int, error) {
+	if st.reader == nil {
+		snapshot, close, err := st.readSnapshot(ctx)
+		if err != nil {
+			return 0, err
+		}
+		defer close()
+		return exportCSV(ctx, writer, profile, contestID, snapshot)
+	}
 	if _, err := io.WriteString(writer, csvRow(csvHeader...)); err != nil {
 		return 0, fmt.Errorf("write CSV header: %w", err)
 	}

@@ -75,6 +75,14 @@ func adifContestID(internal string) string {
 // entire QSO history as a []qso for the duration of every export, including
 // the shutdown backup, which must complete promptly.
 func exportADIF(ctx context.Context, writer io.Writer, profileID int64, st *store) (int, error) {
+	if st.reader == nil {
+		snapshot, close, err := st.readSnapshot(ctx)
+		if err != nil {
+			return 0, err
+		}
+		defer close()
+		return exportADIF(ctx, writer, profileID, snapshot)
+	}
 	if _, err := io.WriteString(writer, "W4GNS Logger ADIF export\n<ADIF_VER:"+strconv.Itoa(len(adifVersion))+">"+adifVersion+"<PROGRAMID:12>W4GNS Logger<EOH>\n"); err != nil {
 		return 0, fmt.Errorf("write ADIF header: %w", err)
 	}
@@ -146,18 +154,19 @@ func adifQSOFields(q qso) []struct{ name, value string } {
 		{"QSO_DATE_OFF", q.timeOff.UTC().Format("20060102")}, {"TIME_OFF", q.timeOff.UTC().Format("150405")},
 		{"BAND", q.band}, {"FREQ", q.frequency}, {"MODE", q.mode}, {"RST_SENT", q.rstSent}, {"RST_RCVD", q.rstRcvd},
 		{"NAME", asciiField(q.name)}, {"QTH", asciiField(q.qth)},
-		{"GRIDSQUARE", q.grid}, {"STATE", q.state}, {"CNTY", asciiField(q.county)}, {"EMAIL", q.email},
+		{"GRIDSQUARE", gridBase(q.grid)}, {"GRIDSQUARE_EXT", gridExtension(q.grid)}, {"STATE", q.state}, {"CNTY", asciiField(q.county)}, {"EMAIL", q.email},
 		{"COUNTRY", q.country}, {"DXCC", q.dxccNumber}, {"CQZ", q.cqZone}, {"ITUZ", q.ituZone},
 		{"SIG", potaSignal(q.potaRef)}, {"SIG_INFO", asciiField(q.potaRef)}, {"POTA_REF", q.potaRef},
 		{"COMMENT", asciiField(q.comment)},
 		{"CONTEST_ID", adifContestID(q.contestID)}, integerOnlyField("STX", q.stx), {"STX_STRING", q.stxString},
+		{"APP_W4GNS_LOGGER_CONTEST_ID", q.contestID}, {"APP_W4GNS_LOGGER_PARK_NAME", asciiField(q.parkName)}, {"APP_W4GNS_LOGGER_UNSCORED", adifBool(q.unscored)},
 		integerOnlyField("SRX", q.srx), {"SRX_STRING", q.srxString},
 		// OPERATOR is the operator's *callsign* per the ADIF field table; the
 		// human-readable name belongs in MY_NAME. STATION_CALLSIGN already
 		// covers the callsign, and this app has no separate operator-callsign
 		// concept, so OPERATOR is intentionally left unset rather than
 		// populated with the wrong kind of value.
-		{"MY_GRIDSQUARE", q.myGridSquare}, {"STATION_CALLSIGN", q.stationCallsign}, {"MY_NAME", asciiField(q.operatorName)},
+		{"MY_GRIDSQUARE", gridBase(q.myGridSquare)}, {"MY_GRIDSQUARE_EXT", gridExtension(q.myGridSquare)}, {"STATION_CALLSIGN", q.stationCallsign}, {"MY_NAME", asciiField(q.operatorName)},
 		{"MY_RIG", asciiField(q.myRig)}, {"MY_ANTENNA", asciiField(q.myAntenna)}, {"TX_PWR", q.txPower},
 	}
 }
@@ -219,6 +228,7 @@ func integerOnlyField(name, value string) struct{ name, value string } {
 }
 
 func writeADIFField(writer io.Writer, name, value string) error {
+	value = asciiField(value)
 	if _, err := fmt.Fprintf(writer, "<%s:%d>%s", name, len([]byte(value)), value); err != nil {
 		return fmt.Errorf("write ADIF %s: %w", name, err)
 	}
@@ -229,13 +239,13 @@ func writeADIFField(writer io.Writer, name, value string) error {
 // chronological order, invoking fn for each one instead of materializing
 // them all in memory. fn's error, if any, stops iteration and is returned.
 func (s *store) forEachQSOForProfile(ctx context.Context, profileID int64, fn func(qso) error) error {
-	rows, err := s.db.QueryContext(ctx, `SELECT call, qso_date, time_on, COALESCE(qso_date_off, ''), COALESCE(time_off, ''), band,
+	rows, err := s.queryContext(ctx, `SELECT call, qso_date, time_on, COALESCE(qso_date_off, ''), COALESCE(time_off, ''), band,
 		COALESCE(freq, ''), mode, COALESCE(rst_sent, ''), COALESCE(rst_rcvd, ''), COALESCE(name, ''), COALESCE(qth, ''),
 		COALESCE(gridsquare, ''), COALESCE(state, ''), COALESCE(county, ''), COALESCE(email, ''), COALESCE(country, ''), COALESCE(CAST(dxcc AS TEXT), ''), COALESCE(CAST(cqz AS TEXT), ''), COALESCE(CAST(ituz AS TEXT), ''),
 		COALESCE(sig_info, ''), COALESCE(comment, ''), COALESCE(contest_id, ''),
 		COALESCE(stx, ''), COALESCE(stx_string, ''), COALESCE(srx, ''), COALESCE(srx_string, ''),
 		COALESCE(my_gridsquare, ''), COALESCE(station_callsign, ''), COALESCE(operator_name, ''),
-		COALESCE(my_rig, ''), COALESCE(my_antenna, ''), COALESCE(tx_pwr, '')
+		COALESCE(my_rig, ''), COALESCE(my_antenna, ''), COALESCE(tx_pwr, ''), COALESCE(park_name, ''), unscored
 		FROM qso WHERE profile_id = ? ORDER BY qso_date, time_on, id`, profileID)
 	if err != nil {
 		return fmt.Errorf("query QSOs for ADIF export: %w", err)
@@ -247,7 +257,7 @@ func (s *store) forEachQSOForProfile(ctx context.Context, profileID int64, fn fu
 		if err := rows.Scan(&q.call, &date, &timeOn, &dateOff, &timeOff, &q.band, &q.frequency, &q.mode, &q.rstSent, &q.rstRcvd,
 			&q.name, &q.qth, &q.grid, &q.state, &q.county, &q.email, &q.country, &q.dxccNumber, &q.cqZone, &q.ituZone, &q.potaRef, &q.comment, &q.contestID,
 			&q.stx, &q.stxString, &q.srx, &q.srxString,
-			&q.myGridSquare, &q.stationCallsign, &q.operatorName, &q.myRig, &q.myAntenna, &q.txPower); err != nil {
+			&q.myGridSquare, &q.stationCallsign, &q.operatorName, &q.myRig, &q.myAntenna, &q.txPower, &q.parkName, &q.unscored); err != nil {
 			return fmt.Errorf("scan QSO for ADIF export: %w", err)
 		}
 		q.time, _ = time.Parse("20060102150405", date+timeOn)
@@ -260,6 +270,25 @@ func (s *store) forEachQSOForProfile(ctx context.Context, profileID int64, fn fu
 		}
 	}
 	return rows.Err()
+}
+
+func gridBase(grid string) string {
+	if len(grid) > 8 {
+		return grid[:8]
+	}
+	return grid
+}
+func gridExtension(grid string) string {
+	if len(grid) > 8 {
+		return grid[8:]
+	}
+	return ""
+}
+func adifBool(value bool) string {
+	if value {
+		return "Y"
+	}
+	return "N"
 }
 
 // qsosForProfile returns every QSO for one station profile in chronological

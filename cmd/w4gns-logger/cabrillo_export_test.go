@@ -185,8 +185,8 @@ func TestCabrilloQSOLineRejectsLineInjectionAndOversizedFields(t *testing.T) {
 	q.srxString = strings.Repeat("X", 100)
 
 	line, err := cabrilloQSOLine(q, testStationProfile(), testEventDefinition())
-	if err != nil {
-		t.Fatalf("cabrilloQSOLine: %v", err)
+	if err == nil || line != "" {
+		t.Fatalf("oversized submission must be rejected, got %q, %v", line, err)
 	}
 	if strings.ContainsAny(line, "\r\n") {
 		t.Fatalf("cabrilloQSOLine leaked a line break: %q", line)
@@ -290,6 +290,7 @@ func TestComputeContestScoreCWOpen(t *testing.T) {
 	mk := func(call, band string) qso {
 		q := validTestQSO()
 		q.call, q.band, q.contestID, q.profileID = call, band, "CW-OPEN-1", profile.ID
+		q.stx, q.srx, q.stxString, q.srxString = "001", "002", "GARY", "BOB"
 		return q
 	}
 	for _, q := range []qso{
@@ -500,6 +501,7 @@ func TestExportCabrilloWritesComputedClaimedScore(t *testing.T) {
 	mk := func(call, band string) qso {
 		q := validTestQSO()
 		q.call, q.band, q.contestID, q.profileID = call, band, "CW-OPEN-1", profile.ID
+		q.stx, q.srx, q.stxString, q.srxString = "001", "002", "GARY", "BOB"
 		return q
 	}
 	for _, q := range []qso{mk("W1AW", "20M"), mk("K1ABC", "20M")} { // 2 pts x 2 mults = 4
@@ -542,11 +544,15 @@ func TestExportCabrilloWritesHeaderFooterAndOnlyMatchingContestQSOs(t *testing.T
 		func() qso {
 			q := validTestQSO()
 			q.call, q.contestID, q.profileID = "W1AW", "CQ-WPX-CW", profile.ID
+			q.stx, q.srx = "001", "002"
+			q.rstSent, q.rstRcvd = "599", "599"
 			return q
 		}(),
 		func() qso {
 			q := validTestQSO()
 			q.call, q.contestID, q.profileID = "K1ABC", "CQ-WPX-CW", profile.ID
+			q.stx, q.srx = "002", "003"
+			q.rstSent, q.rstRcvd = "599", "599"
 			return q
 		}(),
 		func() qso {

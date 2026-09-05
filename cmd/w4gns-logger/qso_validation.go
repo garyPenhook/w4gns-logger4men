@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"strings"
-	"unicode"
 )
 
 // normalizeCall upper-cases and trims a callsign for comparison/lookup
@@ -24,7 +23,7 @@ func validateCallsignChars(call string) error {
 		return fmt.Errorf("callsign exceeds 20 characters")
 	}
 	for _, r := range call {
-		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '/' {
+		if !(r >= 'A' && r <= 'Z') && !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9') && r != '/' {
 			return fmt.Errorf("callsign contains an unsupported character %q", r)
 		}
 	}

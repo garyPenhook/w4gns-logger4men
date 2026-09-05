@@ -10,6 +10,8 @@ permissions:
   contents: read
 
 jobs:
+  native:
+    uses: ./.github/workflows/native-smoke.yml
   test:
     runs-on: ubuntu-latest
     steps:

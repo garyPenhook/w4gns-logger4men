@@ -29,6 +29,7 @@ type outboxEntry struct {
 	qsoID       int64
 	profileID   int64
 	destination string
+	binding     string
 }
 
 const uploadOutboxSchema = `
@@ -40,6 +41,7 @@ CREATE TABLE IF NOT EXISTS upload_outbox (
     next_attempt_at TEXT NOT NULL,
     last_error TEXT,
     created_at TEXT NOT NULL,
+    binding TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (qso_id, destination)
 );
 CREATE INDEX IF NOT EXISTS idx_outbox_due ON upload_outbox(next_attempt_at);
@@ -91,8 +93,8 @@ func (s *store) claimDueUploads(now time.Time, lease time.Duration, limit int) (
 
 	nowStr := now.UTC().Format(time.RFC3339)
 	rows, err := tx.Query(
-		`SELECT qso_id, profile_id, destination FROM upload_outbox
-		 WHERE next_attempt_at <= ? ORDER BY next_attempt_at LIMIT ?`,
+		`SELECT qso_id, profile_id, destination, binding FROM upload_outbox
+		 WHERE attempts < 20 AND next_attempt_at <= ? ORDER BY next_attempt_at LIMIT ?`,
 		nowStr, limit,
 	)
 	if err != nil {
@@ -101,7 +103,7 @@ func (s *store) claimDueUploads(now time.Time, lease time.Duration, limit int) (
 	var entries []outboxEntry
 	for rows.Next() {
 		var e outboxEntry
-		if err := rows.Scan(&e.qsoID, &e.profileID, &e.destination); err != nil {
+		if err := rows.Scan(&e.qsoID, &e.profileID, &e.destination, &e.binding); err != nil {
 			rows.Close()
 			return nil, fmt.Errorf("scan due upload: %w", err)
 		}
@@ -116,7 +118,7 @@ func (s *store) claimDueUploads(now time.Time, lease time.Duration, limit int) (
 	leaseStr := now.Add(lease).UTC().Format(time.RFC3339)
 	for _, e := range entries {
 		if _, err := tx.Exec(
-			`UPDATE upload_outbox SET next_attempt_at = ? WHERE qso_id = ? AND destination = ?`,
+			`UPDATE upload_outbox SET next_attempt_at = ?, last_error = NULL WHERE qso_id = ? AND destination = ?`,
 			leaseStr, e.qsoID, e.destination,
 		); err != nil {
 			return nil, fmt.Errorf("lease due upload: %w", err)

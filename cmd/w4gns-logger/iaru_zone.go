@@ -20,7 +20,7 @@ func iaruExchangeZone(text string) int {
 		return 0
 	}
 	value, err := strconv.Atoi(text)
-	if err != nil || value <= 0 {
+	if err != nil || value <= 0 || value > 90 {
 		return 0
 	}
 	return value
@@ -39,6 +39,17 @@ func iaruExchangeSpecial(text string) string {
 	text = strings.ToUpper(strings.TrimSpace(text))
 	if text == "" || iaruExchangeZone(text) > 0 {
 		return ""
+	}
+	if len(text) > 12 {
+		return ""
+	}
+	if text == "AC" || text == "R1" || text == "R2" || text == "R3" {
+		return text
+	}
+	for _, r := range text {
+		if r < 'A' || r > 'Z' {
+			return ""
+		}
 	}
 	return text
 }

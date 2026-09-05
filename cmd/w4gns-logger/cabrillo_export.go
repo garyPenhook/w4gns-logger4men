@@ -78,6 +78,14 @@ func cabrilloCategoryBand(bands []string) string {
 // this is a best-effort default the operator may need to edit before
 // uploading if it doesn't match the sponsor's exact expected value.
 func cabrilloHeaderLines(profile stationProfile, event eventDefinition, claimedScore int) []string {
+	mode := "CW"
+	if event.QSOParty != nil && event.QSOParty.CategoryMode != "" {
+		mode = event.QSOParty.CategoryMode
+	}
+	defaultPower := "LOW"
+	if event.QSOParty != nil && len(event.QSOParty.PowerFactors) > 0 {
+		defaultPower = "HIGH"
+	}
 	return []string{
 		"START-OF-LOG: " + cabrilloVersion,
 		"CONTEST: " + cabrilloHeaderValue(event.cabrilloToken()),
@@ -85,8 +93,8 @@ func cabrilloHeaderLines(profile stationProfile, event eventDefinition, claimedS
 		"CATEGORY-OPERATOR: " + cabrilloHeaderValue(cabrilloOrDefault(profile.CategoryOperator, "SINGLE-OP")),
 		"CATEGORY-ASSISTED: " + cabrilloHeaderValue(cabrilloOrDefault(profile.CategoryAssisted, "NON-ASSISTED")),
 		"CATEGORY-BAND: " + cabrilloCategoryBand(event.Bands),
-		"CATEGORY-POWER: " + cabrilloHeaderValue(cabrilloOrDefault(profile.CategoryPower, "LOW")),
-		"CATEGORY-MODE: CW",
+		"CATEGORY-POWER: " + cabrilloHeaderValue(cabrilloOrDefault(profile.CategoryPower, defaultPower)),
+		"CATEGORY-MODE: " + mode,
 		// The sponsor's robot recomputes the authoritative score from the QSO
 		// lines and treats this as an informational claim. Events with a
 		// scoring rule get a real computed total here; events without one keep
@@ -188,6 +196,12 @@ func cabrilloQSOLine(q qso, profile stationProfile, event eventDefinition) (stri
 	if callSent == "" {
 		callSent = profile.Callsign
 	}
+	if len(callSent) > 13 || len(q.call) > 13 {
+		return "", fmt.Errorf("callsign exceeds Cabrillo column width")
+	}
+	if event.CabrilloLayout != "cw_sweepstakes" && (len(cabrilloExchange(q.stx, q.stxString)) > 13 || len(cabrilloExchange(q.srx, q.srxString)) > 13) {
+		return "", fmt.Errorf("exchange exceeds checked Cabrillo layout width; no data exported")
+	}
 	// Cabrillo lines are CRLF-terminated per the v3 spec; callers join lines
 	// with that separator rather than each line carrying its own. Every
 	// field is passed through cabrilloText to strip line-breaking/control
@@ -205,6 +219,16 @@ func cabrilloQSOLine(q qso, profile stationProfile, event eventDefinition) (stri
 		label = "X-QSO:"
 	}
 	switch event.CabrilloLayout {
+	case "cw_sweepstakes":
+		sent, err := sweepstakesExchange(q.stx, q.stxString, callSent)
+		if err != nil {
+			return "", err
+		}
+		received, err := sweepstakesExchange(q.srx, q.srxString, q.call)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("%s %5d CW %s %s %-13s %s %-13s %s", label, freqKHz, q.time.UTC().Format("2006-01-02"), q.time.UTC().Format("1504"), sentCall, sent, rcvdCall, received), nil
 	case "cw_exchange_only":
 		return fmt.Sprintf("%s %5d CW %s %s %-13s %-13s %-13s %-13s",
 			label, freqKHz,
@@ -231,9 +255,17 @@ func cabrilloQSOLine(q qso, profile stationProfile, event eventDefinition) (stri
 type contestScore struct {
 	qsoPoints   int
 	multipliers int
+	bonusPoints int
+	powerFactor int
 }
 
-func (c contestScore) total() int { return c.qsoPoints * c.multipliers }
+func (c contestScore) total() int {
+	factor := c.powerFactor
+	if factor == 0 {
+		factor = 1
+	}
+	return c.qsoPoints*c.multipliers*factor + c.bonusPoints
+}
 
 // computeContestScore tallies the claimed score for one contest session from
 // the QSOs tagged with contestID, applying event.effectiveScoring(...) for
@@ -255,6 +287,8 @@ func computeContestScore(ctx context.Context, profile stationProfile, event even
 	if err != nil {
 		return contestScore{}, err
 	}
+	state.partyCategory = strings.ToUpper(profile.CategoryStation)
+	state.partyPower = strings.ToUpper(profile.CategoryPower)
 	return state.score(rules), nil
 }
 
@@ -264,6 +298,14 @@ func computeContestScore(ctx context.Context, profile stationProfile, event even
 // claimed score for the header (contest logs are a few hundred QSOs at most,
 // so the extra scan is cheap) before streaming the QSO lines.
 func exportCabrillo(ctx context.Context, writer io.Writer, profile stationProfile, event eventDefinition, contestID string, st *store) (int, contestScore, error) {
+	if st.reader == nil {
+		snapshot, close, err := st.readSnapshot(ctx)
+		if err != nil {
+			return 0, contestScore{}, err
+		}
+		defer close()
+		return exportCabrillo(ctx, writer, profile, event, contestID, snapshot)
+	}
 	if !event.cabrilloReady() {
 		return 0, contestScore{}, fmt.Errorf("event %q has no verified Cabrillo QSO layout", event.ID)
 	}
@@ -271,14 +313,47 @@ func exportCabrillo(ctx context.Context, writer io.Writer, profile stationProfil
 	if err != nil {
 		return 0, contestScore{}, err
 	}
+	var partyHeaders []string
+	if event.QSOParty != nil {
+		partyHeaders, err = partySubmissionHeaders(ctx, st, profile, event, contestID)
+		if err != nil {
+			return 0, contestScore{}, err
+		}
+	}
 	crlf := "\r\n"
-	for _, line := range cabrilloHeaderLines(profile, event, score.total()) {
+	for _, line := range append(cabrilloHeaderLines(profile, event, score.total()), partyHeaders...) {
 		if _, err := io.WriteString(writer, line+crlf); err != nil {
 			return 0, contestScore{}, fmt.Errorf("write Cabrillo header: %w", err)
 		}
 	}
 	count := 0
 	err = st.forEachQSOForContest(ctx, profile.ID, contestID, func(q qso) error {
+		if err := validateContestSubmission(q, event, profile); err != nil {
+			return fmt.Errorf("%s %s: %w", q.call, q.time.UTC().Format(time.RFC3339), err)
+		}
+		if event.QSOParty != nil {
+			credits, err := event.partyCredits(q)
+			if err != nil {
+				return err
+			}
+			if len(credits) == 0 {
+				q.unscored = true
+				credits = []qso{q}
+			}
+			for _, credit := range credits {
+				credit.stxString = strings.TrimPrefix(credit.stxString, "DX:")
+				credit.srxString = strings.TrimPrefix(credit.srxString, "DX:")
+				line, err := cabrilloQSOLine(credit, profile, event)
+				if err != nil {
+					return err
+				}
+				if _, err := io.WriteString(writer, line+crlf); err != nil {
+					return err
+				}
+			}
+			count++
+			return nil
+		}
 		line, err := cabrilloQSOLine(q, profile, event)
 		if err != nil {
 			return err
@@ -338,11 +413,11 @@ func writeCabrilloAtomic(ctx context.Context, dir, path string, profile stationP
 // station profile in chronological order, the same streaming shape as
 // forEachQSOForProfile but scoped to a single contest submission.
 func (s *store) forEachQSOForContest(ctx context.Context, profileID int64, contestID string, fn func(qso) error) error {
-	rows, err := s.db.QueryContext(ctx, `SELECT call, qso_date, time_on, COALESCE(qso_date_off, ''), COALESCE(time_off, ''), band,
+	rows, err := s.queryContext(ctx, `SELECT call, qso_date, time_on, COALESCE(qso_date_off, ''), COALESCE(time_off, ''), band,
 		COALESCE(freq, ''), mode, COALESCE(rst_sent, ''), COALESCE(rst_rcvd, ''),
 		COALESCE(stx, ''), COALESCE(stx_string, ''), COALESCE(srx, ''), COALESCE(srx_string, ''),
 		COALESCE(station_callsign, ''), unscored, COALESCE(country, ''),
-		COALESCE(CAST(dxcc AS TEXT), ''), COALESCE(CAST(cqz AS TEXT), ''), COALESCE(CAST(ituz AS TEXT), '')
+		COALESCE(CAST(dxcc AS TEXT), ''), COALESCE(CAST(cqz AS TEXT), ''), COALESCE(CAST(ituz AS TEXT), ''), COALESCE(my_gridsquare, ''), id
 		FROM qso WHERE profile_id = ? AND contest_id = ? ORDER BY qso_date, time_on, id`, profileID, contestID)
 	if err != nil {
 		return fmt.Errorf("query QSOs for Cabrillo export: %w", err)
@@ -353,7 +428,7 @@ func (s *store) forEachQSOForContest(ctx context.Context, profileID int64, conte
 		var date, timeOn, dateOff, timeOff string
 		if err := rows.Scan(&q.call, &date, &timeOn, &dateOff, &timeOff, &q.band, &q.frequency, &q.mode, &q.rstSent, &q.rstRcvd,
 			&q.stx, &q.stxString, &q.srx, &q.srxString, &q.stationCallsign, &q.unscored,
-			&q.country, &q.dxccNumber, &q.cqZone, &q.ituZone); err != nil {
+			&q.country, &q.dxccNumber, &q.cqZone, &q.ituZone, &q.myGridSquare, &q.id); err != nil {
 			return fmt.Errorf("scan QSO for Cabrillo export: %w", err)
 		}
 		q.time, _ = time.Parse("20060102150405", date+timeOn)

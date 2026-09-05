@@ -1,5 +1,20 @@
 # Changelog
 
+### v1.31.0
+
+- Synchronize the README, entry design, state-party guide, and roadmap with the eight implemented parties, category defaults, county-line export, retained sent exchanges, and remaining audit work; correct obsolete Tennessee bonus/scope notes.
+- Implement shared state QSO party parsing, county autocomplete, location-aware duplicates, county-line credit, entrant-side scoring, bonuses/power factors, station categories, and checked CW exports for TN, CA, MI, OH, GA, FL, AL, and IA. Document verified editions and remaining catalog limitations in `docs/State_QSO_Parties.md`.
+- Complete R18 exchange validation across all checked Cabrillo catalog layouts; reject extra tokens, invalid locations/grids/power, and unknown IARU society codes while keeping incomplete contacts editable locally.
+- Validate Helvetia canton/serial, RDXC oblast/serial, and WAG DOK/NM/serial exchanges independently for each station during Cabrillo export; accept valid regional exchanges without requiring an unrelated serial number.
+- Corrected the September 5 review findings; see `docs/ROADMAP.md` section 0A for scope and remaining verification limits.
+- Preserve long and untouched multiline QSO fields on edit, default received CW reports to 599, and correlate delayed QRZ/POTA enrichment with the original contact and credentials.
+- Separate recurring contest occurrences, migrate recognized legacy IDs by QSO date, restore contest selection/exchange, and resume serials from stored contacts.
+- Correct persisted grid/zone scoring and event-scoped duplicate scoring. Add structured Sweepstakes Cabrillo exchanges and reject missing, invalid, or oversized supported submission fields instead of clipping them.
+- Preserve app metadata and extended grids through ADIF, handle TIME_OFF without a separate date, stream long free text, cancel imports promptly, report partial results, and refresh contest analysis after import.
+- Use consistent read snapshots on a separate database connection for file-backed exports; reserve ADIF filenames without indefinite retries on filesystem errors.
+- Retain paused/failed uploads, bind queued destinations to credentials/logbooks, show queue errors/counts, and add explicit Ctrl+U recovery. Automatic retries stop after 20 failures.
+- Fall back from headless/failed Linux terminal launches, embed timezone data, and add native-platform smoke tests plus release vulnerability checks. Native Windows/macOS execution remains a CI gate, not locally verified.
+
 ### v1.30.0
 
 - Wired the K1USN Slow Speed Test (SST)'s real scoring rules: a flat 1 point per QSO times a multiplier that's the sum of distinct US states, Canadian provinces, and worldwide DXCC countries worked (no DXCC credit for the USA/Canada themselves), counted once for the whole contest, sourced from the K1USN SST Rules. New `sst_area` multiplier kind reuses NAQP CW's existing state/province table and exchange parsing but drops its North-America-only restriction on the DXCC fallback, since SST's own DXCC multiplier is worldwide.

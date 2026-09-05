@@ -770,7 +770,7 @@
     "sent_exchange_hint": "Serial No. + Precedence (Q/A/B/U/M/S) + [your call sign] + Check + ARRL/RAC Section",
     "received_exchange_hint": "Serial No. + Precedence (Q/A/B/U/M/S) + [your call sign] + Check + ARRL/RAC Section",
     "dupe_scope": "call",
-    "cabrillo_layout": "cw_exchange_only",
+    "cabrillo_layout": "cw_sweepstakes",
     "cabrillo_omit_rst": true,
     "adif_contest_id": "ARRL-SS-CW",
     "scoring": {
@@ -2511,7 +2511,7 @@
   },
   {
     "id": "OH-QSO-PARTY",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "Ohio QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2525,9 +2525,9 @@
       "10M"
     ],
     "sent_serial": false,
-    "sent_exchange_hint": "CW/SSB contest \u2014 CW exchange: OH stations: RS(T) + county; non-OH: RS(T) + (state/province/\"DX\")",
-    "received_exchange_hint": "CW/SSB contest \u2014 CW exchange: OH stations: RS(T) + county; non-OH: RS(T) + (state/province/\"DX\")",
-    "dupe_scope": "call+band",
+    "sent_exchange_hint": "OH: county code; outside: state/province/DX",
+    "received_exchange_hint": "County code, state/province or DX",
+    "dupe_scope": "call+band+location",
     "rules_url": "http://www.ohqp.org/index.php/rules/",
     "score_submission_url": "",
     "sessions": [
@@ -2536,7 +2536,399 @@
         "label": "Ohio QSO Party",
         "schedule": "1600Z, Aug 22 to 0400Z, Aug 23"
       }
-    ]
+    ],
+    "cabrillo_layout": "cw_rst_exchange",
+    "adif_contest_id": "OH-QSO-PARTY",
+    "scoring": {
+      "points_per_qso": 2,
+      "multipliers": [
+        {
+          "kind": "county",
+          "per": "contest"
+        }
+      ]
+    },
+    "county_options": [
+      {
+        "code": "ADAM",
+        "name": "Adams"
+      },
+      {
+        "code": "ALLE",
+        "name": "Allen"
+      },
+      {
+        "code": "ASHL",
+        "name": "Ashland"
+      },
+      {
+        "code": "ASHT",
+        "name": "Ashtabula"
+      },
+      {
+        "code": "ATHE",
+        "name": "Athens"
+      },
+      {
+        "code": "AUGL",
+        "name": "Auglaze"
+      },
+      {
+        "code": "BELM",
+        "name": "Belmont"
+      },
+      {
+        "code": "BROW",
+        "name": "Brown"
+      },
+      {
+        "code": "BUTL",
+        "name": "Butler"
+      },
+      {
+        "code": "CARR",
+        "name": "Carroll"
+      },
+      {
+        "code": "CHAM",
+        "name": "Champaign"
+      },
+      {
+        "code": "CLAR",
+        "name": "Clark"
+      },
+      {
+        "code": "CLER",
+        "name": "Clermont"
+      },
+      {
+        "code": "CLIN",
+        "name": "Clinton"
+      },
+      {
+        "code": "COLU",
+        "name": "Columbiana"
+      },
+      {
+        "code": "COSH",
+        "name": "Coshocton"
+      },
+      {
+        "code": "CRAW",
+        "name": "Crawford"
+      },
+      {
+        "code": "CUYA",
+        "name": "Cuyahoga"
+      },
+      {
+        "code": "DARK",
+        "name": "Darke"
+      },
+      {
+        "code": "DEFI",
+        "name": "Defiance"
+      },
+      {
+        "code": "DELA",
+        "name": "Delaware"
+      },
+      {
+        "code": "ERIE",
+        "name": "Erie"
+      },
+      {
+        "code": "FAIR",
+        "name": "Fairfield"
+      },
+      {
+        "code": "FAYE",
+        "name": "Fayette"
+      },
+      {
+        "code": "FRAN",
+        "name": "Franklin"
+      },
+      {
+        "code": "FULT",
+        "name": "Fulton"
+      },
+      {
+        "code": "GALL",
+        "name": "Gallia"
+      },
+      {
+        "code": "GEAU",
+        "name": "Geauga"
+      },
+      {
+        "code": "GREE",
+        "name": "Greene"
+      },
+      {
+        "code": "GUER",
+        "name": "Guernsey"
+      },
+      {
+        "code": "HAMI",
+        "name": "Hamilton"
+      },
+      {
+        "code": "HANC",
+        "name": "Hancock"
+      },
+      {
+        "code": "HARD",
+        "name": "Hardin"
+      },
+      {
+        "code": "HARR",
+        "name": "Harrison"
+      },
+      {
+        "code": "HENR",
+        "name": "Henry"
+      },
+      {
+        "code": "HIGH",
+        "name": "Highland"
+      },
+      {
+        "code": "HOCK",
+        "name": "Hocking"
+      },
+      {
+        "code": "HOLM",
+        "name": "Holmes"
+      },
+      {
+        "code": "HURO",
+        "name": "Huron"
+      },
+      {
+        "code": "JACK",
+        "name": "Jackson"
+      },
+      {
+        "code": "JEFF",
+        "name": "Jefferson"
+      },
+      {
+        "code": "KNOX",
+        "name": "Knox"
+      },
+      {
+        "code": "LAKE",
+        "name": "Lake"
+      },
+      {
+        "code": "LAWR",
+        "name": "Lawrence"
+      },
+      {
+        "code": "LICK",
+        "name": "Licking"
+      },
+      {
+        "code": "LOGA",
+        "name": "Logan"
+      },
+      {
+        "code": "LORA",
+        "name": "Lorain"
+      },
+      {
+        "code": "LUCA",
+        "name": "Lucas"
+      },
+      {
+        "code": "MADI",
+        "name": "Madison"
+      },
+      {
+        "code": "MAHO",
+        "name": "Mahoning"
+      },
+      {
+        "code": "MARI",
+        "name": "Marion"
+      },
+      {
+        "code": "MEDI",
+        "name": "Medina"
+      },
+      {
+        "code": "MEIG",
+        "name": "Meigs"
+      },
+      {
+        "code": "MERC",
+        "name": "Mercer"
+      },
+      {
+        "code": "MIAM",
+        "name": "Miami"
+      },
+      {
+        "code": "MONR",
+        "name": "Monroe"
+      },
+      {
+        "code": "MONT",
+        "name": "Montgomery"
+      },
+      {
+        "code": "MORG",
+        "name": "Morgan"
+      },
+      {
+        "code": "MORR",
+        "name": "Morrow"
+      },
+      {
+        "code": "MUSK",
+        "name": "Muskingum"
+      },
+      {
+        "code": "NOBL",
+        "name": "Noble"
+      },
+      {
+        "code": "OTTA",
+        "name": "Ottawa"
+      },
+      {
+        "code": "PAUL",
+        "name": "Paulding"
+      },
+      {
+        "code": "PERR",
+        "name": "Perry"
+      },
+      {
+        "code": "PICK",
+        "name": "Pickaway"
+      },
+      {
+        "code": "PIKE",
+        "name": "Pike"
+      },
+      {
+        "code": "PORT",
+        "name": "Portage"
+      },
+      {
+        "code": "PREB",
+        "name": "Preble"
+      },
+      {
+        "code": "PUTN",
+        "name": "Putnam"
+      },
+      {
+        "code": "RICH",
+        "name": "Richland"
+      },
+      {
+        "code": "ROSS",
+        "name": "Ross"
+      },
+      {
+        "code": "SAND",
+        "name": "Sandusky"
+      },
+      {
+        "code": "SCIO",
+        "name": "Scioto"
+      },
+      {
+        "code": "SENE",
+        "name": "Seneca"
+      },
+      {
+        "code": "SHEL",
+        "name": "Shelby"
+      },
+      {
+        "code": "STAR",
+        "name": "Stark"
+      },
+      {
+        "code": "SUMM",
+        "name": "Summit"
+      },
+      {
+        "code": "TRUM",
+        "name": "Trumbull"
+      },
+      {
+        "code": "TUSC",
+        "name": "Tuscarawas"
+      },
+      {
+        "code": "UNIO",
+        "name": "Union"
+      },
+      {
+        "code": "VANW",
+        "name": "Vanwert"
+      },
+      {
+        "code": "VINT",
+        "name": "Vinton"
+      },
+      {
+        "code": "WARR",
+        "name": "Warren"
+      },
+      {
+        "code": "WASH",
+        "name": "Washington"
+      },
+      {
+        "code": "WAYN",
+        "name": "Wayne"
+      },
+      {
+        "code": "WILL",
+        "name": "Williams"
+      },
+      {
+        "code": "WOOD",
+        "name": "Wood"
+      },
+      {
+        "code": "WYAN",
+        "name": "Wyandot"
+      }
+    ],
+    "qso_party": {
+      "state": "OH",
+      "exchange": "location",
+      "county_line_max": 1,
+      "home_multipliers": [
+        "county",
+        "state",
+        "dx"
+      ],
+      "multiplier_per": "contest",
+      "points": 2,
+      "category_mode": "MIXED",
+      "periods": [
+        {
+          "start": "2026-08-22T16:00:00Z",
+          "end": "2026-08-23T04:00:00Z"
+        },
+        {
+          "start": "2027-08-28T16:00:00Z",
+          "end": "2027-08-29T04:00:00Z"
+        }
+      ],
+      "area_aliases": {
+        "NU": "NT",
+        "YT": "NT"
+      }
+    }
   },
   {
     "id": "7QP",
@@ -2569,7 +2961,7 @@
   },
   {
     "id": "AL-QSO-PARTY",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "Alabama QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2582,9 +2974,9 @@
       "10M"
     ],
     "sent_serial": false,
-    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: AL: RS(T) + County non-AL: RS(T) + (state/province/country)",
-    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: AL: RS(T) + County non-AL: RS(T) + (state/province/country)",
-    "dupe_scope": "call+band",
+    "sent_exchange_hint": "AL: county code; outside: state/province/DX prefix",
+    "received_exchange_hint": "County, state/province or DX prefix",
+    "dupe_scope": "call+band+location",
     "rules_url": "http://alabamacontestgroup.org/aqp/rules/",
     "score_submission_url": "",
     "sessions": [
@@ -2593,7 +2985,311 @@
         "label": "Alabama QSO Party",
         "schedule": "1500Z, Jul 31 to 0300Z, Aug 1"
       }
-    ]
+    ],
+    "cabrillo_layout": "cw_rst_exchange",
+    "adif_contest_id": "AL-QSO-PARTY",
+    "county_options": [
+      {
+        "code": "AUTA",
+        "name": "Autauga"
+      },
+      {
+        "code": "BALD",
+        "name": "Baldwin"
+      },
+      {
+        "code": "BARB",
+        "name": "Barbour"
+      },
+      {
+        "code": "BIBB",
+        "name": "Bibb"
+      },
+      {
+        "code": "BLOU",
+        "name": "Blount"
+      },
+      {
+        "code": "BULL",
+        "name": "Bullock"
+      },
+      {
+        "code": "BUTL",
+        "name": "Butler"
+      },
+      {
+        "code": "CHIL",
+        "name": "Chilton"
+      },
+      {
+        "code": "CHMB",
+        "name": "Chambers"
+      },
+      {
+        "code": "CHOC",
+        "name": "Choctaw"
+      },
+      {
+        "code": "CHOU",
+        "name": "Calhoun"
+      },
+      {
+        "code": "CKEE",
+        "name": "Cherokee"
+      },
+      {
+        "code": "CLAY",
+        "name": "Clay"
+      },
+      {
+        "code": "CLEB",
+        "name": "Cleburne"
+      },
+      {
+        "code": "CLRK",
+        "name": "Clarke"
+      },
+      {
+        "code": "COFF",
+        "name": "Coffee"
+      },
+      {
+        "code": "COLB",
+        "name": "Colbert"
+      },
+      {
+        "code": "CONE",
+        "name": "Conecuh"
+      },
+      {
+        "code": "COOS",
+        "name": "Coosa"
+      },
+      {
+        "code": "COVI",
+        "name": "Covington"
+      },
+      {
+        "code": "CREN",
+        "name": "Crenshaw"
+      },
+      {
+        "code": "CULM",
+        "name": "Cullman"
+      },
+      {
+        "code": "DALE",
+        "name": "Dale"
+      },
+      {
+        "code": "DKLB",
+        "name": "Dekalb"
+      },
+      {
+        "code": "DLLS",
+        "name": "Dallas"
+      },
+      {
+        "code": "ELMO",
+        "name": "Elmore"
+      },
+      {
+        "code": "ESCA",
+        "name": "Escambia"
+      },
+      {
+        "code": "ETOW",
+        "name": "Etowah"
+      },
+      {
+        "code": "FAYE",
+        "name": "Fayette"
+      },
+      {
+        "code": "FRNK",
+        "name": "Franklin"
+      },
+      {
+        "code": "GENE",
+        "name": "Geneva"
+      },
+      {
+        "code": "GREE",
+        "name": "Greene"
+      },
+      {
+        "code": "HALE",
+        "name": "Hale"
+      },
+      {
+        "code": "HNRY",
+        "name": "Henry"
+      },
+      {
+        "code": "HOUS",
+        "name": "Houston"
+      },
+      {
+        "code": "JEFF",
+        "name": "Jefferson"
+      },
+      {
+        "code": "JKSN",
+        "name": "Jackson"
+      },
+      {
+        "code": "LAMA",
+        "name": "Lamar"
+      },
+      {
+        "code": "LAUD",
+        "name": "Lauderdale"
+      },
+      {
+        "code": "LAWR",
+        "name": "Lawrence"
+      },
+      {
+        "code": "LEE",
+        "name": "Lee"
+      },
+      {
+        "code": "LIME",
+        "name": "Limestone"
+      },
+      {
+        "code": "LOWN",
+        "name": "Lowndes"
+      },
+      {
+        "code": "MACO",
+        "name": "Macon"
+      },
+      {
+        "code": "MARI",
+        "name": "Marion"
+      },
+      {
+        "code": "MDSN",
+        "name": "Madison"
+      },
+      {
+        "code": "MGMY",
+        "name": "Montgomery"
+      },
+      {
+        "code": "MNRO",
+        "name": "Monroe"
+      },
+      {
+        "code": "MOBI",
+        "name": "Mobile"
+      },
+      {
+        "code": "MORG",
+        "name": "Morgan"
+      },
+      {
+        "code": "MRGO",
+        "name": "Marengo"
+      },
+      {
+        "code": "MRSH",
+        "name": "Marshall"
+      },
+      {
+        "code": "PERR",
+        "name": "Perry"
+      },
+      {
+        "code": "PICK",
+        "name": "Pickens"
+      },
+      {
+        "code": "PIKE",
+        "name": "Pike"
+      },
+      {
+        "code": "RAND",
+        "name": "Randolph"
+      },
+      {
+        "code": "RSSL",
+        "name": "Russell"
+      },
+      {
+        "code": "SCLR",
+        "name": "St. Clair"
+      },
+      {
+        "code": "SHEL",
+        "name": "Shelby"
+      },
+      {
+        "code": "SUMT",
+        "name": "Sumter"
+      },
+      {
+        "code": "TDEG",
+        "name": "Talladega"
+      },
+      {
+        "code": "TPOO",
+        "name": "Tallapoosa"
+      },
+      {
+        "code": "TUSC",
+        "name": "Tuscaloosa"
+      },
+      {
+        "code": "WASH",
+        "name": "Washington"
+      },
+      {
+        "code": "WINS",
+        "name": "Winston"
+      },
+      {
+        "code": "WLCX",
+        "name": "Wilcox"
+      },
+      {
+        "code": "WLKR",
+        "name": "Walker"
+      }
+    ],
+    "scoring": {
+      "points_per_qso": 2,
+      "multipliers": [
+        {
+          "kind": "county",
+          "per": "contest"
+        }
+      ]
+    },
+    "qso_party": {
+      "state": "AL",
+      "exchange": "location",
+      "county_line_max": 1,
+      "county_as_state": true,
+      "home_multipliers": [
+        "county",
+        "state",
+        "dxcc"
+      ],
+      "multiplier_per": "contest",
+      "points": 2,
+      "area_aliases": {
+        "DC": "MD",
+        "MDC": "MD"
+      },
+      "periods": [
+        {
+          "start": "2026-07-25T15:00:00Z",
+          "end": "2026-07-26T03:00:00Z"
+        }
+      ]
+    }
   },
   {
     "id": "AZ-QSO-PARTY",
@@ -2656,7 +3352,7 @@
   },
   {
     "id": "CA-QSO-PARTY",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "California QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2669,10 +3365,43 @@
       "15M",
       "10M"
     ],
-    "sent_serial": false,
-    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: CA: Serial No. + County non-CA: Serial No. + (state/VE province or territory/DX)",
+    "sent_serial": true,
+    "sent_exchange_hint": "CA: county code; outside CA: state/province/DX (serial sent automatically)",
     "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: CA: Serial No. + County non-CA: Serial No. + (state/VE province or territory/DX)",
-    "dupe_scope": "call+band",
+    "dupe_scope": "call+band+location",
+    "cabrillo_contest": "CA-QSO-PARTY",
+    "adif_contest_id": "CA-QSO-PARTY",
+    "cabrillo_omit_rst": true,
+    "cabrillo_layout": "cw_exchange_only",
+    "scoring": {"points_per_qso": 3, "multipliers": [{"kind": "county", "per": "contest"}]},
+    "qso_party": {
+      "periods": [{"start":"2026-10-03T16:00:00Z", "end":"2026-10-04T22:00:00Z"}],
+      "state": "CA", "exchange": "serial_location", "county_line_max": 4,
+      "area_aliases": {"DC":"MD"}, "category_soapbox": true,
+      "county_as_state": true, "home_multipliers": ["state"],
+      "multiplier_per": "contest", "multiplier_cap": 58, "points": 3
+    },
+    "county_options": [
+      {"code":"ALAM","name":"Alameda"},{"code":"ALPI","name":"Alpine"},{"code":"AMAD","name":"Amador"},
+      {"code":"BUTT","name":"Butte"},{"code":"CALA","name":"Calaveras"},{"code":"COLU","name":"Colusa"},
+      {"code":"CCOS","name":"Contra Costa"},{"code":"DELN","name":"Del Norte"},{"code":"ELDO","name":"El Dorado"},
+      {"code":"FRES","name":"Fresno"},{"code":"GLEN","name":"Glenn"},{"code":"HUMB","name":"Humboldt"},
+      {"code":"IMPE","name":"Imperial"},{"code":"INYO","name":"Inyo"},{"code":"KERN","name":"Kern"},
+      {"code":"KING","name":"Kings"},{"code":"LAKE","name":"Lake"},{"code":"LASS","name":"Lassen"},
+      {"code":"LANG","name":"Los Angeles"},{"code":"MADE","name":"Madera"},{"code":"MARN","name":"Marin"},
+      {"code":"MARP","name":"Mariposa"},{"code":"MEND","name":"Mendocino"},{"code":"MERC","name":"Merced"},
+      {"code":"MODO","name":"Modoc"},{"code":"MONO","name":"Mono"},{"code":"MONT","name":"Monterey"},
+      {"code":"NAPA","name":"Napa"},{"code":"NEVA","name":"Nevada"},{"code":"ORAN","name":"Orange"},
+      {"code":"PLAC","name":"Placer"},{"code":"PLUM","name":"Plumas"},{"code":"RIVE","name":"Riverside"},
+      {"code":"SACR","name":"Sacramento"},{"code":"SBEN","name":"San Benito"},{"code":"SBER","name":"San Bernardino"},
+      {"code":"SDIE","name":"San Diego"},{"code":"SFRA","name":"San Francisco"},{"code":"SJOA","name":"San Joaquin"},
+      {"code":"SLUI","name":"San Luis Obispo"},{"code":"SMAT","name":"San Mateo"},{"code":"SBAR","name":"Santa Barbara"},
+      {"code":"SCLA","name":"Santa Clara"},{"code":"SCRU","name":"Santa Cruz"},{"code":"SHAS","name":"Shasta"},
+      {"code":"SIER","name":"Sierra"},{"code":"SISK","name":"Siskiyou"},{"code":"SOLA","name":"Solano"},
+      {"code":"SONO","name":"Sonoma"},{"code":"STAN","name":"Stanislaus"},{"code":"SUTT","name":"Sutter"},
+      {"code":"TEHA","name":"Tehama"},{"code":"TRIN","name":"Trinity"},{"code":"TULA","name":"Tulare"},
+      {"code":"TUOL","name":"Tuolumne"},{"code":"VENT","name":"Ventura"},{"code":"YOLO","name":"Yolo"},{"code":"YUBA","name":"Yuba"}
+    ],
     "rules_url": "https://www.cqp.org/Rules.html",
     "score_submission_url": "",
     "sessions": [
@@ -2743,7 +3472,7 @@
   },
   {
     "id": "FCG-FQP",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "Florida QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2755,10 +3484,10 @@
       "10M"
     ],
     "sent_serial": false,
-    "sent_exchange_hint": "CW, Phone contest \u2014 CW exchange: FL: RS(T) + county W/VE: RS(T) + (state/province) DX: RS(T) + DXCC prefix",
-    "received_exchange_hint": "CW, Phone contest \u2014 CW exchange: FL: RS(T) + county W/VE: RS(T) + (state/province) DX: RS(T) + DXCC prefix",
-    "dupe_scope": "call+band",
-    "rules_url": "http://floridaqsoparty.org/rules/",
+    "sent_exchange_hint": "FL: county code; outside: state/province/DX entity; maritime: R1/R2/R3",
+    "received_exchange_hint": "County, state/province or DX; county line: CODE/CODE",
+    "dupe_scope": "call+band+location",
+    "rules_url": "https://floridaqsoparty.org/rules/",
     "score_submission_url": "",
     "sessions": [
       {
@@ -2766,11 +3495,342 @@
         "label": "Florida QSO Party",
         "schedule": "1600Z, Apr 24 to 2159Z, Apr 25"
       }
-    ]
+    ],
+    "cabrillo_layout": "cw_rst_exchange",
+    "adif_contest_id": "FCG-FQP",
+    "scoring": {
+      "points_per_qso": 2,
+      "multipliers": [
+        {
+          "kind": "county",
+          "per": "contest"
+        }
+      ]
+    },
+    "county_options": [
+      {
+        "code": "ALC",
+        "name": "Alachua"
+      },
+      {
+        "code": "BAK",
+        "name": "Baker"
+      },
+      {
+        "code": "BAY",
+        "name": "Bay"
+      },
+      {
+        "code": "BRA",
+        "name": "Bradford"
+      },
+      {
+        "code": "BRE",
+        "name": "Brevard"
+      },
+      {
+        "code": "BRO",
+        "name": "Broward"
+      },
+      {
+        "code": "CAH",
+        "name": "Calhoun"
+      },
+      {
+        "code": "CHA",
+        "name": "Charlotte"
+      },
+      {
+        "code": "CIT",
+        "name": "Citrus"
+      },
+      {
+        "code": "CLA",
+        "name": "Clay"
+      },
+      {
+        "code": "CLM",
+        "name": "Columbia"
+      },
+      {
+        "code": "CLR",
+        "name": "Collier"
+      },
+      {
+        "code": "DAD",
+        "name": "Miami-Dade"
+      },
+      {
+        "code": "DES",
+        "name": "Desoto"
+      },
+      {
+        "code": "DIX",
+        "name": "Dixie"
+      },
+      {
+        "code": "DUV",
+        "name": "Duval"
+      },
+      {
+        "code": "ESC",
+        "name": "Escambia"
+      },
+      {
+        "code": "FLG",
+        "name": "Flagler"
+      },
+      {
+        "code": "FRA",
+        "name": "Franklin"
+      },
+      {
+        "code": "GAD",
+        "name": "Gadsden"
+      },
+      {
+        "code": "GIL",
+        "name": "Gilchrist"
+      },
+      {
+        "code": "GLA",
+        "name": "Glades"
+      },
+      {
+        "code": "GUL",
+        "name": "Gulf"
+      },
+      {
+        "code": "HAM",
+        "name": "Hamilton"
+      },
+      {
+        "code": "HAR",
+        "name": "Hardee"
+      },
+      {
+        "code": "HEN",
+        "name": "Hendry"
+      },
+      {
+        "code": "HER",
+        "name": "Hernando"
+      },
+      {
+        "code": "HIG",
+        "name": "Highlands"
+      },
+      {
+        "code": "HIL",
+        "name": "Hillsborough"
+      },
+      {
+        "code": "HOL",
+        "name": "Holmes"
+      },
+      {
+        "code": "IDR",
+        "name": "Indian River"
+      },
+      {
+        "code": "JAC",
+        "name": "Jackson"
+      },
+      {
+        "code": "JEF",
+        "name": "Jefferson"
+      },
+      {
+        "code": "LAF",
+        "name": "Lafayette"
+      },
+      {
+        "code": "LAK",
+        "name": "Lake"
+      },
+      {
+        "code": "LEE",
+        "name": "Lee"
+      },
+      {
+        "code": "LEO",
+        "name": "Leon"
+      },
+      {
+        "code": "LEV",
+        "name": "Levy"
+      },
+      {
+        "code": "LIB",
+        "name": "Liberty"
+      },
+      {
+        "code": "MAD",
+        "name": "Madison"
+      },
+      {
+        "code": "MAO",
+        "name": "Marion"
+      },
+      {
+        "code": "MON",
+        "name": "Monroe"
+      },
+      {
+        "code": "MRT",
+        "name": "Martin"
+      },
+      {
+        "code": "MTE",
+        "name": "Manatee"
+      },
+      {
+        "code": "NAS",
+        "name": "Nassau"
+      },
+      {
+        "code": "OKA",
+        "name": "Okaloosa"
+      },
+      {
+        "code": "OKE",
+        "name": "Okeechobee"
+      },
+      {
+        "code": "ORA",
+        "name": "Orange"
+      },
+      {
+        "code": "OSC",
+        "name": "Osceola"
+      },
+      {
+        "code": "PAL",
+        "name": "Palm Beach"
+      },
+      {
+        "code": "PAS",
+        "name": "Pasco"
+      },
+      {
+        "code": "PIN",
+        "name": "Pinellas"
+      },
+      {
+        "code": "POL",
+        "name": "Polk"
+      },
+      {
+        "code": "PUT",
+        "name": "Putnam"
+      },
+      {
+        "code": "SAN",
+        "name": "Santa Rosa"
+      },
+      {
+        "code": "SAR",
+        "name": "Sarasota"
+      },
+      {
+        "code": "SEM",
+        "name": "Seminole"
+      },
+      {
+        "code": "STJ",
+        "name": "St. Johns"
+      },
+      {
+        "code": "STL",
+        "name": "St. Lucie"
+      },
+      {
+        "code": "SUM",
+        "name": "Sumter"
+      },
+      {
+        "code": "SUW",
+        "name": "Suwannee"
+      },
+      {
+        "code": "TAY",
+        "name": "Taylor"
+      },
+      {
+        "code": "UNI",
+        "name": "Union"
+      },
+      {
+        "code": "VOL",
+        "name": "Volusia"
+      },
+      {
+        "code": "WAG",
+        "name": "Washington"
+      },
+      {
+        "code": "WAK",
+        "name": "Wakulla"
+      },
+      {
+        "code": "WAL",
+        "name": "Walton"
+      }
+    ],
+    "qso_party": {
+      "state": "FL",
+      "exchange": "location",
+      "county_line_max": 2,
+      "county_as_state": true,
+      "home_multipliers": [
+        "state",
+        "dxcc",
+        "maritime"
+      ],
+      "multiplier_per": "contest",
+      "points": 2,
+      "periods": [
+        {
+          "start": "2026-04-25T16:00:00Z",
+          "end": "2026-04-26T02:00:00Z"
+        },
+        {
+          "start": "2026-04-26T12:00:00Z",
+          "end": "2026-04-26T22:00:00Z"
+        }
+      ],
+      "power_factors": {
+        "HIGH": 1,
+        "LOW": 2,
+        "QRP": 3
+      },
+      "qso_only_calls": [
+        "N4U",
+        "N4S",
+        "N4B",
+        "N4I",
+        "N4R",
+        "N4T",
+        "N4H",
+        "N4D",
+        "N4A",
+        "N4Y",
+        "W4U",
+        "W4S",
+        "W4B",
+        "W4I",
+        "W4R",
+        "W4T",
+        "W4H",
+        "W4D",
+        "W4A",
+        "W4Y"
+      ]
+    }
   },
   {
     "id": "GA-QSO-PARTY",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "Georgia QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -2785,10 +3845,10 @@
       "6M"
     ],
     "sent_serial": false,
-    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: GA: RST + county non-GA: RST + (state/province/\"DX\")",
-    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: GA: RST + county non-GA: RST + (state/province/\"DX\")",
-    "dupe_scope": "call+band",
-    "rules_url": "https://gaqsoparty.com/",
+    "sent_exchange_hint": "GA: county code; outside: state/province/DX",
+    "received_exchange_hint": "County, state/province or DX; county line: CODE/CODE",
+    "dupe_scope": "call+band+location",
+    "rules_url": "https://gaqsoparty.com/georgia-qso-party-rules/",
     "score_submission_url": "",
     "sessions": [
       {
@@ -2796,7 +3856,677 @@
         "label": "Georgia QSO Party",
         "schedule": "1800Z, Apr 10 to 2359Z, Apr 11"
       }
-    ]
+    ],
+    "cabrillo_layout": "cw_rst_exchange",
+    "adif_contest_id": "GA-QSO-PARTY",
+    "scoring": {
+      "points_per_qso": 2,
+      "multipliers": [
+        {
+          "kind": "county",
+          "per": "contest"
+        }
+      ]
+    },
+    "county_options": [
+      {
+        "code": "APPL",
+        "name": "Appling"
+      },
+      {
+        "code": "ATKN",
+        "name": "Atkinson"
+      },
+      {
+        "code": "BACN",
+        "name": "Bacon"
+      },
+      {
+        "code": "BAKR",
+        "name": "Baker"
+      },
+      {
+        "code": "BALD",
+        "name": "Baldwin"
+      },
+      {
+        "code": "BANK",
+        "name": "Banks"
+      },
+      {
+        "code": "BARR",
+        "name": "Barrow"
+      },
+      {
+        "code": "BART",
+        "name": "Bartow"
+      },
+      {
+        "code": "BENH",
+        "name": "Ben Hill"
+      },
+      {
+        "code": "BERR",
+        "name": "Berrien"
+      },
+      {
+        "code": "BIBB",
+        "name": "Bibb"
+      },
+      {
+        "code": "BLEC",
+        "name": "Bleckley"
+      },
+      {
+        "code": "BRAN",
+        "name": "Brantley"
+      },
+      {
+        "code": "BROK",
+        "name": "Brooks"
+      },
+      {
+        "code": "BRYN",
+        "name": "Bryan"
+      },
+      {
+        "code": "BULL",
+        "name": "Bulloch"
+      },
+      {
+        "code": "BURK",
+        "name": "Burke"
+      },
+      {
+        "code": "BUTT",
+        "name": "Butts"
+      },
+      {
+        "code": "CALH",
+        "name": "Calhoun"
+      },
+      {
+        "code": "CAND",
+        "name": "Candler"
+      },
+      {
+        "code": "CARR",
+        "name": "Carroll"
+      },
+      {
+        "code": "CATO",
+        "name": "Catoosa"
+      },
+      {
+        "code": "CHAR",
+        "name": "Charlton"
+      },
+      {
+        "code": "CHAT",
+        "name": "Chattahoochee"
+      },
+      {
+        "code": "CHER",
+        "name": "Cherokee"
+      },
+      {
+        "code": "CHGA",
+        "name": "Chattooga"
+      },
+      {
+        "code": "CHTM",
+        "name": "Chatham"
+      },
+      {
+        "code": "CLAY",
+        "name": "Clay"
+      },
+      {
+        "code": "CLCH",
+        "name": "Clinch"
+      },
+      {
+        "code": "CLKE",
+        "name": "Clarke"
+      },
+      {
+        "code": "CLTN",
+        "name": "Clayton"
+      },
+      {
+        "code": "CMDN",
+        "name": "Camden"
+      },
+      {
+        "code": "COBB",
+        "name": "Cobb"
+      },
+      {
+        "code": "COFF",
+        "name": "Coffee"
+      },
+      {
+        "code": "COLQ",
+        "name": "Colquitt"
+      },
+      {
+        "code": "COLU",
+        "name": "Columbia"
+      },
+      {
+        "code": "COOK",
+        "name": "Cook"
+      },
+      {
+        "code": "COWE",
+        "name": "Coweta"
+      },
+      {
+        "code": "CRAW",
+        "name": "Crawford"
+      },
+      {
+        "code": "CRIS",
+        "name": "Crisp"
+      },
+      {
+        "code": "DADE",
+        "name": "Dade"
+      },
+      {
+        "code": "DAWS",
+        "name": "Dawson"
+      },
+      {
+        "code": "DECA",
+        "name": "Decatur"
+      },
+      {
+        "code": "DHTY",
+        "name": "Dougherty"
+      },
+      {
+        "code": "DKLB",
+        "name": "Dekalb"
+      },
+      {
+        "code": "DODG",
+        "name": "Dodge"
+      },
+      {
+        "code": "DOOL",
+        "name": "Dooly"
+      },
+      {
+        "code": "DOUG",
+        "name": "Douglas"
+      },
+      {
+        "code": "EARL",
+        "name": "Early"
+      },
+      {
+        "code": "ECHO",
+        "name": "Echols"
+      },
+      {
+        "code": "EFFI",
+        "name": "Effingham"
+      },
+      {
+        "code": "ELBE",
+        "name": "Elbert"
+      },
+      {
+        "code": "EMAN",
+        "name": "Emanuel"
+      },
+      {
+        "code": "EVAN",
+        "name": "Evans"
+      },
+      {
+        "code": "FANN",
+        "name": "Fannin"
+      },
+      {
+        "code": "FAYE",
+        "name": "Fayette"
+      },
+      {
+        "code": "FLOY",
+        "name": "Floyd"
+      },
+      {
+        "code": "FORS",
+        "name": "Forsyth"
+      },
+      {
+        "code": "FRAN",
+        "name": "Franklin"
+      },
+      {
+        "code": "FULT",
+        "name": "Fulton"
+      },
+      {
+        "code": "GILM",
+        "name": "Gilmer"
+      },
+      {
+        "code": "GLAS",
+        "name": "Glascock"
+      },
+      {
+        "code": "GLYN",
+        "name": "Glynn"
+      },
+      {
+        "code": "GORD",
+        "name": "Gordon"
+      },
+      {
+        "code": "GRAD",
+        "name": "Grady"
+      },
+      {
+        "code": "GREE",
+        "name": "Greene"
+      },
+      {
+        "code": "GWIN",
+        "name": "Gwinnett"
+      },
+      {
+        "code": "HABE",
+        "name": "Habersham"
+      },
+      {
+        "code": "HALL",
+        "name": "Hall"
+      },
+      {
+        "code": "HANC",
+        "name": "Hancock"
+      },
+      {
+        "code": "HARA",
+        "name": "Haralson"
+      },
+      {
+        "code": "HARR",
+        "name": "Harris"
+      },
+      {
+        "code": "HART",
+        "name": "Hart"
+      },
+      {
+        "code": "HEAR",
+        "name": "Heard"
+      },
+      {
+        "code": "HNRY",
+        "name": "Henry"
+      },
+      {
+        "code": "HOUS",
+        "name": "Houston"
+      },
+      {
+        "code": "IRWI",
+        "name": "Irwin"
+      },
+      {
+        "code": "JACK",
+        "name": "Jackson"
+      },
+      {
+        "code": "JASP",
+        "name": "Jasper"
+      },
+      {
+        "code": "JEFF",
+        "name": "Jefferson"
+      },
+      {
+        "code": "JENK",
+        "name": "Jenkins"
+      },
+      {
+        "code": "JFDA",
+        "name": "Jeff Davis"
+      },
+      {
+        "code": "JOHN",
+        "name": "Johnson"
+      },
+      {
+        "code": "JONE",
+        "name": "Jones"
+      },
+      {
+        "code": "LAMA",
+        "name": "Lamar"
+      },
+      {
+        "code": "LANI",
+        "name": "Lanier"
+      },
+      {
+        "code": "LAUR",
+        "name": "Laurens"
+      },
+      {
+        "code": "LEE",
+        "name": "Lee"
+      },
+      {
+        "code": "LIBE",
+        "name": "Liberty"
+      },
+      {
+        "code": "LINC",
+        "name": "Lincoln"
+      },
+      {
+        "code": "LONG",
+        "name": "Long"
+      },
+      {
+        "code": "LOWN",
+        "name": "Lowndes"
+      },
+      {
+        "code": "LUMP",
+        "name": "Lumpkin"
+      },
+      {
+        "code": "MACO",
+        "name": "Macon"
+      },
+      {
+        "code": "MADI",
+        "name": "Madison"
+      },
+      {
+        "code": "MARI",
+        "name": "Marion"
+      },
+      {
+        "code": "MCDU",
+        "name": "Mcduffie"
+      },
+      {
+        "code": "MCIN",
+        "name": "Mcintosh"
+      },
+      {
+        "code": "MERI",
+        "name": "Meriwether"
+      },
+      {
+        "code": "MILL",
+        "name": "Miller"
+      },
+      {
+        "code": "MITC",
+        "name": "Mitchell"
+      },
+      {
+        "code": "MNRO",
+        "name": "Monroe"
+      },
+      {
+        "code": "MONT",
+        "name": "Montgomery"
+      },
+      {
+        "code": "MORG",
+        "name": "Morgan"
+      },
+      {
+        "code": "MURR",
+        "name": "Murray"
+      },
+      {
+        "code": "MUSC",
+        "name": "Muscogee"
+      },
+      {
+        "code": "NEWT",
+        "name": "Newton"
+      },
+      {
+        "code": "OCON",
+        "name": "Oconee"
+      },
+      {
+        "code": "OGLE",
+        "name": "Oglethorpe"
+      },
+      {
+        "code": "PAUL",
+        "name": "Paulding"
+      },
+      {
+        "code": "PEAC",
+        "name": "Peach"
+      },
+      {
+        "code": "PICK",
+        "name": "Pickens"
+      },
+      {
+        "code": "PIER",
+        "name": "Pierce"
+      },
+      {
+        "code": "PIKE",
+        "name": "Pike"
+      },
+      {
+        "code": "POLK",
+        "name": "Polk"
+      },
+      {
+        "code": "PULA",
+        "name": "Pulaski"
+      },
+      {
+        "code": "PUTN",
+        "name": "Putnam"
+      },
+      {
+        "code": "QUIT",
+        "name": "Quitman"
+      },
+      {
+        "code": "RABU",
+        "name": "Rabun"
+      },
+      {
+        "code": "RAND",
+        "name": "Randolph"
+      },
+      {
+        "code": "RICH",
+        "name": "Richmond"
+      },
+      {
+        "code": "ROCK",
+        "name": "Rockdale"
+      },
+      {
+        "code": "SCHL",
+        "name": "Schley"
+      },
+      {
+        "code": "SCRE",
+        "name": "Screven"
+      },
+      {
+        "code": "SEMI",
+        "name": "Seminole"
+      },
+      {
+        "code": "SPAL",
+        "name": "Spalding"
+      },
+      {
+        "code": "STEP",
+        "name": "Stephens"
+      },
+      {
+        "code": "STWT",
+        "name": "Stewart"
+      },
+      {
+        "code": "SUMT",
+        "name": "Sumter"
+      },
+      {
+        "code": "TALI",
+        "name": "Taliaferro"
+      },
+      {
+        "code": "TATT",
+        "name": "Tattnall"
+      },
+      {
+        "code": "TAYL",
+        "name": "Taylor"
+      },
+      {
+        "code": "TELF",
+        "name": "Telfair"
+      },
+      {
+        "code": "TERR",
+        "name": "Terrell"
+      },
+      {
+        "code": "THOM",
+        "name": "Thomas"
+      },
+      {
+        "code": "TIFT",
+        "name": "Tift"
+      },
+      {
+        "code": "TLBT",
+        "name": "Talbot"
+      },
+      {
+        "code": "TOOM",
+        "name": "Toombs"
+      },
+      {
+        "code": "TOWN",
+        "name": "Towns"
+      },
+      {
+        "code": "TREU",
+        "name": "Treutlen"
+      },
+      {
+        "code": "TROU",
+        "name": "Troup"
+      },
+      {
+        "code": "TURN",
+        "name": "Turner"
+      },
+      {
+        "code": "TWIG",
+        "name": "Twiggs"
+      },
+      {
+        "code": "UNIO",
+        "name": "Union"
+      },
+      {
+        "code": "UPSO",
+        "name": "Upson"
+      },
+      {
+        "code": "WALT",
+        "name": "Walton"
+      },
+      {
+        "code": "WARE",
+        "name": "Ware"
+      },
+      {
+        "code": "WARR",
+        "name": "Warren"
+      },
+      {
+        "code": "WASH",
+        "name": "Washington"
+      },
+      {
+        "code": "WAYN",
+        "name": "Wayne"
+      },
+      {
+        "code": "WCOX",
+        "name": "Wilcox"
+      },
+      {
+        "code": "WEBS",
+        "name": "Webster"
+      },
+      {
+        "code": "WFLD",
+        "name": "Whitfield"
+      },
+      {
+        "code": "WHEE",
+        "name": "Wheeler"
+      },
+      {
+        "code": "WHIT",
+        "name": "White"
+      },
+      {
+        "code": "WILK",
+        "name": "Wilkes"
+      },
+      {
+        "code": "WKSN",
+        "name": "Wilkinson"
+      },
+      {
+        "code": "WLKR",
+        "name": "Walker"
+      },
+      {
+        "code": "WORT",
+        "name": "Worth"
+      }
+    ],
+    "qso_party": {
+      "state": "GA",
+      "exchange": "location",
+      "county_line_max": 2,
+      "county_as_state": true,
+      "home_multipliers": [
+        "state"
+      ],
+      "multiplier_per": "contest",
+      "points": 2,
+      "periods": [
+        {
+          "start": "2026-04-11T18:00:00Z",
+          "end": "2026-04-12T04:00:00Z"
+        },
+        {
+          "start": "2026-04-12T14:00:00Z",
+          "end": "2026-04-13T00:00:00Z"
+        }
+      ]
+    }
   },
   {
     "id": "ID-QSO-PARTY",
@@ -2888,18 +4618,24 @@
   },
   {
     "id": "IAQP",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "Iowa QSO Party",
     "organizer": "",
     "kind": "annual contest",
     "schedule": "1400Z, Sep 19 to 0200Z, Sep 20",
     "bands": [
-      "60M"
+      "160M",
+      "80M",
+      "40M",
+      "20M",
+      "15M",
+      "10M",
+      "6M"
     ],
     "sent_serial": false,
-    "sent_exchange_hint": "CW, Phone, Digital contest \u2014 CW exchange: IA: RS(T) + County non-IA: RS(T) + (state/province/\"DX\")",
-    "received_exchange_hint": "CW, Phone, Digital contest \u2014 CW exchange: IA: RS(T) + County non-IA: RS(T) + (state/province/\"DX\")",
-    "dupe_scope": "call+band",
+    "sent_exchange_hint": "IA: county code; outside: state/province/DX",
+    "received_exchange_hint": "County, state/province or DX; county lines: CODE/CODE",
+    "dupe_scope": "call+band+location",
     "rules_url": "http://www.w0yl.com/IAQP",
     "score_submission_url": "",
     "sessions": [
@@ -2908,7 +4644,438 @@
         "label": "Iowa QSO Party",
         "schedule": "1400Z, Sep 19 to 0200Z, Sep 20"
       }
-    ]
+    ],
+    "cabrillo_layout": "cw_rst_exchange",
+    "cabrillo_contest": "IAQP",
+    "adif_contest_id": "IA-QSO-PARTY",
+    "county_options": [
+      {
+        "code": "ADM",
+        "name": "Adams"
+      },
+      {
+        "code": "ADR",
+        "name": "Adair"
+      },
+      {
+        "code": "ALL",
+        "name": "Allamakee"
+      },
+      {
+        "code": "APP",
+        "name": "Appanoose"
+      },
+      {
+        "code": "AUD",
+        "name": "Audubon"
+      },
+      {
+        "code": "BEN",
+        "name": "Benton"
+      },
+      {
+        "code": "BKH",
+        "name": "Black Hawk"
+      },
+      {
+        "code": "BNV",
+        "name": "Buena Vista"
+      },
+      {
+        "code": "BOO",
+        "name": "Boone"
+      },
+      {
+        "code": "BRE",
+        "name": "Bremer"
+      },
+      {
+        "code": "BTL",
+        "name": "Butler"
+      },
+      {
+        "code": "BUC",
+        "name": "Buchanan"
+      },
+      {
+        "code": "CAL",
+        "name": "Calhoun"
+      },
+      {
+        "code": "CAR",
+        "name": "Carroll"
+      },
+      {
+        "code": "CAS",
+        "name": "Cass"
+      },
+      {
+        "code": "CED",
+        "name": "Cedar"
+      },
+      {
+        "code": "CEG",
+        "name": "Cerro Gordo"
+      },
+      {
+        "code": "CHE",
+        "name": "Cherokee"
+      },
+      {
+        "code": "CHI",
+        "name": "Chickasaw"
+      },
+      {
+        "code": "CLA",
+        "name": "Clay"
+      },
+      {
+        "code": "CLN",
+        "name": "Clinton"
+      },
+      {
+        "code": "CLR",
+        "name": "Clarke"
+      },
+      {
+        "code": "CLT",
+        "name": "Clayton"
+      },
+      {
+        "code": "CRF",
+        "name": "Crawford"
+      },
+      {
+        "code": "DAL",
+        "name": "Dallas"
+      },
+      {
+        "code": "DAV",
+        "name": "Davis"
+      },
+      {
+        "code": "DEC",
+        "name": "Decatur"
+      },
+      {
+        "code": "DEL",
+        "name": "Delaware"
+      },
+      {
+        "code": "DIC",
+        "name": "Dickinson"
+      },
+      {
+        "code": "DSM",
+        "name": "Des Moines"
+      },
+      {
+        "code": "DUB",
+        "name": "Dubuque"
+      },
+      {
+        "code": "EMM",
+        "name": "Emmet"
+      },
+      {
+        "code": "FAY",
+        "name": "Fayette"
+      },
+      {
+        "code": "FLO",
+        "name": "Floyd"
+      },
+      {
+        "code": "FRA",
+        "name": "Franklin"
+      },
+      {
+        "code": "FRE",
+        "name": "Fremont"
+      },
+      {
+        "code": "GRE",
+        "name": "Greene"
+      },
+      {
+        "code": "GRU",
+        "name": "Grundy"
+      },
+      {
+        "code": "GUT",
+        "name": "Guthrie"
+      },
+      {
+        "code": "HAM",
+        "name": "Hamilton"
+      },
+      {
+        "code": "HAN",
+        "name": "Hancock"
+      },
+      {
+        "code": "HDN",
+        "name": "Hardin"
+      },
+      {
+        "code": "HEN",
+        "name": "Henry"
+      },
+      {
+        "code": "HOW",
+        "name": "Howard"
+      },
+      {
+        "code": "HRS",
+        "name": "Harrison"
+      },
+      {
+        "code": "HUM",
+        "name": "Humboldt"
+      },
+      {
+        "code": "IDA",
+        "name": "Ida"
+      },
+      {
+        "code": "IOW",
+        "name": "Iowa"
+      },
+      {
+        "code": "JAC",
+        "name": "Jackson"
+      },
+      {
+        "code": "JAS",
+        "name": "Jasper"
+      },
+      {
+        "code": "JEF",
+        "name": "Jefferson"
+      },
+      {
+        "code": "JOH",
+        "name": "Johnson"
+      },
+      {
+        "code": "JON",
+        "name": "Jones"
+      },
+      {
+        "code": "KEO",
+        "name": "Keokuk"
+      },
+      {
+        "code": "KOS",
+        "name": "Kossuth"
+      },
+      {
+        "code": "LEE",
+        "name": "Lee"
+      },
+      {
+        "code": "LIN",
+        "name": "Linn"
+      },
+      {
+        "code": "LOU",
+        "name": "Louisa"
+      },
+      {
+        "code": "LUC",
+        "name": "Lucas"
+      },
+      {
+        "code": "LYN",
+        "name": "Lyon"
+      },
+      {
+        "code": "MAD",
+        "name": "Madison"
+      },
+      {
+        "code": "MAH",
+        "name": "Mahaska"
+      },
+      {
+        "code": "MIL",
+        "name": "Mills"
+      },
+      {
+        "code": "MIT",
+        "name": "Mitchell"
+      },
+      {
+        "code": "MNA",
+        "name": "Monona"
+      },
+      {
+        "code": "MOE",
+        "name": "Monroe"
+      },
+      {
+        "code": "MRN",
+        "name": "Marion"
+      },
+      {
+        "code": "MSL",
+        "name": "Marshall"
+      },
+      {
+        "code": "MTG",
+        "name": "Montgomery"
+      },
+      {
+        "code": "MUS",
+        "name": "Muscatine"
+      },
+      {
+        "code": "OBR",
+        "name": "O'Brien"
+      },
+      {
+        "code": "OSC",
+        "name": "Osceola"
+      },
+      {
+        "code": "PAG",
+        "name": "Page"
+      },
+      {
+        "code": "PLA",
+        "name": "Palo Alto"
+      },
+      {
+        "code": "PLY",
+        "name": "Plymouth"
+      },
+      {
+        "code": "POC",
+        "name": "Pocahontas"
+      },
+      {
+        "code": "POL",
+        "name": "Polk"
+      },
+      {
+        "code": "POT",
+        "name": "Pottawattamie"
+      },
+      {
+        "code": "POW",
+        "name": "Poweshiek"
+      },
+      {
+        "code": "RIN",
+        "name": "Ringgold"
+      },
+      {
+        "code": "SAC",
+        "name": "Sac"
+      },
+      {
+        "code": "SCO",
+        "name": "Scott"
+      },
+      {
+        "code": "SHE",
+        "name": "Shelby"
+      },
+      {
+        "code": "SIO",
+        "name": "Sioux"
+      },
+      {
+        "code": "STR",
+        "name": "Story"
+      },
+      {
+        "code": "TAM",
+        "name": "Tama"
+      },
+      {
+        "code": "TAY",
+        "name": "Taylor"
+      },
+      {
+        "code": "UNI",
+        "name": "Union"
+      },
+      {
+        "code": "VAN",
+        "name": "Van Buren"
+      },
+      {
+        "code": "WAP",
+        "name": "Wapello"
+      },
+      {
+        "code": "WAR",
+        "name": "Warren"
+      },
+      {
+        "code": "WAS",
+        "name": "Washington"
+      },
+      {
+        "code": "WAY",
+        "name": "Wayne"
+      },
+      {
+        "code": "WEB",
+        "name": "Webster"
+      },
+      {
+        "code": "WNB",
+        "name": "Winnebago"
+      },
+      {
+        "code": "WNS",
+        "name": "Winneshiek"
+      },
+      {
+        "code": "WOO",
+        "name": "Woodbury"
+      },
+      {
+        "code": "WOR",
+        "name": "Worth"
+      },
+      {
+        "code": "WRI",
+        "name": "Wright"
+      }
+    ],
+    "scoring": {
+      "points_per_qso": 2,
+      "multipliers": [
+        {
+          "kind": "county",
+          "per": "contest"
+        }
+      ]
+    },
+    "qso_party": {
+      "state": "IA",
+      "exchange": "location",
+      "county_line_max": 4,
+      "county_as_state": true,
+      "home_multipliers": [
+        "county",
+        "state"
+      ],
+      "multiplier_per": "contest",
+      "points": 2,
+      "area_aliases": {
+        "DC": "MD"
+      },
+      "periods": [
+        {
+          "start": "2026-09-19T14:00:00Z",
+          "end": "2026-09-20T02:00:00Z"
+        }
+      ]
+    }
   },
   {
     "id": "KS-QSO-PARTY",
@@ -3059,7 +5226,7 @@
   },
   {
     "id": "MI-QSO-PARTY",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "Michigan QSO Party",
     "organizer": "",
     "kind": "annual contest",
@@ -3072,9 +5239,9 @@
       "10M"
     ],
     "sent_serial": false,
-    "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: MI: RST + county non-MI: RST + (state/province/\"DX\")",
-    "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: MI: RST + county non-MI: RST + (state/province/\"DX\")",
-    "dupe_scope": "call+band",
+    "sent_exchange_hint": "MI: county code; outside: state/province/DX",
+    "received_exchange_hint": "County code, state/province or DX",
+    "dupe_scope": "call+band+location",
     "rules_url": "https://miqp.org/index.php/rules/",
     "score_submission_url": "",
     "sessions": [
@@ -3083,7 +5250,375 @@
         "label": "Michigan QSO Party",
         "schedule": "1600Z, Apr 17 to 0400Z, Apr 18"
       }
-    ]
+    ],
+    "cabrillo_layout": "cw_rst_exchange",
+    "adif_contest_id": "MI-QSO-PARTY",
+    "scoring": {
+      "points_per_qso": 2,
+      "multipliers": [
+        {
+          "kind": "county",
+          "per": "contest"
+        }
+      ]
+    },
+    "county_options": [
+      {
+        "code": "ALCO",
+        "name": "Alcona"
+      },
+      {
+        "code": "ALGE",
+        "name": "Alger"
+      },
+      {
+        "code": "ALLE",
+        "name": "Allegan"
+      },
+      {
+        "code": "ALPE",
+        "name": "Alpena"
+      },
+      {
+        "code": "ANTR",
+        "name": "Antrim"
+      },
+      {
+        "code": "AREN",
+        "name": "Arenac"
+      },
+      {
+        "code": "BARA",
+        "name": "Baraga"
+      },
+      {
+        "code": "BARR",
+        "name": "Barry"
+      },
+      {
+        "code": "BAY",
+        "name": "Bay"
+      },
+      {
+        "code": "BENZ",
+        "name": "Benzie"
+      },
+      {
+        "code": "BERR",
+        "name": "Berrien"
+      },
+      {
+        "code": "BRAN",
+        "name": "Branch"
+      },
+      {
+        "code": "CALH",
+        "name": "Calhoun"
+      },
+      {
+        "code": "CASS",
+        "name": "Cass"
+      },
+      {
+        "code": "CHAR",
+        "name": "Charlevoix"
+      },
+      {
+        "code": "CHEB",
+        "name": "Cheboygan"
+      },
+      {
+        "code": "CHIP",
+        "name": "Chippewa"
+      },
+      {
+        "code": "CLAR",
+        "name": "Clare"
+      },
+      {
+        "code": "CLIN",
+        "name": "Clinton"
+      },
+      {
+        "code": "CRAW",
+        "name": "Crawford"
+      },
+      {
+        "code": "DELT",
+        "name": "Delta"
+      },
+      {
+        "code": "DICK",
+        "name": "Dickinson"
+      },
+      {
+        "code": "EATO",
+        "name": "Eaton"
+      },
+      {
+        "code": "EMME",
+        "name": "Emmet"
+      },
+      {
+        "code": "GENE",
+        "name": "Genesee"
+      },
+      {
+        "code": "GLAD",
+        "name": "Gladwin"
+      },
+      {
+        "code": "GOGE",
+        "name": "Gogebic"
+      },
+      {
+        "code": "GRAT",
+        "name": "Gratiot"
+      },
+      {
+        "code": "GRTR",
+        "name": "Grand Traverse"
+      },
+      {
+        "code": "HILL",
+        "name": "Hillsdale"
+      },
+      {
+        "code": "HOUG",
+        "name": "Houghton"
+      },
+      {
+        "code": "HURO",
+        "name": "Huron"
+      },
+      {
+        "code": "INGH",
+        "name": "Ingham"
+      },
+      {
+        "code": "IONI",
+        "name": "Ionia"
+      },
+      {
+        "code": "IOSC",
+        "name": "Iosco"
+      },
+      {
+        "code": "IRON",
+        "name": "Iron"
+      },
+      {
+        "code": "ISAB",
+        "name": "Isabella"
+      },
+      {
+        "code": "JACK",
+        "name": "Jackson"
+      },
+      {
+        "code": "KALK",
+        "name": "Kalkaska"
+      },
+      {
+        "code": "KENT",
+        "name": "Kent"
+      },
+      {
+        "code": "KEWE",
+        "name": "Keweenaw"
+      },
+      {
+        "code": "KZOO",
+        "name": "Kalamazoo"
+      },
+      {
+        "code": "LAKE",
+        "name": "Lake"
+      },
+      {
+        "code": "LAPE",
+        "name": "Lapeer"
+      },
+      {
+        "code": "LEEL",
+        "name": "Leelanau"
+      },
+      {
+        "code": "LENA",
+        "name": "Lenawee"
+      },
+      {
+        "code": "LIVI",
+        "name": "Livingston"
+      },
+      {
+        "code": "LUCE",
+        "name": "Luce"
+      },
+      {
+        "code": "MACK",
+        "name": "Mackinac"
+      },
+      {
+        "code": "MACO",
+        "name": "Macomb"
+      },
+      {
+        "code": "MANI",
+        "name": "Manistee"
+      },
+      {
+        "code": "MARQ",
+        "name": "Marquette"
+      },
+      {
+        "code": "MASO",
+        "name": "Mason"
+      },
+      {
+        "code": "MCLM",
+        "name": "Montcalm"
+      },
+      {
+        "code": "MECO",
+        "name": "Mecosta"
+      },
+      {
+        "code": "MENO",
+        "name": "Menominee"
+      },
+      {
+        "code": "MIDL",
+        "name": "Midland"
+      },
+      {
+        "code": "MISS",
+        "name": "Missaukee"
+      },
+      {
+        "code": "MONR",
+        "name": "Monroe"
+      },
+      {
+        "code": "MTMO",
+        "name": "Montmorency"
+      },
+      {
+        "code": "MUSK",
+        "name": "Muskegon"
+      },
+      {
+        "code": "NEWA",
+        "name": "Newaygo"
+      },
+      {
+        "code": "OAKL",
+        "name": "Oakland"
+      },
+      {
+        "code": "OCEA",
+        "name": "Oceana"
+      },
+      {
+        "code": "OGEM",
+        "name": "Ogemaw"
+      },
+      {
+        "code": "ONTO",
+        "name": "Ontonagon"
+      },
+      {
+        "code": "OSCE",
+        "name": "Osceola"
+      },
+      {
+        "code": "OSCO",
+        "name": "Oscoda"
+      },
+      {
+        "code": "OTSE",
+        "name": "Otsego"
+      },
+      {
+        "code": "OTTA",
+        "name": "Ottawa"
+      },
+      {
+        "code": "PRES",
+        "name": "Presque Isle"
+      },
+      {
+        "code": "ROSC",
+        "name": "Roscommon"
+      },
+      {
+        "code": "SAGI",
+        "name": "Saginaw"
+      },
+      {
+        "code": "SANI",
+        "name": "Sanilac"
+      },
+      {
+        "code": "SCHO",
+        "name": "Schoolcraft"
+      },
+      {
+        "code": "SHIA",
+        "name": "Shiawassee"
+      },
+      {
+        "code": "STCL",
+        "name": "St Clair"
+      },
+      {
+        "code": "STJO",
+        "name": "St Joseph"
+      },
+      {
+        "code": "TUSC",
+        "name": "Tuscola"
+      },
+      {
+        "code": "VANB",
+        "name": "Van Buren"
+      },
+      {
+        "code": "WASH",
+        "name": "Washtenaw"
+      },
+      {
+        "code": "WAYN",
+        "name": "Wayne"
+      },
+      {
+        "code": "WEXF",
+        "name": "Wexford"
+      }
+    ],
+    "qso_party": {
+      "state": "MI",
+      "exchange": "location",
+      "county_line_max": 1,
+      "home_multipliers": [
+        "county",
+        "state",
+        "dx"
+      ],
+      "multiplier_per": "contest",
+      "points": 2,
+      "category_mode": "MIXED",
+      "periods": [
+        {
+          "start": "2026-04-18T16:00:00Z",
+          "end": "2026-04-19T04:00:00Z"
+        },
+        {
+          "start": "2027-04-17T16:00:00Z",
+          "end": "2027-04-18T04:00:00Z"
+        }
+      ]
+    }
   },
   {
     "id": "MN-QSO-PARTY",

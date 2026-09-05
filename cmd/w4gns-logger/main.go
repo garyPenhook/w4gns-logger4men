@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"os"
@@ -41,7 +42,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.30.0"
+const appVersion = "1.31.0"
 
 type screen int
 
@@ -107,6 +108,7 @@ const (
 	stationCategoryOperatorField
 	stationCategoryAssistedField
 	stationCategoryPowerField
+	stationCategoryStationField
 	stationAddressField
 	stationQRZXMLUserField
 	stationQRZXMLPassField
@@ -115,7 +117,7 @@ const (
 
 var stationFieldLabels = [stationFieldCount]string{
 	"Profile", "Callsign", "Operator", "Grid", "Timezone", "Club", "Rig", "Antenna", "Power (W)",
-	"Cat-Operator", "Cat-Assisted", "Cat-Power", "Address",
+	"Cat-Operator", "Cat-Assisted", "Cat-Power", "Cat-Station", "Address",
 	"QRZ XML User", "QRZ XML Pass",
 }
 
@@ -255,6 +257,11 @@ type model struct {
 	qrzLookupSequence uint64
 	qrzActiveLookup   uint64
 	qrzLookups        map[uint64]qrzLookupPending
+	potaLookups       map[uint64]qrzLookupPending
+	potaSequence      uint64
+	potaActive        uint64
+	uploadQueueStatus string
+	serialResumeError string
 
 	qrzAPIKey    string
 	wrlAPIKey    string
@@ -454,12 +461,13 @@ var (
 // longest "event.ID-session.ID" value the catalog generates (see
 // TestEventSelectionIDsFitContestField), plus headroom for manually typed
 // contest names.
-const maxEventSelectionLength = 64
+const maxEventSelectionLength = 128
 
 func newTextInput(placeholder string, width int) textinput.Model {
 	ti := textinput.New()
 	ti.Placeholder = placeholder
-	ti.CharLimit = 20
+	// Width controls presentation only. Imported fields must survive editing.
+	ti.CharLimit = 0
 	ti.Width = width
 	return ti
 }
@@ -474,6 +482,7 @@ func initialModel(st *store) model {
 	fields[fieldRSTSent] = newTextInput("599", 6)
 	fields[fieldRSTSent].SetValue("599")
 	fields[fieldRSTRcvd] = newTextInput("599", 6)
+	fields[fieldRSTRcvd].SetValue("599")
 	fields[fieldBand] = newTextInput("20M", 6)
 	fields[fieldBand].SetValue("20M")
 	fields[fieldFrequency] = newTextInput("14.025", 9)
@@ -533,6 +542,7 @@ func initialModel(st *store) model {
 	}
 	m.focusField(fieldCall)
 	m.refreshTableRows()
+	m.restoreContestSelection()
 	return m
 }
 
@@ -569,6 +579,7 @@ func (m *model) openStationSetup() {
 		newCabrilloCategoryInput(profile.CategoryOperator, "SINGLE-OP"),
 		newCabrilloCategoryInput(profile.CategoryAssisted, "NON-ASSISTED"),
 		newCabrilloCategoryInput(profile.CategoryPower, "LOW"),
+		newCabrilloCategoryInput(profile.CategoryStation, "FIXED"),
 		newStationTextInput(profile.Address, 40),
 		newStationTextInput(m.qrzXMLCreds.username, 24),
 		newQRZXMLPasswordInput(m.qrzXMLCreds.password),
@@ -622,6 +633,7 @@ func (m *model) saveStationSetup() tea.Cmd {
 		CategoryOperator: m.stationFields[stationCategoryOperatorField].Value(),
 		CategoryAssisted: m.stationFields[stationCategoryAssistedField].Value(),
 		CategoryPower:    m.stationFields[stationCategoryPowerField].Value(),
+		CategoryStation:  m.stationFields[stationCategoryStationField].Value(),
 		Address:          m.stationFields[stationAddressField].Value(),
 	}
 	saved, err := m.store.saveStationProfile(profile)
@@ -631,7 +643,7 @@ func (m *model) saveStationSetup() tea.Cmd {
 	}
 	m.activeStation = saved
 	identityChanged := previous.Callsign != saved.Callsign || previous.MyGridSquare != saved.MyGridSquare
-	if identityChanged {
+	if identityChanged || previous.CategoryStation != saved.CategoryStation || previous.CategoryPower != saved.CategoryPower {
 		// pointsRule classification and bearing origin both depend on the
 		// station identity. The contest id itself did not change, so the usual
 		// lazy contest-id sync would otherwise leave a stale index alive.
@@ -658,6 +670,8 @@ func (m *model) saveStationSetup() tea.Cmd {
 	// for the next lookup.
 	m.qrzXMLCreds = creds
 	m.qrzXMLSessionKey = ""
+	m.qrzLookups = nil
+	m.qrzActiveLookup = 0
 
 	m.screen = qsoEntryScreen
 	m.focusField(fieldCall)
@@ -941,34 +955,19 @@ func (m model) adifExportCmd() tea.Cmd {
 			callsign = "LOG"
 		}
 		filename := fmt.Sprintf("%s_%s.adi", sanitizeFilenameComponent(callsign), time.Now().UTC().Format("20060102-150405"))
-		path := nonCollidingPath(filepath.Join(downloads, filename))
+		path, err := reserveExportPath(filepath.Join(downloads, filename))
+		if err != nil {
+			return adifExportedMsg{err: err}
+		}
 
 		ctx, cancel := context.WithTimeout(bgCtx, backupTimeout)
 		defer cancel()
 		count, err := writeADIFAtomic(ctx, downloads, path, profile.ID, st)
 		if err != nil {
+			os.Remove(path) // our empty reservation, never an earlier export
 			return adifExportedMsg{err: err}
 		}
 		return adifExportedMsg{path: path, count: count}
-	}
-}
-
-// nonCollidingPath returns path unchanged if nothing exists there, otherwise
-// inserts "-1", "-2", … before the extension until it finds a free name. The
-// ADIF export filename is timestamped only to the second, so two exports in
-// the same second would otherwise land on the same path and the second would
-// silently overwrite the first.
-func nonCollidingPath(path string) string {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return path
-	}
-	ext := filepath.Ext(path)
-	base := strings.TrimSuffix(path, ext)
-	for i := 1; ; i++ {
-		candidate := fmt.Sprintf("%s-%d%s", base, i, ext)
-		if _, err := os.Stat(candidate); os.IsNotExist(err) {
-			return candidate
-		}
 	}
 }
 
@@ -996,7 +995,7 @@ func (m model) importADIFFile(path string) tea.Cmd {
 		if wg != nil {
 			defer wg.Done()
 		}
-		file, err := os.Open(strings.TrimSpace(path))
+		file, err := openADIFInput(strings.TrimSpace(path))
 		if err != nil {
 			return adifImportedMsg{err: fmt.Errorf("open ADIF file: %w", err)}
 		}
@@ -1191,6 +1190,8 @@ func (m model) selectedRecentQSO() (qso, bool) {
 // for editing. The next final Enter (see logCurrentQSO) saves changes back
 // to this same row instead of inserting a new one.
 func (m *model) beginEditQSO(q qso) {
+	delete(m.potaLookups, m.potaActive)
+	m.potaActive = 0
 	full, err := m.store.qsoByID(m.activeStation.ID, q.id)
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
@@ -1437,7 +1438,7 @@ func (m *model) checkDupe() {
 			m.statusMsg = fmt.Sprintf("contest %q not found in event catalog — dupe check uses the 15-minute casual window", raw)
 		}
 	}
-	dupe, err := m.store.isDupe(call, m.qsoBand(), contestID, eventID, dupeScope, m.activeStation.ID, m.editingQSOID, time.Now(), m.dupeBaselineAfter)
+	dupe, err := m.entryDupe(call, contestID, eventID, dupeScope, time.Now())
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
 		return
@@ -1734,9 +1735,22 @@ func (m *model) selectEvent(event eventDefinition, session eventSession) {
 	for index := range m.contestFields {
 		m.contestFields[index].SetValue("")
 	}
-	m.contestFields[contestName].SetValue(event.ID + "-" + session.ID)
+	at := time.Now().UTC()
+	if m.postMode {
+		if parsed, err := time.Parse(postTimestampLayout, m.postFields[postTimestamp].Value()); err == nil {
+			at = parsed
+		}
+	}
+	id := contestOccurrenceID(event.ID+"-"+session.ID, event, at)
+	m.contestFields[contestName].SetValue(id)
+	m.serialResumeError = ""
 	if event.SentSerial {
 		m.nextSerial = 1
+		if next, err := m.store.resumeSerial(m.activeStation.ID, id); err == nil {
+			m.nextSerial = next
+		} else {
+			m.serialResumeError = "cannot resume serial: " + err.Error()
+		}
 		m.contestFields[contestSerialSent].SetValue(formatSerial(m.nextSerial))
 	} else {
 		m.nextSerial = 0
@@ -1759,6 +1773,7 @@ func (m *model) selectEvent(event eventDefinition, session eventSession) {
 	// indicator (set for whatever contest — or none — was active before)
 	// must be recomputed against the new scope.
 	m.checkDupe()
+	m.saveContestSelection()
 }
 
 // eventForContestID resolves the free-typed/catalog-selected contest name
@@ -1769,30 +1784,28 @@ func (m *model) selectEvent(event eventDefinition, session eventSession) {
 // "UBA-SPRING-CONTEST-2-<session>" contest name to the wrong, shorter
 // event, using its bands/dupe_scope instead of the correct one's.
 func (m model) eventForContestID() (eventDefinition, bool) {
-	id := m.contestFields[contestName].Value()
-	var best eventDefinition
-	found := false
-	for _, event := range m.events {
-		if strings.HasPrefix(id, event.ID+"-") && (!found || len(event.ID) > len(best.ID)) {
-			best = event
-			found = true
-		}
-	}
-	return best, found
+	return resolveCatalogEvent(m.contestFields[contestName].Value(), m.events)
 }
 
 func (m model) exchangeChoices() []exchangeOption {
-	if m.contestFocusIdx != contestExchangeRcvd {
-		return nil
-	}
 	event, ok := m.eventForContestID()
 	if !ok {
 		return nil
 	}
-	prefix := strings.ToUpper(strings.TrimSpace(m.contestFields[contestExchangeRcvd].Value()))
+	if m.contestFocusIdx != contestExchangeRcvd && !(event.QSOParty != nil && m.contestFocusIdx == contestExchangeSent) {
+		return nil
+	}
+	prefix := strings.ToUpper(strings.TrimSpace(m.contestFields[m.contestFocusIdx].Value()))
+	head := ""
+	if event.QSOParty != nil {
+		if i := strings.LastIndexAny(prefix, "/+"); i >= 0 {
+			head, prefix = prefix[:i+1], prefix[i+1:]
+		}
+	}
 	var matches []exchangeOption
 	for _, option := range event.ReceivedExchangeOptions {
 		if prefix == "" || strings.HasPrefix(strings.ToUpper(option.Code), prefix) || strings.HasPrefix(strings.ToUpper(option.Name), prefix) {
+			option.Code = head + option.Code
 			matches = append(matches, option)
 		}
 	}
@@ -1816,7 +1829,16 @@ func (m *model) autoFillPOTAReference() tea.Cmd {
 		m.detailFields[detailPOTARef].SetValue(reference)
 		m.statusMsg = "POTA " + reference + " from recent cluster spot"
 	}
-	return lookupPOTASpot(call, time.Now())
+	delete(m.potaLookups, m.potaActive)
+	m.potaSequence++
+	m.potaActive = m.potaSequence
+	if m.potaLookups == nil {
+		m.potaLookups = make(map[uint64]qrzLookupPending)
+	}
+	m.potaLookups[m.potaActive] = qrzLookupPending{call: call}
+	requestID := m.potaActive
+	cmd := lookupPOTASpot(call, time.Now())
+	return func() tea.Msg { msg := cmd().(potaLookupMsg); msg.requestID = requestID; return msg }
 }
 
 func (m *model) autoFillFromQRZ() tea.Cmd {
@@ -1968,6 +1990,10 @@ func (m model) updateRecentQSOsTable(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) logCurrentQSO() (model, tea.Cmd) {
+	if m.editingQSOID == 0 && m.serialResumeError != "" {
+		m.statusMsg = m.serialResumeError
+		return m, nil
+	}
 	call := normalizeCall(m.fields[fieldCall].Value())
 	if call == "" {
 		m.statusMsg = "callsign required"
@@ -1991,6 +2017,33 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		}
 		postTime = parsed
 	}
+	if event, ok := m.eventForContestID(); ok && m.editingQSOID == 0 {
+		raw := strings.TrimSpace(m.contestFields[contestName].Value())
+		at := time.Now().UTC()
+		if !postTime.IsZero() {
+			at = postTime
+		}
+		id := raw
+		if strings.Contains(raw, "@") {
+			id = contestOccurrenceID(raw, event, at)
+		} else if raw == event.ID || raw == event.ADIFContestID {
+			id = importedContestID(raw, at)
+		}
+		if id != raw {
+			m.contestFields[contestName].SetValue(id)
+			if event.SentSerial && m.contestFields[contestSerialSent].Value() == formatSerial(m.nextSerial) {
+				next, err := m.store.resumeSerial(m.activeStation.ID, id)
+				if err != nil {
+					m.serialResumeError = "cannot resume serial: " + err.Error()
+					m.statusMsg = m.serialResumeError
+					return m, nil
+				}
+				m.nextSerial = next
+				m.contestFields[contestSerialSent].SetValue(formatSerial(next))
+			}
+			m.rebuildContestIndex()
+		}
+	}
 	// Re-check against the database rather than trusting the cached
 	// dupeWarning indicator: the operator can change the contest selection
 	// (which changes dupe_scope) or the band without every intermediate
@@ -2002,7 +2055,7 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 	if !postTime.IsZero() {
 		dupeAt = postTime
 	}
-	dupe, err := m.store.isDupe(call, m.qsoBand(), contestID, eventID, dupeScope, m.activeStation.ID, m.editingQSOID, dupeAt, m.dupeBaselineAfter)
+	dupe, err := m.entryDupe(call, contestID, eventID, dupeScope, dupeAt)
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
 		return m, nil
@@ -2046,6 +2099,23 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		logged.call, logged.band, logged.rstSent, logged.rstRcvd, logged.frequency = edited.call, edited.band, edited.rstSent, edited.rstRcvd, edited.frequency
 		logged.name, logged.qth, logged.grid, logged.state, logged.county, logged.email, logged.potaRef, logged.parkName, logged.comment = edited.name, edited.qth, edited.grid, edited.state, edited.county, edited.email, edited.potaRef, edited.parkName, edited.comment
 		logged.contestID, logged.stx, logged.stxString, logged.srx, logged.srxString = edited.contestID, edited.stx, edited.stxString, edited.srx, edited.srxString
+		// A single-line widget sanitizes newlines/tabs for display. Retain the
+		// original value when that displayed representation was not changed.
+		for _, pair := range []struct {
+			original string
+			edited   *string
+		}{
+			{m.editingOriginal.name, &logged.name}, {m.editingOriginal.qth, &logged.qth},
+			{m.editingOriginal.comment, &logged.comment}, {m.editingOriginal.parkName, &logged.parkName},
+			{m.editingOriginal.email, &logged.email}, {m.editingOriginal.county, &logged.county},
+			{m.editingOriginal.stxString, &logged.stxString}, {m.editingOriginal.srxString, &logged.srxString},
+		} {
+			display := newTextInput("", 1)
+			display.SetValue(pair.original)
+			if strings.TrimSpace(display.Value()) == *pair.edited {
+				*pair.edited = pair.original
+			}
+		}
 		if logged.call != m.editingOriginal.call {
 			// A changed callsign can resolve to a different DXCC entity;
 			// don't carry forward context resolved for the old one.
@@ -2059,6 +2129,14 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		m.editingOriginal = qso{}
 		m.clearQSOForm()
 		m.restorePreEditContestSelection()
+		if event, ok := m.eventForContestID(); ok && event.SentSerial {
+			if next, err := m.store.resumeSerial(m.activeStation.ID, m.contestFields[contestName].Value()); err != nil {
+				m.serialResumeError = "cannot resume serial: " + err.Error()
+			} else if next > m.nextSerial {
+				m.nextSerial = next
+				m.contestFields[contestSerialSent].SetValue(formatSerial(next))
+			}
+		}
 		// Unconditional, not checkDupe's lazy diff-check: editing a QSO's
 		// call/band within the contest that's still active afterward doesn't
 		// change contestIndexID, but the underlying data did change.
@@ -2095,7 +2173,7 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 	logged.myAntenna = m.activeStation.Antenna
 	logged.txPower = m.activeStation.PowerWatts
 	destinations := m.uploadDestinations()
-	id, err := m.store.insertQSOWithUploads(logged, destinations, time.Now().Add(uploadBufferDelay))
+	id, err := m.store.insertQSOWithUploads(logged, destinations, time.Now().Add(uploadBufferDelay), m.uploadBindings())
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("db error: %v", err)
 		return m, nil
@@ -2119,9 +2197,15 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 			m.nextSerial++
 		}
 	}
+	m.saveContestSelection()
 	m.qsoStartedAt = time.Time{}
 	m.workedCall = ""
 	m.bindQRZLookupToQSO(call, id)
+	if pending, ok := m.potaLookups[m.potaActive]; ok && pending.call == call {
+		pending.qsoID = id
+		m.potaLookups[m.potaActive] = pending
+	}
+	m.potaActive = 0
 	m.clearQSOForm()
 	m.refreshTableRows()
 	return m, nil
@@ -2168,9 +2252,10 @@ func (m model) uploadDestinations() []string {
 
 // drainOutbox claims every delivery now due and returns the upload commands to
 // run for them. Each claimed QSO is read fresh (picking up edits); a delivery
-// whose QSO was deleted, or whose destination is no longer configured, is
-// dropped from the outbox instead of retried forever.
+// whose QSO was deleted is dropped. Missing or changed destination credentials
+// pause delivery without discarding the queued contact.
 func (m *model) drainOutbox() []tea.Cmd {
+	defer m.refreshUploadStatus()
 	entries, err := m.store.claimDueUploads(time.Now(), uploadInFlightLease, uploadDrainBatch)
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("upload queue error: %v", err)
@@ -2178,9 +2263,34 @@ func (m *model) drainOutbox() []tea.Cmd {
 	}
 	var cmds []tea.Cmd
 	for _, e := range entries {
+		binding := m.uploadBindings()[e.destination]
+		if binding == "" || (e.binding != "" && binding != e.binding) {
+			reason := "paused: missing or changed destination credentials/logbook; Ctrl+U to retry with current configuration"
+			if _, err := m.store.db.Exec(`UPDATE upload_outbox SET last_error=? WHERE qso_id=? AND destination=?`, reason, e.qsoID, e.destination); err != nil {
+				m.statusMsg = err.Error()
+			}
+			continue
+		}
+		if e.binding == "" {
+			// Bind legacy rows before their first send so a subsequent credential
+			// change cannot silently redirect an automatic retry.
+			if _, err := m.store.db.Exec(`UPDATE upload_outbox SET binding=? WHERE qso_id=? AND destination=?`, binding, e.qsoID, e.destination); err != nil {
+				m.statusMsg = "upload binding failed; delivery retained: " + err.Error()
+				continue
+			}
+		}
 		q, err := m.store.qsoByID(e.profileID, e.qsoID)
 		if err != nil {
-			_ = m.store.markUploadDone(e.qsoID, e.destination)
+			var queueErr error
+			if errors.Is(err, sql.ErrNoRows) {
+				queueErr = m.store.markUploadDone(e.qsoID, e.destination)
+			} else {
+				queueErr = m.store.recordUploadFailure(e.qsoID, e.destination, err.Error(), time.Now())
+				m.statusMsg = "upload read failed; delivery retained: " + err.Error()
+			}
+			if queueErr != nil {
+				m.statusMsg = "upload queue error: " + queueErr.Error()
+			}
 			continue
 		}
 		var cmd tea.Cmd
@@ -2191,8 +2301,7 @@ func (m *model) drainOutbox() []tea.Cmd {
 			cmd = m.wrlOutboxUploadCmd(q)
 		}
 		if cmd == nil {
-			// Unknown or unconfigured destination: don't leave it stuck.
-			_ = m.store.markUploadDone(e.qsoID, e.destination)
+			m.statusMsg = "upload paused: configure " + e.destination + " credentials; delivery retained"
 			continue
 		}
 		cmds = append(cmds, cmd)
@@ -2272,8 +2381,10 @@ func (m model) wrlOutboxUploadCmd(q qso) tea.Cmd {
 // Sent Serial field is re-displayed with the next running serial (see
 // nextSerial) so the operator always sees the number they will send next.
 func (m *model) clearQSOForm() {
+	delete(m.potaLookups, m.potaActive)
+	m.potaActive = 0
 	m.fields[fieldCall].SetValue("")
-	m.fields[fieldRSTRcvd].SetValue("")
+	m.fields[fieldRSTRcvd].SetValue("599")
 	for index := range m.detailFields {
 		m.detailFields[index].SetValue("")
 	}
@@ -2288,6 +2399,24 @@ func (m *model) clearQSOForm() {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if message, ok := msg.(potaLookupMsg); ok {
+		if message.requestID != 0 {
+			pending, known := m.potaLookups[message.requestID]
+			if !known {
+				return m, nil
+			}
+			delete(m.potaLookups, message.requestID)
+			if m.potaActive == message.requestID {
+				m.potaActive = 0
+			}
+			if pending.qsoID != 0 && m.editingQSOID != pending.qsoID {
+				if message.err == nil {
+					if err := m.applyPOTAToLoggedQSO(pending, message); err != nil {
+						m.statusMsg = err.Error()
+					}
+				}
+				return m, nil
+			}
+		}
 		call := normalizeCall(m.fields[fieldCall].Value())
 		if message.call != call {
 			return m, nil
@@ -2301,7 +2430,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.detailFields[detailPOTARef].SetValue(message.reference)
 			filled = true
 		}
-		if message.parkName != "" && strings.TrimSpace(m.detailFields[detailParkName].Value()) == "" {
+		if message.parkName != "" && strings.TrimSpace(m.detailFields[detailParkName].Value()) == "" && strings.EqualFold(strings.TrimSpace(m.detailFields[detailPOTARef].Value()), message.reference) {
 			m.detailFields[detailParkName].SetValue(message.parkName)
 			filled = true
 		}
@@ -2315,7 +2444,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if message, ok := msg.(qrzCallsignLookupMsg); ok {
-		if message.sessionKey != "" {
+		// Only the compatibility/test path uses uncorrelated messages.
+		if message.requestID == 0 && message.sessionKey != "" {
 			m.qrzXMLSessionKey = message.sessionKey
 		}
 		call := normalizeCall(m.fields[fieldCall].Value())
@@ -2325,6 +2455,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// A newer form superseded this request, or its result was already
 				// handled. Never apply an orphaned result by callsign alone.
 				return m, nil
+			}
+			if message.sessionKey != "" {
+				m.qrzXMLSessionKey = message.sessionKey
 			}
 			delete(m.qrzLookups, message.requestID)
 			if m.qrzActiveLookup == message.requestID {
@@ -2409,17 +2542,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 	}
 	if message, ok := msg.(qrzUploadMsg); ok {
+		m.refreshUploadStatus()
 		if message.queueErr != nil {
 			m.statusMsg = fmt.Sprintf("upload queue error: %v", message.queueErr)
 		} else if message.err != nil {
 			if message.deliveryPersisted {
-				m.statusMsg = fmt.Sprintf("QRZ upload failed for %s (will retry): %v", message.call, message.err)
+				m.statusMsg = fmt.Sprintf("QRZ upload failed for %s (see upload queue): %v", message.call, message.err)
 				return m, nil
 			}
 			if err := m.store.recordUploadFailure(message.qsoID, uploadDestQRZ, message.err.Error(), time.Now()); err != nil {
 				m.statusMsg = fmt.Sprintf("upload queue error: %v", err)
 			} else {
-				m.statusMsg = fmt.Sprintf("QRZ upload failed for %s (will retry): %v", message.call, message.err)
+				m.statusMsg = fmt.Sprintf("QRZ upload failed for %s (see upload queue): %v", message.call, message.err)
 			}
 		} else {
 			if message.deliveryPersisted {
@@ -2435,17 +2569,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if message, ok := msg.(wrlUploadMsg); ok {
+		m.refreshUploadStatus()
 		if message.queueErr != nil {
 			m.statusMsg = fmt.Sprintf("upload queue error: %v", message.queueErr)
 		} else if message.err != nil {
 			if message.deliveryPersisted {
-				m.statusMsg = fmt.Sprintf("WRL upload failed for %s (will retry): %v", message.call, message.err)
+				m.statusMsg = fmt.Sprintf("WRL upload failed for %s (see upload queue): %v", message.call, message.err)
 				return m, nil
 			}
 			if err := m.store.recordUploadFailure(message.qsoID, uploadDestWRL, message.err.Error(), time.Now()); err != nil {
 				m.statusMsg = fmt.Sprintf("upload queue error: %v", err)
 			} else {
-				m.statusMsg = fmt.Sprintf("WRL upload failed for %s (will retry): %v", message.call, message.err)
+				m.statusMsg = fmt.Sprintf("WRL upload failed for %s (see upload queue): %v", message.call, message.err)
 			}
 		} else {
 			if message.deliveryPersisted {
@@ -2465,8 +2600,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if message.err != nil {
 			m.statusMsg = fmt.Sprintf("Cabrillo export failed: %v", message.err)
 		} else if message.score.total() > 0 {
-			m.statusMsg = fmt.Sprintf("Cabrillo exported: %d QSOs, claimed score %d (%d pts x %d mults) -> %s",
-				message.count, message.score.total(), message.score.qsoPoints, message.score.multipliers, message.path)
+			factor := message.score.powerFactor
+			if factor < 1 {
+				factor = 1
+			}
+			m.statusMsg = fmt.Sprintf("Cabrillo exported: %d QSOs, claimed score %d (%d pts x %d mults x %d power + %d bonus) -> %s",
+				message.count, message.score.total(), message.score.qsoPoints, message.score.multipliers, factor, message.score.bonusPoints, message.path)
 		} else {
 			m.statusMsg = fmt.Sprintf("Cabrillo exported: %d QSOs -> %s", message.count, message.path)
 		}
@@ -2560,11 +2699,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// when it later arrives on a different screen.
 	if message, ok := msg.(adifImportedMsg); ok {
 		m.importInProgress = false
+		m.refreshTableRows()
+		m.rebuildContestIndex()
+		m.checkDupe()
+		if event, ok := m.eventForContestID(); ok && event.SentSerial && m.editingQSOID == 0 {
+			if next, err := m.store.resumeSerial(m.activeStation.ID, m.contestFields[contestName].Value()); err != nil {
+				m.serialResumeError = "cannot resume serial: " + err.Error()
+			} else if next > m.nextSerial {
+				m.nextSerial = next
+				m.contestFields[contestSerialSent].SetValue(formatSerial(next))
+			}
+		}
 		if message.err != nil {
-			m.statusMsg = fmt.Sprintf("ADIF import failed: %v", message.err)
+			m.statusMsg = fmt.Sprintf("ADIF import failed after %d committed QSOs; %d skipped: %v", message.result.Imported, message.result.Skipped, message.err)
 			return m, nil
 		}
-		m.refreshTableRows()
 		if m.screen == adifImportScreen {
 			m.screen = qsoEntryScreen
 			m.focusField(fieldCall)
@@ -2580,6 +2729,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.backupInProgress = true
 		m.statusMsg = "backing up to Google Drive…"
 		return m, m.runBackupCmd()
+	}
+	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "ctrl+u" {
+		m.retryFailedUploads()
+		return m, tea.Batch(m.drainOutbox()...)
 	}
 	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "ctrl+w" && m.screen != continentScreen {
 		m.openContinentPanel()
@@ -2867,6 +3020,7 @@ func (m model) updateQSOContest(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "esc", "f1":
+			m.saveContestSelection()
 			m.screen = qsoEntryScreen
 			m.focusField(fieldCall)
 			return m, nil
@@ -2888,8 +3042,10 @@ func (m model) updateQSOContest(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "tab", "enter":
 			if key.String() == "enter" && m.exchangeChoiceFocus >= 0 && m.exchangeChoiceFocus < len(choices) {
-				m.contestFields[contestExchangeRcvd].SetValue(choices[m.exchangeChoiceFocus].Code)
-				m.contestExchangeRcvdEdited = true
+				m.contestFields[m.contestFocusIdx].SetValue(choices[m.exchangeChoiceFocus].Code)
+				if m.contestFocusIdx == contestExchangeRcvd {
+					m.contestExchangeRcvdEdited = true
+				}
 				m.exchangeChoiceFocus = -1
 				return m, nil
 			}
@@ -3465,6 +3621,10 @@ func (m model) View() string {
 	status := fmt.Sprintf("Qs: %d   %s", m.qsoCount, m.statusMsg)
 	b.WriteString(statusBarStyle.Render(status))
 	b.WriteString("\n")
+	if m.uploadQueueStatus != "" {
+		b.WriteString(helpStyle.Render(m.uploadQueueStatus))
+		b.WriteString("\n")
+	}
 
 	help := "tab/shift+tab: move/edit fields  •  first tab after callsign starts QSO  •  final enter: save next QSO"
 	b.WriteString(helpStyle.Render(help))
@@ -3701,6 +3861,9 @@ func (m model) eventCatalogView() string {
 		b.WriteString(statusBarStyle.Render(session.Label + " — " + session.Schedule + "  •  " + event.Kind + "  •  exchange: " + event.RcvdExchangeHint))
 		b.WriteString("\n")
 		b.WriteString(statusBarStyle.Render(eventDetailLine(event)))
+		if limitation := eventScoringLimitation(event.ID); limitation != "" {
+			b.WriteString("\n" + statusBarStyle.Render("Score limitation: "+limitation))
+		}
 	}
 	b.WriteString("\n")
 	b.WriteString(helpStyle.Render("Up/Down: event  •  Left/Right: session  •  Enter: use session  •  F1/Esc: QSO Entry"))
@@ -4079,7 +4242,7 @@ func exportTargetCollidesWithDB(exportPath, dbPath string) bool {
 }
 
 func runADIFImport(path string) {
-	file, err := os.Open(path)
+	file, err := openADIFInput(path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error opening ADIF file: %v\n", err)
 		os.Exit(1)
@@ -4102,7 +4265,7 @@ func runADIFImport(path string) {
 	}
 	result, err := importADIF(context.Background(), file, profile.ID, st)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ADIF import failed: %v\n", err)
+		fmt.Fprintf(os.Stderr, "ADIF import failed after %d committed QSOs; %d skipped: %v\n", result.Imported, result.Skipped, err)
 		os.Exit(1)
 	}
 	fmt.Printf("ADIF import complete: %d CW QSOs imported, %d records skipped\n", result.Imported, result.Skipped)

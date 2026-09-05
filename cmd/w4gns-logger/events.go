@@ -41,6 +41,11 @@ type eventDefinition struct {
 	SentExchangeHint string   `json:"sent_exchange_hint"`
 	RcvdExchangeHint string   `json:"received_exchange_hint"`
 	DupeScope        string   `json:"dupe_scope"`
+	// CountyOptions is the sponsor's canonical county list for shared QSO
+	// party scoring. Kept separate from exchange suggestions, which can also
+	// contain states, provinces, or other non-county exchange values.
+	CountyOptions []exchangeOption `json:"county_options,omitempty"`
+	QSOParty      *qsoPartyRules   `json:"qso_party,omitempty"`
 	// CabrilloOmitRST drops the RST columns from the Cabrillo QSO: line for
 	// contests whose exchange carries no signal report — e.g. CW Open, whose
 	// exchange is a serial number plus the operator's name. The default (false)
@@ -425,7 +430,7 @@ type multiplierRule struct {
 // "no multiplier configured" the same way it does for every other event.
 func validMultiplierKind(kind string) bool {
 	switch strings.TrimSpace(kind) {
-	case "unique_call", "dxcc", "cqzone", "ituzone", "prefix", "exchange_area", "tn_county", "sac_area", "naqp_area", "sst_area", "arrl_section", "iaru_zone", "iaru_hq", "wae_country", "dxcc_non_wae", "canton", "oblast", "dxcc_or_wae", "dok_district", "none":
+	case "unique_call", "dxcc", "cqzone", "ituzone", "prefix", "exchange_area", "county", "tn_county", "sac_area", "naqp_area", "sst_area", "arrl_section", "iaru_zone", "iaru_hq", "wae_country", "dxcc_non_wae", "canton", "oblast", "dxcc_or_wae", "dok_district", "none":
 		return true
 	default:
 		return false
@@ -528,7 +533,7 @@ func validReceivedExchangeAutofill(kind string) bool {
 
 func validCabrilloLayout(layout string) bool {
 	switch strings.TrimSpace(layout) {
-	case "", "cw_rst_exchange", "cw_exchange_only":
+	case "", "cw_rst_exchange", "cw_exchange_only", "cw_sweepstakes":
 		return true
 	default:
 		return false
@@ -581,7 +586,7 @@ type eventSession struct {
 // contest-wide scope, hiding a config typo.
 func validDupeScope(scope string) bool {
 	switch strings.TrimSpace(scope) {
-	case "", "call", "call+band", "call+band+session":
+	case "", "call", "call+band", "call+band+session", "call+band+location":
 		return true
 	default:
 		return false
@@ -672,6 +677,12 @@ func loadEventCatalog() ([]eventDefinition, error) {
 			if !validDupeScope(event.DupeScope) {
 				return nil, fmt.Errorf("event %q has unsupported dupe_scope %q", event.ID, event.DupeScope)
 			}
+			if err := event.prepareCountyOptions(); err != nil {
+				return nil, err
+			}
+			if err := event.prepareQSOParty(); err != nil {
+				return nil, err
+			}
 			if !validReceivedExchangeAutofill(event.ReceivedExchangeAutofill) {
 				return nil, fmt.Errorf("event %q has unsupported received_exchange_autofill %q", event.ID, event.ReceivedExchangeAutofill)
 			}
@@ -687,7 +698,7 @@ func loadEventCatalog() ([]eventDefinition, error) {
 			if err := event.validateCapability(); err != nil {
 				return nil, err
 			}
-			if event.CabrilloLayout != "" && event.CabrilloOmitRST != (event.CabrilloLayout == "cw_exchange_only") {
+			if event.CabrilloLayout != "" && event.CabrilloOmitRST != (event.CabrilloLayout == "cw_exchange_only" || event.CabrilloLayout == "cw_sweepstakes") {
 				return nil, fmt.Errorf("event %q has inconsistent cabrillo_omit_rst and cabrillo_layout", event.ID)
 			}
 			if err := validateScoringRules(event.ID, "scoring", event.Scoring); err != nil {

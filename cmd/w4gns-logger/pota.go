@@ -37,10 +37,28 @@ type potaSpot struct {
 }
 
 type potaLookupMsg struct {
+	requestID uint64
 	call      string
 	reference string
 	parkName  string
 	err       error
+}
+
+func (m *model) applyPOTAToLoggedQSO(pending qrzLookupPending, msg potaLookupMsg) error {
+	q, err := m.store.qsoByID(m.activeStation.ID, pending.qsoID)
+	if err != nil {
+		return err
+	}
+	if q.call != pending.call {
+		return nil
+	}
+	if q.potaRef == "" {
+		q.potaRef = msg.reference
+	}
+	if strings.EqualFold(q.potaRef, msg.reference) && q.parkName == "" {
+		q.parkName = msg.parkName
+	}
+	return m.store.updateQSO(q.id, q)
 }
 
 func lookupPOTASpot(call string, now time.Time) tea.Cmd {

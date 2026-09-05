@@ -1,10 +1,11 @@
-# w4gns-logger — Contest features roadmap & design
+# w4gns-logger — App review backlog & contest roadmap
 
 Single source of truth for everything we've changed and everything still to
 build to make this a real contest logger, using SD (EI5DI) as the feature
 benchmark. Part 1 is the tracker; the appendices hold the detailed design.
 
-- **Scope:** this document tracks the *contest* feature set specifically.
+- **Scope:** the code-review backlog covers the entire app; the feature
+  tracker and design appendices below it focus on the *contest* feature set.
   The app itself is a general-purpose CW logger first — QSO Entry, QSO
   Details (name/QTH/grid/POTA/notes), ADIF import/export, QRZ/WRL lookups,
   and the DX cluster all work identically with no contest selected. Contest
@@ -19,6 +20,446 @@ benchmark. Part 1 is the tracker; the appendices hold the detailed design.
 ---
 
 # Part 1 — Tracker
+
+## Shared state QSO party support (2026-09-05)
+
+Design and rollout: [State QSO parties](State_QSO_Parties.md).
+Shared parsing, persisted locations, county-aware duplicates, county-line credit,
+entrant-side scoring, bonuses/power factors, and checked CW exports are implemented
+for Tennessee, California, Michigan, Ohio, Georgia, Florida, Alabama, and Iowa.
+See the linked document for verified years, sources, and remaining limitations.
+Other catalog parties still require individual rule audits; regional and future
+rule editions must not inherit these definitions without verification.
+
+Completed: Station Setup category persistence, sponsor county tables, explicit
+operating periods, county-pair duplicate and scoring credit, export expansion,
+and shared live/export scoring. Validation passed: `go test ./...`,
+`go vet ./...`, `go test -race -short ./...`, and `git diff --check`.
+
+Remaining: audit each other catalog party, model multi-state regions, add
+edition-specific changes without applying future rules to old logs, and extend
+sponsor category/submission metadata where needed. Maximum operator on-time,
+physical location eligibility, and category qualification are not adjudicated.
+Earlier tracker entries below record the implementation at their stated dates;
+this section and the linked support document supersede their state-party scope.
+
+## 0A. Full-app code review (2026-09-05)
+
+Reviewed commit `19f41e9`: application entry/edit workflows, SQLite schema and
+migrations, import/export, contest configuration and scoring, network clients,
+upload outbox, backups, terminal/platform helpers, tests, build and release
+workflows, and documentation. The original review changed documentation only;
+the follow-up implementation is recorded below. The
+2026-09-04 backlog below remains historical; its completed labels do not close
+the newly identified cases here.
+
+Validation: `go test ./...`, `go vet ./...`, `go test -race -short ./...`, and
+`govulncheck` all passed with Go 1.27.0; the vulnerability scan reported no
+vulnerabilities. All five release targets built with CGO disabled:
+Linux amd64/arm64, Windows amd64, macOS amd64/arm64. Temporary local probes
+reproduced the specific results called out below and were removed afterward.
+No production database, credentials, remote logbook, or Drive backup was
+modified. Native Windows/macOS behavior, interactive terminal usability, live
+service acceptance, and a sponsor-by-sponsor audit of every catalog record
+remain unverified. Passing the existing tests does not establish those claims.
+
+All 28 findings below have implementation changes and regression coverage or
+documentation/CI changes, as applicable. R18 now validates exchange grammar
+for every catalog event with a checked Cabrillo layout. Checked means the correction described
+in the resolution summary landed, not that every broader acceptance scenario
+or supported platform was manually certified. The original defect descriptions
+and pre-fix line references are retained for audit history.
+P1 means log integrity, delivery loss, or
+incorrect contest submission; P2 means functional correctness, interoperability,
+or reliability; P3 means documentation and verification gaps. Paths are relative
+to the repository; function names identify the relevant implementation.
+
+### Implementation resolution (2026-09-05, unreleased)
+
+- R01/R06: unlimited edit input length, preservation of untouched multiline
+  fields, and actual received-RST defaults; long-field edit/save regressions.
+- R02/R03/R21: date-qualified occurrences, transactional legacy-ID migration,
+  bare/standard event-ID resolution, profile-specific selection/exchange
+  restoration, and serial resume from stored contacts. Annual, monthly, and
+  weekly/daily suffixes are date-based, not a schedule engine; ambiguous
+  multi-session third-party imports require operator mapping. Unknown IDs
+  remain unchanged. Serial read failures block new saves rather than guessing.
+- R04/R09/R10: persisted station grids, received CQ-zone multiplier context,
+  and scoring duplicate keys aligned with event scope. Regression tests rebuild
+  scores and export persisted contacts rather than testing only helpers.
+- R05/R18: structured Sweepstakes output, explicit errors instead of clipping
+  oversized calls/exchanges, and submission-time required-field, CW RST, serial,
+  CQ-zone and IARU exchange validation, extended to every checked catalog layout.
+  Submission validates the complete emitted exchange, with dated IARU society
+  codes and country-aware location/power checks. Incomplete local logging remains
+  allowed. Other layouts retain the generic 13-character exchange limit;
+  token validation does not certify membership, station location, or eligibility.
+- R07/R08/R25: missing/changed credentials pause rather than delete deliveries;
+  only confirmed missing QSOs are discarded. Destination fingerprints, visible
+  queue/error counts, a hard automatic retry cap, and explicit Ctrl+U retry/
+  reassignment provide recovery. Active leases survive manual retry. Legacy
+  unbound rows bind at first send. Delivery remains at-least-once: a crash after
+  remote acceptance but before local acknowledgement can require reconciliation.
+- R11–R15/R19/R20: refresh state after partial imports, count only committed
+  batches, preserve app metadata, infer midnight TIME_OFF dates, stream ignored
+  free text, check cancellation throughout parsing, reject nonregular inputs,
+  split extended grids into ADIF fields, and encode all output fields as ASCII.
+  ADIF is not lossless Unicode storage; database backups preserve original text.
+- R16/R17/R24: exclusive filename reservations stop filesystem-error loops;
+  ADIF/Cabrillo/CSV use consistent read snapshots, with a separate connection
+  for file databases so slow writers do not occupy the logging connection.
+  Synchronous contest-index rebuilds remain a possible large-log UI pause.
+- R22/R23: stale QRZ credential sessions are ignored; POTA lookup results are
+  correlated to the saved contact and park-reference matches.
+- R26: headless/SSH fallback, detection of immediate terminal process failure,
+  and embedded timezone data. There is no child-ready handshake, so delayed
+  emulator failures remain a limitation; use `--in-current-terminal` if needed.
+- R27/R28: README/changelog reconciled, stale capability counts removed, known
+  scoring limitations shown in the catalog, persistence/UI/export regressions
+  added, and native-platform smoke plus vulnerability gates wired into releases.
+
+Verification limits: no production database or real uploads were exercised.
+Local verification passed: full tests (including the 100,000-contact import),
+`go vet`, short race suite, vulnerability scan (no vulnerabilities), and all
+five CGO-disabled release builds. One full-test run exceeded the import timing
+budget while five cross-builds competed for CPU; the isolated full rerun passed
+in 6.6 seconds. Regression coverage is in `review_regression_test.go` and
+`review_terminal_linux_test.go`, alongside existing updated tests.
+Native Windows/macOS smoke runs must complete in CI; cross-compilation alone
+does not establish their runtime correctness. No new sponsor-by-sponsor audit
+or interactive terminal acceptance session was performed. Existing station-side
+scoring gaps are explicitly documented rather than marked implemented.
+
+### P1 — fix before relying on contest submissions or editing imported logs
+
+- [x] **R01 — Editing silently truncates existing QSO data.**
+  `cmd/w4gns-logger/main.go:459` (`newTextInput`, `beginEditQSO`,
+  `logCurrentQSO`) gives every ordinary input a 20-character limit, including
+  names, emails, park names, notes, and exchange text. `SetValue` truncates
+  imported values when opening the editor, and saving any correction writes
+  all these shortened values back. Probe: an 80-character note became 20
+  characters on opening the edit form. Separate display width from field
+  limits and preserve existing full values. Acceptance: import long fields,
+  edit only RST, and verify every untouched field remains byte-for-byte intact.
+
+- [x] **R02 — Recurring contests share one permanent session identity.**
+  `main.go:1733` (`selectEvent`), `events/cwops.json`, and
+  `store.go:623` (`isDupe`) under `cmd/w4gns-logger/` use IDs such as
+  `CWT-1900` and `CW-OPEN-1` without an occurrence date/year. Next week's CWT
+  reuses last week's dupes, score, and export selection. Non-session dupe
+  queries additionally match every `eventID-%`, so merely adding a date suffix
+  will not fix their scope. Introduce a persisted event occurrence/session
+  identity and migrate existing contacts using timestamps. Acceptance: the
+  same station can be worked in successive occurrences, and each export
+  contains only its occurrence's contacts.
+
+- [x] **R03 — Reselecting or resuming a contest restarts sent serials at 001.**
+  `cmd/w4gns-logger/main.go:1733` (`selectEvent`) assigns `nextSerial = 1`
+  without reading the log; startup also forgets the active contest. Probe:
+  reselection after setting the next serial to 42 displayed `001`. Resume the
+  persisted occurrence's sequence, accounting for manually sent numbers and
+  edits. Acceptance: switch away/back and restart after logging serial 041;
+  the next contact must send 042 without manual repair.
+
+- [x] **R04 — Rebuilt/exported distance scores lose the station grid.**
+  `cmd/w4gns-logger/cabrillo_export.go:335` (`forEachQSOForContest`) does not
+  select `my_gridsquare`, while `contest_state.go:370` (`record`) requires
+  `q.myGridSquare` for distance points. Probe: an EM75-to-FN31 Stew Perry QSO
+  scored 3 points incrementally and 0 after rebuilding from SQLite. Load the
+  complete scoring inputs, preserving the per-QSO station snapshot.
+  Acceptance: live, rebuilt, and exported scores agree after logging, editing,
+  importing, and restarting. Distance-based scoring is part of the
+  [sponsor's published description](https://www.kkn.net/stew/).
+
+- [x] **R05 — Generic Cabrillo exchange columns destroy valid exchanges.**
+  `cmd/w4gns-logger/cabrillo_export.go:191` (`cabrilloQSOLine`) truncates the
+  combined serial/text exchange to 13 characters for all promoted contests.
+  Probe: `001 B W4GNS 76 TN` became `001 B W4GNS 7`, losing the section and
+  part of the check. Sweepstakes also needs its own field arrangement: its
+  catalog hint includes the callsign inside the exchange, while the generic
+  writer emits a separate callsign column too. Implement structured per-event
+  layouts and reject unsupported/overlong submissions instead of silently
+  clipping them. Acceptance: golden fixtures preserve every field and match
+  the [ARRL Sweepstakes example](https://lotw.arrl.org/lotw-help/pref-cab/).
+
+- [x] **R06 — Contest fast entry saves blank received RST despite showing 599.**
+  `cmd/w4gns-logger/main.go:467` (`initialModel`), `clearQSOForm`, and the
+  contest Enter fast path use `599` only as the received field's placeholder.
+  Its value is empty initially and after every save, while Enter skips it.
+  Probe confirmed value `""` with placeholder `"599"`. RST-bearing Cabrillo
+  exports consequently contain a blank report. Set a real default for events
+  that exchange RST and validate required reports. Acceptance: log two
+  consecutive contacts using the advertised fast path and verify both reports
+  in SQLite and export.
+
+- [x] **R07 — Missing credentials permanently discard pending uploads.**
+  `cmd/w4gns-logger/main.go:2173` (`drainOutbox`) deletes a delivery when its
+  upload command returns nil for a blank API key. A temporarily absent
+  environment variable, unreadable key file, or different launch directory
+  therefore erases durable work. Probe: a due QRZ row became zero pending rows
+  with no credentials and no upload. Keep these deliveries paused, visibly
+  explain the missing configuration, and resume when restored. Acceptance:
+  restart without a key, then restore it; the original delivery still runs.
+
+- [x] **R08 — Any QSO read error is treated as a deleted contact.**
+  `cmd/w4gns-logger/main.go:2181` (`drainOutbox`) calls `markUploadDone` for
+  every `qsoByID` error, including scan, locking, and I/O errors. Only a
+  confirmed missing row justifies removing the delivery. Distinguish wrapped
+  `sql.ErrNoRows` from recoverable failures, persist/report retry errors, and
+  handle failed queue writes. Acceptance: inject a read failure while queue
+  writes remain available and verify the row survives for retry.
+
+- [x] **R09 — CQ-zone corrections do not affect the multiplier score.**
+  `cmd/w4gns-logger/contest_state.go:386` (`record`) populates CQ-zone
+  multipliers from stored/callsign-derived entity context rather than the
+  copied `srxString` used in the submission. Editing the received zone never
+  changes `q.cqZone`. Probe: W1AW with received exchange `04` still recorded
+  zone 5. Define event-specific exchange precedence and use it consistently
+  in scoring and NEW MULT previews. Acceptance: override an autofilled zone
+  and verify the new value affects both live and rebuilt multiplier sets.
+
+- [x] **R10 — Scoring ignores the event's duplicate key.**
+  `cmd/w4gns-logger/contest_state.go:334` (`record`, `score`) always counts
+  distinct call/band keys, even when `DupeScope` is `call`. Imported
+  Sweepstakes contacts with the same call on two bands therefore score twice;
+  the probe produced 4 points instead of the one-contact 2-point value.
+  Duplicate rows can also add conflicting exchange multipliers because all
+  rows populate multiplier sets even when points are deduplicated. Pass the
+  event's eligibility/duplicate policy into scoring and choose the credited
+  QSO deterministically. Acceptance: imported duplicates, corrected exchanges,
+  and `/X` records follow one consistent scoring policy.
+
+### P2 — interoperability and runtime correctness
+
+- [x] **R11 — Import completion leaves contest analysis stale.**
+  `cmd/w4gns-logger/main.go:2558` (`adifImportedMsg` handler) refreshes the
+  table after success but never rebuilds the contest index. On partial failure
+  it refreshes neither, despite already committed batches. Probe: a newly
+  inserted second call left the index at one call after the completion
+  message. Refresh count/table/index and dupe state after any committed work;
+  report partial counts on both CLI and TUI errors. Acceptance: successful
+  and mid-file-failing imports update all visible totals and scoring.
+
+- [x] **R12 — ADIF round trips lose contest sessions and app metadata.**
+  `cmd/w4gns-logger/adif_export.go:63` (`adifContestID`,
+  `forEachQSOForProfile`) and `adif_import.go:79` (`qsoFromADI`) translate
+  internal IDs on export but do not restore them on import. Probe:
+  `CWT-1900` exports as `CWOPS-CWT`, then imports under that different ID;
+  selecting CWT-1900 no longer finds it. `/X` and park-name metadata are also
+  omitted. Preserve supported app metadata in application-defined ADIF fields
+  alongside standard IDs, with an explicit mapping workflow for other logs.
+  Acceptance: fresh-database export/import preserves occurrence membership,
+  unscored flags, park names, and the corresponding score. SQLite backups
+  remain the full-fidelity recovery format until then.
+
+- [x] **R13 — Valid TIME_OFF without QSO_DATE_OFF is discarded.**
+  `cmd/w4gns-logger/adif_import.go:105` (`qsoFromADI`) parses the end time
+  only if an explicit end date exists. ADIF permits omission of that date,
+  including a contact crossing midnight within 24 hours. Infer the end date
+  from start/time-off and preserve valid durations. Acceptance: same-day and
+  midnight-crossing fixtures match the
+  [ADIF TIME_OFF definition](https://www.adif.org.uk/317/ADIF_317.htm#QSO_Field_TIME_OFF).
+
+- [x] **R14 — The parser's tag limit also rejects ordinary free text.**
+  `cmd/w4gns-logger/adif_import.go:233` (`parseADIRecords`) applies the
+  256-byte tag limit while searching for the next `<`, so a long preamble or
+  whitespace between records aborts an otherwise readable file. Probe: a
+  350-byte plain-text preamble before `<EOH>` failed. Stream/discard text
+  outside tags without retaining it, while retaining tag/field/record memory
+  caps. Acceptance: long headers and inter-record whitespace use bounded
+  memory and import successfully.
+
+- [x] **R15 — ADIF import can prevent graceful shutdown indefinitely.**
+  `cmd/w4gns-logger/main.go:984` (`importADIFFile`),
+  `adif_import.go:29` (`importADIF`), and `main`'s `bgTasks.Wait` accept any
+  filesystem object. Opening a FIFO without a writer blocks before the parser
+  starts; a stalled reader or endless invalid records never reaches the
+  database cancellation checks. Restrict interactive imports to regular files
+  or make opening/reading cancellable, and check cancellation while parsing.
+  Acceptance: quit during a blocked input and a long stream of skipped records;
+  shutdown reaches its backup phase within a bounded time.
+
+- [x] **R16 — Export filename selection loops forever on filesystem errors.**
+  `cmd/w4gns-logger/main.go:961` (`nonCollidingPath`) treats every `Stat`
+  error except not-exist as a name collision. EACCES, ENOTDIR, or a symlink
+  loop therefore causes endless numbered probes; the tracked export never
+  finishes and shutdown waits forever. Return unexpected errors and reserve
+  the selected name safely. Acceptance: inaccessible/malformed destination
+  paths produce a prompt error with no stuck background task.
+
+- [x] **R17 — Cabrillo score and QSO lines use different database snapshots.**
+  `cmd/w4gns-logger/cabrillo_export.go:257` (`exportCabrillo`) computes the
+  score, releases that query, then reads the rows again. Logging or editing
+  between these passes makes CLAIMED-SCORE disagree with the submitted rows.
+  Export both from one read transaction or immutable snapshot. Acceptance:
+  synchronize a write between the passes and verify a consistent submission.
+
+- [x] **R18 — Invalid or missing exchanges can still be submitted as checked.**
+  Implemented required-field, serial, CW RST, CQ-zone/IARU, and Sweepstakes
+  validation plus overflow rejection. Follow-up: Helvetia, RDXC, and WAG now
+  validate sent and received exchanges independently using the callsign's
+  country (the stored station callsign takes precedence over the profile).
+  Swiss cantons and Russian oblasts must match the existing allowed-code
+  tables; German exchanges accept NM or alphanumeric DOK syntax, including
+  digit-leading special DOKs. Other participants must supply a positive
+  serial; Helvetia requires at least three digits. A code plus an extraneous
+  serial fails instead of emitting both. Serial-only exchanges imported into
+  the text field are accepted. Unknown callsign countries fail explicitly.
+  Real-catalog SQLite-to-Cabrillo regressions cover both sides and rejection
+  of invalid persisted exchanges in `contest_validation_test.go`.
+  Follow-up verification passed: `go test ./... -count=1`, `go vet ./...`,
+  `go test -race -short ./...`, and `git diff --check`.
+  Sources: [USKA 2026 rules, section 2.5](https://uska.ch/wp-content/uploads/2026/03/2026-01-Rules-and-Regulations-for-Helvetia-Contest-issued-March-2026.pdf),
+  [RDXC rules, sections 6 and 7.3](https://www.rdxc.org/rules_eng)
+  (the live page currently identifies itself as 2027), and
+  [DARC's published WAG rules, section 4](https://www.darc.de/fileadmin/filemounts/referate/conteste/contest/waedc/results/heft_erg_2016.pdf).
+  The current WAG rules page returned HTTP 403; this follow-up does not certify
+  current DOK assignments or membership. Callsign-country resolution retains
+  the bundled prefix table's portable-call limitations.
+  Completed follow-up: every checked catalog layout now validates the complete
+  emitted exchange on both sides, including WPX/WAE/SAC/Oceania serials,
+  CW Open serial/name, CWT name/member-number or location, SST name/location,
+  TNQP county/state/province/DX, Stew Perry four-character grids, NAQP and
+  Sprint names/locations, CQ 160 state/province or zone, and ARRL DX
+  state/province or positive power (including power suffixes and CW cut digits).
+  Extra serial/text tokens and non-printable/non-ASCII exchange input fail;
+  signed or out-of-range zones cannot masquerade as valid zones. IARU HQ
+  exchanges use an offline society/official-code allowlist dated 2026-09-05,
+  rather than accepting arbitrary alphabetic text. Unknown event validators
+  fail explicitly. Stew Perry permits omitted RST as its rules specify.
+  `submission_regression_test.go` covers every checked catalog event through
+  SQLite-to-Cabrillo export, invalid sent and received fields, token edge cases,
+  and preservation of an existing export after rejection. Incomplete records
+  remain locally editable. Grammar validation does not establish HQ authority,
+  membership ownership, assigned DOKs, actual state/county, or contest eligibility;
+  roster changes require updates, and non-Sweepstakes exchanges still have the
+  existing 13-character output limit.
+  Additional sources: [CW Open](https://cwops.org/cwops-tests/cw-open/),
+  [CWT](https://cwops.org/cwops-tests/),
+  [SST](https://www.k1usn.com/sst.html),
+  [NAQP rules 10–11](https://ncjweb.com/NAQP-Rules.pdf),
+  [Sprint rules 7–10](https://ncjweb.com/Sprint-Rules.pdf),
+  [CQ 160 exchange rules](https://cq160.com/rules/index.htm),
+  [ARRL DX exchange](https://www.arrl.org/arrl-dx),
+  [Stew Perry rule 4](https://www.kkn.net/stew/stew.rules.txt), and
+  [IARU member societies](https://www.iaru.org/reference/member-societies/).
+  TNQP uses the existing catalog's county-code table; the live sponsor rules
+  page presented a browser-verification challenge during this follow-up.
+  Completion verification: `go test ./... -count=1`, `go vet ./...`,
+  `go test -race -short ./...`, and `git diff --check` passed.
+  `cmd/w4gns-logger/main.go:1970` (`logCurrentQSO`), `qso_validation.go:34`,
+  and `cabrillo_export.go:257` validate general QSO fields but not the selected
+  contest's required serial/exchange content. Blank serials and exchanges
+  survive persistence and export; `iaru_zone.go` additionally treats `0` or
+  `-1` as special HQ text and accepts arbitrarily large positive zones.
+  Add event-specific validation, keeping incomplete records editable but
+  identifying them before submission. Acceptance: missing required values and
+  invalid zone/serial tokens cannot silently produce a checked submission.
+
+- [x] **R19 — Supported long grids are emitted in the wrong ADIF fields.**
+  `cmd/w4gns-logger/grid.go:19` accepts 10-character locators, but
+  `adif_export.go:148` writes all ten characters into GRIDSQUARE or
+  MY_GRIDSQUARE. ADIF splits characters beyond the first eight into the
+  corresponding `_EXT` fields; the importer ignores these extension fields
+  too. Split/reassemble them and preserve precision. Acceptance: a locator
+  such as FN01MH42BQ survives a standards-compliant round trip. See
+  [ADIF locator mapping](https://www.adif.org.uk/317/ADIF_317.htm).
+
+- [x] **R20 — ASCII conversion is incomplete across ADIF output fields.**
+  `cmd/w4gns-logger/adif_export.go:148` transliterates some free-text fields
+  but writes COUNTRY, exchanges, and other strings directly. Unicode in a
+  sent/received name exchange therefore bypasses the documented ASCII policy.
+  `qso_validation.go:19` also allows Unicode letters/digits in callsigns,
+  which Cabrillo later drops. Centralize field-type validation/encoding at
+  export and constrain callsign characters appropriately. Acceptance: all
+  emitted ADI fields satisfy their declared types with an explicit policy for
+  unsupported characters. See the
+  [ADIF data types and ADI format](https://www.adif.org.uk/317/ADIF_317.htm).
+
+- [x] **R21 — Bare catalog event IDs fail event resolution.**
+  `cmd/w4gns-logger/main.go:1771` (`eventForContestID`) accepts only
+  `event.ID + "-"` prefixes, not equality or normalized surrounding whitespace.
+  Probe: `CWT` did not resolve. Typing a known bare ID or editing an imported
+  bare-ID contact falls back to casual dupes and loses contest-specific UI and
+  export support. Normalize and resolve exact IDs, then explicitly select or
+  derive an occurrence/session. Acceptance: exact, session-qualified, and
+  standard imported IDs have predictable behavior without silent fallback.
+
+- [x] **R22 — QRZ credential changes can restore a stale session.**
+  `cmd/w4gns-logger/main.go:608` (`saveStationSetup`) clears the cached key,
+  but the `qrzCallsignLookupMsg` handler assigns any returned session key
+  before checking request validity. A lookup from the old account can arrive
+  after saving new credentials and repopulate the old session. Associate
+  requests/session keys with a credential generation and invalidate it on
+  save. Acceptance: deliver the old account's result after credentials change;
+  subsequent lookups authenticate using the new account only.
+
+- [x] **R23 — POTA enrichment is not correlated to a particular contact.**
+  `cmd/w4gns-logger/pota.go:41` (`potaLookupMsg`) and the corresponding
+  `main.go` handler match only callsign. Results arriving after save are lost;
+  an older lookup can instead fill a new/edit form for the same call. A park
+  name can also be filled from a response whose reference differs from an
+  already entered reference. Bind lookup results to the initiating QSO/form
+  and keep reference/name as a consistent pair. Acceptance: delayed results,
+  repeated calls, and operator-overridden park references do not cross-fill.
+
+- [x] **R24 — Async exports still block interactive database operations.**
+  `cmd/w4gns-logger/store.go:135` restricts SQLite to one connection;
+  `adif_export.go:233` holds it while streaming the entire log to disk, while
+  `main.go` performs dupe/history queries synchronously during input updates.
+  A slow export stalls typing/logging despite running in a background command.
+  Contest rebuilding is synchronous too. Use a carefully configured read
+  connection/snapshot or move expensive work off the update loop. Acceptance:
+  a deliberately slow export of a large log does not stall entry or quitting.
+
+- [x] **R25 — Exhausted upload retries have no visible recovery workflow.**
+  `cmd/w4gns-logger/outbox.go:168` (`uploadBackoff`) parks the twentieth
+  failure a year ahead, but `main.go` still reports “will retry” and provides
+  no queue inspection/reset action. Correcting credentials does not revive
+  these rows promptly. Represent paused/exhausted states explicitly, show
+  counts and last errors, and provide a retry action. Acceptance: reach the
+  attempt limit, restart, correct configuration, and recover the delivery from
+  the UI. Also bind queued destinations to the intended account/logbook so
+  changing the global WRL logbook cannot silently reroute old queued contacts.
+
+- [x] **R26 — Terminal launch can report success without starting the app.**
+  `cmd/w4gns-logger/terminal.go:24` (`launchInOwnTerminal`) returns success
+  as soon as `exec.Cmd.Start` succeeds. On a headless/SSH host an installed
+  emulator can immediately exit because no graphical display is available;
+  `main` has already returned and never reaches its current-terminal fallback.
+  Detect unsuitable launch environments or verify startup failure before
+  returning. Acceptance: a fake emulator that starts and immediately exits
+  unsuccessfully leads to a visible error/current-terminal fallback.
+
+### P3 — keep claims and verification aligned
+
+- [x] **R27 — Existing documentation overstates completed behavior.**
+  `README.md` and this roadmap's historical tracker disagree with current
+  code and with each other: scoring counts/lists are stale, SAC is described
+  both as not scored and scoring-ready, received RST is described as a default,
+  retries are described as continuing until acceptance, and checked Cabrillo
+  claims do not reflect R05. Reconcile these statements as the fixes land;
+  generate catalog capability counts from the loaded catalog where practical.
+  Acceptance: every advertised workflow and readiness claim has a matching
+  implementation check, and known station-side/scoring limitations are visible
+  to the operator rather than only buried in design prose.
+
+- [x] **R28 — Release/platform tests miss the failing compositions above.**
+  `.github/workflows/ci.yml`, `.github/workflows/release.yml`, and
+  `cmd/w4gns-logger/*_test.go` run substantial tests, but predominantly on
+  Linux and frequently against scoring helpers rather than persistence/UI/
+  export combinations. The release verification job also omits the normal
+  CI vulnerability scan, so an independently pushed tag bypasses that gate.
+  Add the acceptance regressions above and native Windows/macOS smoke tests
+  for filesystem replacement, startup, and timezone loading; apply the same
+  required vulnerability gate to releases. Acceptance: release checks cover
+  the actual supported targets and fail on the reproduced regressions.
+
+Suggested implementation order: R01/R07/R08 (preserve data and deliveries),
+R02/R03 (occurrence and serial model), R04–R06/R09/R10/R18 (submission
+correctness), then the remaining P2 items. Fold each regression into the
+permanent suite when implementing its fix; do not mark a whole subsystem done
+because a helper-level test passes.
 
 ## 0. Code-review backlog (2026-09-04)
 
@@ -35,34 +476,15 @@ the log, submitted contest results, or external services.
   verifies the committed QSO/outbox set. Statement-boundary fault injection and
   a user-facing per-delivery status view remain future hardening.
 
-- 🔧 **Cabrillo export is gated by checked per-event layouts.** The catalog now
-  has validated `cabrillo_layout` values, and export refuses any event without
-  one while leaving CSV available. The checked CW layouts currently cover CWT,
-  CW Open, CQ WW CW, CQ 160 CW, ARRL DX CW, CQ WPX CW, and (Cabrillo shape
-  only, no scoring yet) **SAC-CW**; every other catalog entry is intentionally
-  selection/entry-only until its sponsor-specific schema is verified.
-  Scandinavian Activity Contest, CW (`events/contestcalendar.json`) now
-  carries `cabrillo_layout: cw_rst_exchange` and `adif_contest_id: SAC-CW`,
-  promoting its `capability` from `entry-aware` to `cabrillo-ready` (the
-  distinct capability tier for "Cabrillo line shape checked, scoring not yet
-  audited") — sourced from sactest.net's Cabrillo 3.0 spec (`QSO: freq mo
-  date time call rst exch call rst exch t`: RS(T) + a single free-text
-  serial-number exchange field on both sides, the same shape the existing
-  `cw_rst_exchange` layout already renders) and confirmed against the ADIF
-  Contest ID Enumeration. No `scoring` block was added — SAC's real
-  points/multiplier rules (serial-number dupe/zero-point handling, per-band
-  multiplier shape) still need their own audit before this entry can move to
-  `scoring-ready`. Test: `events_test.go`
-  (`TestLoadEventCatalogSACCWHasCheckedCabrilloLayout`).
+- 🔧 **Cabrillo/layout and scoring support remains event-specific.** The
+  loaded catalog's capability labels and configuration are authoritative;
+  historical static counts and lists have been removed because they drifted.
+  SAC-CW now has both a layout and scoring configuration, with the unsupported
+  non-Scandinavian European entrant branch noted in the UI and README.
+  Section 0A adds strict supported-field validation and a dedicated Sweepstakes
+  layout; this does not certify every sponsor's rules or all entrant branches.
 
-- 🔧 **Audit and implement scoring per contest before presenting the catalog as
-  correct.** Every one of the 429 event records now declares and is validated
-  against an explicit `capability`: 9 intentionally generic templates are
-  `selection-only`, 403 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
-  `CQ-160-CW`, `ARRL-DX-CW`, `CQ-WPX-CW`, `TNQP`, `SAC-CW`, `NAQP-CW`,
-  `ARRL-SS-CW`, `IARU-HF`, `NA-SPRINT-CW`, `DARC-WAEDC-CW`, `HELVETIA`,
-  `RDXC`, `STEW-PERRY`, `WAG`, `OCEANIA-DX-CW`, and `K1USN-SST` are
-  `scoring-ready`.
+- 🔧 **Audit scoring per contest before treating estimates as authoritative.**
   **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
   side-asymmetric around a fixed "Scandinavian" country group — Norway,
   Finland, Sweden, Iceland, Denmark, and the territories the rules list by
@@ -107,14 +529,12 @@ the log, submitted contest results, or external services.
   worked — the same points/multiplier shape as CW Open, scoped per session by
   its existing `call+band+session` dupe_scope) is now wired
   (`events/cwops.json`); test `TestLoadEventCatalogCWTHasRealScoringRules`
-  (`events_test.go`). TNQP's real scoring (tnqp.org/rules/: flat 3 points per
-  QSO, plus a Tennessee-county multiplier counted once per band — "95
-  maximum per band") is also wired (`events/tnqp.json`). Only the
-  out-of-state entrant's multiplier category is configured, matching this
-  catalog entry's existing out-of-state scope (README.md): the rules also
-  describe a state/province/DXCC-entity multiplier set and a 100-point
-  bonus per QSO with sponsor station K4TCG, both of which apply only to a
-  Tennessee-resident entrant and so are out of scope here. New **`tn_county`
+  (`events_test.go`). The initial TNQP implementation provided 3 points per
+  CW QSO and outside-entrant county multipliers per band. That scope is now
+  superseded by the shared state-party implementation above: both entrant sides,
+  location-aware credit, K4TCG bonuses, and mobile/rover activation bonuses are
+  configured for 2026. K4TCG's CW bonus is once per band for all entrants, not
+  per QSO or restricted to Tennessee residents. The original **`tn_county`
   multiplier kind** (`tn_county.go`, mirroring `exchange_area.go`'s shape)
   resolves the county from the worked station's received-exchange text
   (`qso.srxString`) against the 95 official four-letter county codes;
@@ -126,10 +546,10 @@ the log, submitted contest results, or external services.
   `TestTNCountyCodesHas95Values`), `contest_state_test.go`
   (`TestContestStateScoreTNCountyMultiplierFromReceivedExchange`,
   `TestContestStateWouldBeNewMultiplierTNCounty`), `events_test.go`
-  (`TestLoadEventCatalogTNQPHasRealScoringRules`). The actual scoring audit
-  remains: every event except those seven still has no `scoring` block and
-  must not be promoted until its rules are tested against authoritative
-  examples.
+  (`TestLoadEventCatalogTNQPHasRealScoringRules`). These test references describe
+  the original implementation; current shared coverage is recorded above.
+  Additional events have since gained scoring. Unaudited definitions must still
+  be checked against sponsor rules before their capabilities are promoted.
 
 - ✅ **Zone autofill no longer infers rules from prose hints, and is now
   side-aware by the worked entity.** It requires an explicit
@@ -1286,6 +1706,7 @@ install / Legacy-Console-Host / colors / codepage / `SD.MAP` keyboard sections.
 | Station's own lat/lon + grid | `station.go` | beam heading origin |
 | Per-keystroke hook on Call field | `main.go` `checkDupe()` on `focusIdx==fieldCall` | analysis-engine trigger |
 | Dupe check w/ contest/session scope | `store.isDupe`, `events.go` `dupe_scope` | real-time + partial dupe |
+| State-party county-pair duplicates and credit | `qso_party_rules.go`, `state_qso_party.go` | entrant-side eligibility, county lines, bonuses, power factors, checked export |
 | Event catalog (bands, sessions, scoring, serial, omit-RST, cabrillo_contest) | `events.go`, `events/*.json` | contest rules (SD `.TPL`) |
 | Cabrillo export + per-session scoring + running serial | `cabrillo_export.go`, `main.go` | SDCHECK-equiv output, score seed |
 | Cluster spots (CW, all bands) | `cluster.go`, DX Spots panel | band map seed |

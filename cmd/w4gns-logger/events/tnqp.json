@@ -6,21 +6,29 @@
     "organizer": "TNQP",
     "kind": "state QSO party",
     "schedule": "September 6, 2026",
-    "bands": ["160M", "80M", "40M", "20M", "15M", "10M"],
+    "bands": ["160M", "80M", "40M", "20M", "15M", "10M", "6M"],
     "sent_serial": false,
-    "sent_exchange_hint": "Your state/province/DX",
-    "received_exchange_hint": "TN county (type name or code)",
-    "dupe_scope": "call+band",
+    "sent_exchange_hint": "TN: county; outside TN: state/province/DX entity",
+    "received_exchange_hint": "County, state/province or DX entity; county line: CODE/CODE",
+    "dupe_scope": "call+band+location",
     "adif_contest_id": "TN-QSO-PARTY",
     "cabrillo_layout": "cw_rst_exchange",
     "scoring": {
       "points_per_qso": 3,
-      "multipliers": [{"kind": "tn_county", "per": "band"}]
+      "multipliers": [{"kind": "county", "per": "band"}]
+    },
+    "qso_party": {
+      "periods": [{"start":"2026-09-06T17:00:00Z", "end":"2026-09-07T03:00:00Z"}],
+      "state": "TN", "exchange": "location", "county_line_max": 2,
+      "area_aliases": {"DC":"MD"}, "outside_category": "FIXED",
+      "home_multipliers": ["county", "state", "dxcc"], "multiplier_per": "band", "points": 3,
+      "bonus_call": "K4TCG", "bonus_points": 100,
+      "mobile_county_minimum": 10, "mobile_county_bonus": 500, "mobile_county_multiplier": true
     },
     "rules_url": "https://tnqp.org/rules/",
     "score_submission_url": "https://tnqp.contesting.com/",
     "sessions": [{"id": "2026", "label": "TNQP 2026", "schedule": "September 6, 2026"}],
-    "received_exchange_options": [
+    "county_options": [
       {"code":"ANDE","name":"Anderson"},{"code":"BEDF","name":"Bedford"},{"code":"BENT","name":"Benton"},{"code":"BLED","name":"Bledsoe"},{"code":"BLOU","name":"Blount"},{"code":"BRAD","name":"Bradley"},{"code":"CAMP","name":"Campbell"},{"code":"CANN","name":"Cannon"},{"code":"CARR","name":"Carroll"},{"code":"CART","name":"Carter"},{"code":"CHEA","name":"Cheatham"},{"code":"CHES","name":"Chester"},{"code":"CLAI","name":"Claiborne"},{"code":"CLAY","name":"Clay"},{"code":"COCK","name":"Cocke"},{"code":"COFF","name":"Coffee"},{"code":"CROC","name":"Crockett"},{"code":"CUMB","name":"Cumberland"},{"code":"DAVI","name":"Davidson"},{"code":"DECA","name":"Decatur"},{"code":"DEKA","name":"Dekalb"},{"code":"DICK","name":"Dickson"},{"code":"DYER","name":"Dyer"},{"code":"FAYE","name":"Fayette"},{"code":"FENT","name":"Fentress"},{"code":"FRAN","name":"Franklin"},{"code":"GIBS","name":"Gibson"},{"code":"GILE","name":"Giles"},{"code":"GRAI","name":"Grainger"},{"code":"GREE","name":"Greene"},{"code":"GRUN","name":"Grundy"},{"code":"HAMB","name":"Hamblen"},{"code":"HAMI","name":"Hamilton"},{"code":"HANC","name":"Hancock"},{"code":"HARD","name":"Hardeman"},{"code":"HARN","name":"Hardin"},{"code":"HAWK","name":"Hawkins"},{"code":"HAYW","name":"Haywood"},{"code":"HEND","name":"Henderson"},{"code":"HENR","name":"Henry"},{"code":"HICK","name":"Hickman"},{"code":"HOUS","name":"Houston"},{"code":"HUMP","name":"Humphreys"},{"code":"JACK","name":"Jackson"},{"code":"JEFF","name":"Jefferson"},{"code":"JOHN","name":"Johnson"},{"code":"KNOX","name":"Knox"},{"code":"LAKE","name":"Lake"},{"code":"LAUD","name":"Lauderdale"},{"code":"LAWR","name":"Lawrence"},{"code":"LEWI","name":"Lewis"},{"code":"LINC","name":"Lincoln"},{"code":"LOUD","name":"Loudon"},{"code":"MACO","name":"Macon"},{"code":"MADI","name":"Madison"},{"code":"MARI","name":"Marion"},{"code":"MARS","name":"Marshall"},{"code":"MAUR","name":"Maury"},{"code":"MCMI","name":"McMinn"},{"code":"MCNA","name":"McNairy"},{"code":"MEIG","name":"Meigs"},{"code":"MONR","name":"Monroe"},{"code":"MONT","name":"Montgomery"},{"code":"MOOR","name":"Moore"},{"code":"MORG","name":"Morgan"},{"code":"OBIO","name":"Obion"},{"code":"OVER","name":"Overton"},{"code":"PERR","name":"Perry"},{"code":"PICK","name":"Pickett"},{"code":"POLK","name":"Polk"},{"code":"PUTN","name":"Putnam"},{"code":"RHEA","name":"Rhea"},{"code":"ROAN","name":"Roane"},{"code":"ROBE","name":"Robertson"},{"code":"RUTH","name":"Rutherford"},{"code":"SCOT","name":"Scott"},{"code":"SEQU","name":"Sequatchie"},{"code":"SEVI","name":"Sevier"},{"code":"SHEL","name":"Shelby"},{"code":"SMIT","name":"Smith"},{"code":"STEW","name":"Stewart"},{"code":"SULL","name":"Sullivan"},{"code":"SUMN","name":"Sumner"},{"code":"TIPT","name":"Tipton"},{"code":"TROU","name":"Trousdale"},{"code":"UNIC","name":"Unicoi"},{"code":"UNIO","name":"Union"},{"code":"VANB","name":"Van Buren"},{"code":"WARR","name":"Warren"},{"code":"WASH","name":"Washington"},{"code":"WAYN","name":"Wayne"},{"code":"WEAK","name":"Weakley"},{"code":"WHIT","name":"White"},{"code":"WILL","name":"Williamson"},{"code":"WILS","name":"Wilson"}
     ]
   }

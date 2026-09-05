@@ -1154,7 +1154,8 @@ func TestSlashXTogglesUnscoredFlagAndExcludesFromScore(t *testing.T) {
 	m, _ = m.logCurrentQSO()
 	target := m.recentQSOs[0]
 
-	event := eventDefinition{ID: "TEST-CONTEST", CabrilloLayout: "cw_rst_exchange", Scoring: &scoringRules{PointsPerQSO: 1, Multiplier: "unique_call"}}
+	// Use a supported serial-only exchange validator for this synthetic score test.
+	event := eventDefinition{ID: "CQ-WPX-CW", CabrilloLayout: "cw_rst_exchange", Scoring: &scoringRules{PointsPerQSO: 1, Multiplier: "unique_call"}}
 	before, err := computeContestScore(context.Background(), m.activeStation, event, "TEST-CONTEST", st)
 	if err != nil {
 		t.Fatal(err)

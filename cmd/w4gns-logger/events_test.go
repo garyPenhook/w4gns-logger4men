@@ -338,12 +338,9 @@ func TestLoadEventCatalogCQ160HasRealScoringRules(t *testing.T) {
 // TestLoadEventCatalogTNQPHasRealScoringRules guards the curated TNQP
 // entry's actual scoring config, sourced from tnqp.org/rules/: a flat 3
 // points per QSO (mode-independent; this app logs CW only so the mode split
-// the rules describe doesn't apply) and a "tn_county" multiplier counted
-// once per band ("95 maximum per band"). The rules also describe a
-// state/province/DXCC multiplier set and a K4TCG working bonus, but both
-// only apply to a Tennessee-resident entrant — this catalog entry is
-// configured for an out-of-state operator (README.md), for whom TN counties
-// are the only multiplier category, so neither is wired here.
+// the rules describe doesn't apply) and a shared "county" multiplier counted
+// once per band. The shared QSO party engine handles both entrant sides,
+// the K4TCG bonus for all entrants, and mobile/rover activation bonuses.
 func TestLoadEventCatalogTNQPHasRealScoringRules(t *testing.T) {
 	events, err := loadEventCatalog()
 	if err != nil {
@@ -357,7 +354,7 @@ func TestLoadEventCatalogTNQPHasRealScoringRules(t *testing.T) {
 		t.Fatalf("TNQP scoring = %+v, want PointsPerQSO 3", tnqp.Scoring)
 	}
 	mults := tnqp.Scoring.effectiveMultipliers()
-	want := []multiplierRule{{Kind: "tn_county", Per: "band"}}
+	want := []multiplierRule{{Kind: "county", Per: "band"}}
 	if len(mults) != len(want) || mults[0] != want[0] {
 		t.Fatalf("TNQP multipliers = %+v, want %+v", mults, want)
 	}
@@ -436,8 +433,8 @@ func TestLoadEventCatalogARRLSSCWHasRealScoringRules(t *testing.T) {
 	if ss.ADIFContestID != "ARRL-SS-CW" {
 		t.Fatalf("ARRL-SS-CW adif_contest_id = %q, want ARRL-SS-CW", ss.ADIFContestID)
 	}
-	if ss.CabrilloLayout != "cw_exchange_only" {
-		t.Fatalf("ARRL-SS-CW cabrillo_layout = %q, want cw_exchange_only", ss.CabrilloLayout)
+	if ss.CabrilloLayout != "cw_sweepstakes" {
+		t.Fatalf("ARRL-SS-CW cabrillo_layout = %q, want cw_sweepstakes", ss.CabrilloLayout)
 	}
 	if !ss.CabrilloOmitRST {
 		t.Fatalf("ARRL-SS-CW cabrillo_omit_rst = false, want true")
@@ -995,7 +992,7 @@ func TestEventCatalogSelectsCWOpenDefaults(t *testing.T) {
 	if m.screen != qsoEntryScreen || m.focusIdx != fieldCall {
 		t.Fatalf("selected event screen = %v focusIdx = %v, want qsoEntryScreen/fieldCall", m.screen, m.focusIdx)
 	}
-	if m.contestFields[contestName].Value() != "CW-OPEN-1" || m.contestFields[contestSerialSent].Value() != "001" {
+	if !strings.HasPrefix(m.contestFields[contestName].Value(), "CW-OPEN-1@") || m.contestFields[contestSerialSent].Value() != "001" {
 		t.Fatalf("selected event contest fields = %#v", m.contestFields)
 	}
 }
@@ -1067,7 +1064,7 @@ func TestEventCatalogCyclesSSTSessions(t *testing.T) {
 	}
 	updated, _ = m.updateEventCatalog(tea.KeyMsg{Type: tea.KeyEnter})
 	m = updated.(model)
-	if m.contestFields[contestName].Value() != "K1USN-SST-MON" {
+	if !strings.HasPrefix(m.contestFields[contestName].Value(), "K1USN-SST-MON@") {
 		t.Fatalf("contest ID = %q", m.contestFields[contestName].Value())
 	}
 }
@@ -1088,7 +1085,7 @@ func TestEventCatalogCyclesCWTSessions(t *testing.T) {
 	}
 	updated, _ = m.updateEventCatalog(tea.KeyMsg{Type: tea.KeyEnter})
 	m = updated.(model)
-	if m.contestFields[contestName].Value() != "CWT-1900" {
+	if !strings.HasPrefix(m.contestFields[contestName].Value(), "CWT-1900@") {
 		t.Fatalf("contest ID = %q", m.contestFields[contestName].Value())
 	}
 }

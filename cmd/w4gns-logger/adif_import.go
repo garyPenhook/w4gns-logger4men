@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -37,12 +38,17 @@ func importADIF(ctx context.Context, reader io.Reader, profileID int64, st *stor
 		}
 		n, err := st.insertQSOBatch(ctx, batch)
 		result.Imported += n
-		result.Skipped += len(batch) - n
+		if err == nil {
+			result.Skipped += len(batch) - n
+		}
 		batch = batch[:0]
 		batchBytes = 0
 		return err
 	}
-	parseErr := parseADIRecords(reader, func(record map[string]string) error {
+	parseErr := parseADIRecords(contextReader{ctx, reader}, func(record map[string]string) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		q, ok := qsoFromADI(record, profileID)
 		if !ok {
 			result.Skipped++
@@ -97,18 +103,31 @@ func qsoFromADI(record map[string]string, profileID int64) (qso, bool) {
 		return qso{}, false
 	}
 	dateOff, timeOff := strings.TrimSpace(record["QSO_DATE_OFF"]), strings.TrimSpace(record["TIME_OFF"])
+	implicitEndDate := dateOff == ""
+	if implicitEndDate {
+		dateOff = date
+	}
 	end := start
 	if dateOff != "" && len(dateOff) == 8 && (len(timeOff) == 4 || len(timeOff) == 6) {
 		if len(timeOff) == 4 {
 			timeOff += "00"
 		}
-		if parsed, err := time.Parse("20060102150405", dateOff+timeOff); err == nil && !parsed.Before(start) {
-			end = parsed
+		if parsed, err := time.Parse("20060102150405", dateOff+timeOff); err == nil {
+			if implicitEndDate && parsed.Before(start) {
+				parsed = parsed.AddDate(0, 0, 1)
+			}
+			if !parsed.Before(start) {
+				end = parsed
+			}
 		}
 	}
 	band := strings.ToUpper(strings.TrimSpace(record["BAND"]))
 	if band == "" {
 		return qso{}, false
+	}
+	contestID := strings.TrimSpace(record["APP_W4GNS_LOGGER_CONTEST_ID"])
+	if contestID == "" {
+		contestID = importedContestID(strings.TrimSpace(record["CONTEST_ID"]), start)
 	}
 	return qso{
 		call:       strings.ToUpper(call),
@@ -119,7 +138,7 @@ func qsoFromADI(record map[string]string, profileID int64) (qso, bool) {
 		frequency:  strings.TrimSpace(record["FREQ"]),
 		name:       strings.TrimSpace(firstNonEmpty(record["NAME_INTL"], record["NAME"])),
 		qth:        strings.TrimSpace(firstNonEmpty(record["QTH_INTL"], record["QTH"])),
-		grid:       strings.TrimSpace(record["GRIDSQUARE"]),
+		grid:       strings.TrimSpace(record["GRIDSQUARE"]) + strings.TrimSpace(record["GRIDSQUARE_EXT"]),
 		state:      strings.TrimSpace(record["STATE"]),
 		county:     strings.TrimSpace(record["CNTY"]),
 		email:      strings.TrimSpace(record["EMAIL"]),
@@ -129,7 +148,9 @@ func qsoFromADI(record map[string]string, profileID int64) (qso, bool) {
 		ituZone:    strings.TrimSpace(record["ITUZ"]),
 		comment:    strings.TrimSpace(firstNonEmpty(record["COMMENT_INTL"], record["COMMENT"])),
 		potaRef:    adifPOTAReference(record),
-		contestID:  strings.TrimSpace(record["CONTEST_ID"]),
+		contestID:  contestID,
+		parkName:   strings.TrimSpace(record["APP_W4GNS_LOGGER_PARK_NAME"]),
+		unscored:   record["APP_W4GNS_LOGGER_UNSCORED"] == "Y",
 		stx:        strings.TrimSpace(record["STX"]),
 		stxString:  strings.TrimSpace(record["STX_STRING"]),
 		srx:        strings.TrimSpace(record["SRX"]),
@@ -139,7 +160,7 @@ func qsoFromADI(record map[string]string, profileID int64) (qso, bool) {
 		timeOff:    end.UTC(),
 		profileID:  profileID,
 
-		myGridSquare:    strings.TrimSpace(record["MY_GRIDSQUARE"]),
+		myGridSquare:    strings.TrimSpace(record["MY_GRIDSQUARE"]) + strings.TrimSpace(record["MY_GRIDSQUARE_EXT"]),
 		stationCallsign: strings.ToUpper(strings.TrimSpace(record["STATION_CALLSIGN"])),
 		// MY_NAME is the logging operator's name per the ADIF field table;
 		// OPERATOR means the operator's *callsign*. OPERATOR/OPERATOR_INTL
@@ -229,7 +250,7 @@ func parseADIRecords(reader io.Reader, onRecord func(map[string]string) error) e
 	// field unless an explicit <EOH> resets the accumulated header fields.
 	inRecords := true
 	for {
-		if _, err := readUntil(br, '<', maxADIFTagLength); err != nil {
+		if err := discardUntil(br, '<'); err != nil {
 			if err == io.EOF {
 				if inRecords && len(record) > 0 {
 					// Fields were parsed but the file ended before a
@@ -290,6 +311,41 @@ func parseADIRecords(reader io.Reader, onRecord func(map[string]string) error) e
 			record[strings.ToUpper(strings.TrimSpace(parts[0]))] = string(value)
 		}
 	}
+}
+
+func discardUntil(br *bufio.Reader, delim byte) error {
+	for {
+		b, err := br.ReadByte()
+		if err != nil {
+			return err
+		}
+		if b == delim {
+			return nil
+		}
+	}
+}
+
+type contextReader struct {
+	ctx    context.Context
+	reader io.Reader
+}
+
+func (r contextReader) Read(p []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.reader.Read(p)
+}
+
+func openADIFInput(path string) (*os.File, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("ADIF input must be a regular file")
+	}
+	return os.Open(path)
 }
 
 // readUntil reads from br up to and including delim, erroring out if delim

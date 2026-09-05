@@ -18,6 +18,13 @@ import (
 // rebuild is always correct and, at contest-log sizes (a few thousand QSOs),
 // cheap enough to call on every score/export.
 type contestState struct {
+	partyQSOs        []qso
+	partyCategory    string
+	partyPower       string
+	partyStationCall string
+	event            eventDefinition
+	countyByBand     map[string]map[string]struct{}
+	countyAll        map[string]struct{}
 	// byCall lists every QSO worked with a given callsign (upper-cased), in
 	// the order logged. Feeds Check Partial and the band/mode matrix.
 	byCall map[string][]qso
@@ -254,6 +261,8 @@ func newContestState() *contestState {
 		exchangeAreaByBand:     make(map[string]map[string]struct{}),
 		exchangeAreaAll:        make(map[string]struct{}),
 		tnCountyByBand:         make(map[string]map[string]struct{}),
+		countyByBand:           make(map[string]map[string]struct{}),
+		countyAll:              make(map[string]struct{}),
 		tnCountyAll:            make(map[string]struct{}),
 		sacAreaByBand:          make(map[string]map[string]struct{}),
 		sacAreaAll:             make(map[string]struct{}),
@@ -293,6 +302,7 @@ func newContestState() *contestState {
 // unresolvable callsign leaves stationResolved false, so score() falls back
 // to awarding 0 points under a pointsRule rather than guessing.
 func (c *contestState) setStation(callsign string) {
+	c.partyStationCall = strings.ToUpper(strings.TrimSpace(callsign))
 	table, err := sharedDXCCTable()
 	if err != nil {
 		return
@@ -332,6 +342,12 @@ func stationCountry(callsign string) string {
 // order while building, or once per newly logged QSO for an incremental
 // update.
 func (c *contestState) record(q qso) {
+	if q.stationCallsign == "" {
+		q.stationCallsign = c.partyStationCall
+	}
+	if c.event.QSOParty != nil {
+		c.partyQSOs = append(c.partyQSOs, q)
+	}
 	call := strings.ToUpper(strings.TrimSpace(q.call))
 	if call == "" {
 		return
@@ -339,6 +355,14 @@ func (c *contestState) record(q qso) {
 	band := strings.ToUpper(strings.TrimSpace(q.band))
 	c.byCall[call] = append(c.byCall[call], q)
 	key := call + "|" + band
+	// Only the first eligible contact contributes points and multipliers.
+	_, duplicate := c.scoredCallBand[key]
+	if c.event.DupeScope == "call" {
+		_, duplicate = c.scoredUniqueCalls[call]
+	}
+	if duplicate {
+		q.unscored = true
+	}
 	c.workedCallBand[key] = struct{}{}
 	c.uniqueCalls[call] = struct{}{}
 	if !q.unscored {
@@ -352,6 +376,7 @@ func (c *contestState) record(q qso) {
 		recordMultiplierStringValue(c.prefixByBand, c.prefixAll, band, wpxPrefix(call))
 		recordMultiplierStringValue(c.exchangeAreaByBand, c.exchangeAreaAll, band, exchangeAreaCode(q.srxString))
 		recordMultiplierStringValue(c.tnCountyByBand, c.tnCountyAll, band, tnCountyCode(q.srxString))
+		recordMultiplierStringValue(c.countyByBand, c.countyAll, band, c.event.countyCode(q.srxString))
 		recordMultiplierStringValue(c.cantonByBand, c.cantonAll, band, cantonCode(q.srxString))
 		recordMultiplierStringValue(c.oblastByBand, c.oblastAll, band, rdxcOblastCode(q.srxString))
 		recordMultiplierStringValue(c.dokDistrictByBand, c.dokDistrictAll, band, dokDistrictCode(q.srxString))
@@ -377,6 +402,7 @@ func (c *contestState) record(q qso) {
 	if table, err := sharedDXCCTable(); err == nil {
 		if entity, found := table.lookup(call); found {
 			entity = entityWithPersistedContext(entity, q)
+			entity = c.exchangeEntity(entity, q.srxString)
 			if entity.Continent != "" {
 				if c.continentBand[entity.Continent] == nil {
 					c.continentBand[entity.Continent] = make(map[string]int)
@@ -550,6 +576,9 @@ func (c *contestState) checkPartial(fragment string, limit int) []string {
 // duplicate still counts as a multiplier, since the callsign was still
 // worked).
 func (c *contestState) score(rules *scoringRules) contestScore {
+	if c.event.QSOParty != nil {
+		return c.partyScore()
+	}
 	if rules == nil {
 		return contestScore{}
 	}
@@ -714,6 +743,15 @@ func (c *contestState) multiplierCount(rule multiplierRule) int {
 			return total
 		}
 		return len(c.exchangeAreaAll)
+	case "county":
+		if strings.TrimSpace(rule.Per) == "band" {
+			total := 0
+			for _, set := range c.countyByBand {
+				total += len(set)
+			}
+			return total
+		}
+		return len(c.countyAll)
 	case "tn_county":
 		if strings.TrimSpace(rule.Per) == "band" {
 			total := 0
@@ -869,6 +907,7 @@ func (c *contestState) multiplierCount(rule multiplierRule) int {
 // derived value to fall back on, unlike dxcc/cqzone/ituzone): an unrecognized
 // or not-yet-typed exchange skips that rule rather than guessing.
 func (c *contestState) wouldBeNewMultiplier(rules *scoringRules, call, band, exchangeText string, entity dxccEntity, entityFound bool) (newMult, workedBefore bool) {
+	entity = c.exchangeEntity(entity, exchangeText)
 	call = strings.ToUpper(strings.TrimSpace(call))
 	band = strings.ToUpper(strings.TrimSpace(band))
 	for _, rule := range rules.effectiveMultipliers() {
@@ -905,6 +944,22 @@ func (c *contestState) wouldBeNewMultiplier(rules *scoringRules, call, band, exc
 				_, already = c.exchangeAreaByBand[band][area]
 			} else {
 				_, already = c.exchangeAreaAll[area]
+			}
+			if already {
+				workedBefore = true
+			} else {
+				newMult = true
+			}
+		case "county":
+			county := c.event.countyCode(exchangeText)
+			if county == "" {
+				continue
+			}
+			var already bool
+			if strings.TrimSpace(rule.Per) == "band" {
+				_, already = c.countyByBand[band][county]
+			} else {
+				_, already = c.countyAll[county]
 			}
 			if already {
 				workedBefore = true
@@ -1172,6 +1227,8 @@ func (m *model) rebuildContestIndex() {
 		return
 	}
 	m.contestIndex = state
+	m.contestIndex.partyCategory = m.activeStation.CategoryStation
+	m.contestIndex.partyPower = m.activeStation.CategoryPower
 	m.contestIndexID = contestID
 	m.contestIndexError = ""
 }
@@ -1184,6 +1241,9 @@ func (m *model) rebuildContestIndex() {
 // callsign simply leaves a pointsRule scoring 0 for every QSO.
 func buildContestState(ctx context.Context, profileID int64, stationCallsign, contestID string, st *store) (*contestState, error) {
 	state := newContestState()
+	if events, err := loadEventCatalog(); err == nil {
+		state.event, _ = resolveCatalogEvent(contestID, events)
+	}
 	state.setStation(stationCallsign)
 	err := st.forEachQSOForContest(ctx, profileID, contestID, func(q qso) error {
 		state.record(q)
@@ -1193,4 +1253,14 @@ func buildContestState(ctx context.Context, profileID int64, stationCallsign, co
 		return nil, err
 	}
 	return state, nil
+}
+
+func (c *contestState) exchangeEntity(entity dxccEntity, text string) dxccEntity {
+	if c.event.receivedExchangeZoneKind() == "cq_zone" && !c.event.receivedExchangeAutofillExcluded(entity.Country) {
+		entity.CQZone = 0
+		if zone, err := strconv.Atoi(strings.TrimSpace(text)); err == nil && zone >= 1 && zone <= 40 {
+			entity.CQZone = zone
+		}
+	}
+	return entity
 }

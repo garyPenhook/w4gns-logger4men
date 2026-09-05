@@ -20,6 +20,9 @@ import (
 // migrate() at all. See schemaIndexes, applied after migrate() in
 // openStore.
 const schemaTables = `
+CREATE TABLE IF NOT EXISTS contest_selection (
+ profile_id INTEGER PRIMARY KEY, contest_id TEXT NOT NULL, sent_exchange TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS qso (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     call TEXT NOT NULL,
@@ -80,6 +83,7 @@ CREATE TABLE IF NOT EXISTS station_profile (
     category_operator TEXT,
     category_assisted TEXT,
     category_power TEXT,
+    category_station TEXT,
     address TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -99,7 +103,9 @@ CREATE INDEX IF NOT EXISTS idx_profile_date ON qso(profile_id, qso_date, time_on
 `
 
 type store struct {
-	db *sql.DB
+	db     *sql.DB
+	readDB *sql.DB
+	reader qsoReader
 }
 
 const importBatchSize = 1_000
@@ -149,6 +155,15 @@ func openStore(path string) (*store, error) {
 		db.Close()
 		return nil, fmt.Errorf("apply upload outbox schema: %w", err)
 	}
+	if exists, err := s.columnExists("upload_outbox", "binding"); err != nil {
+		db.Close()
+		return nil, err
+	} else if !exists {
+		if _, err := db.Exec(`ALTER TABLE upload_outbox ADD COLUMN binding TEXT NOT NULL DEFAULT ''`); err != nil {
+			db.Close()
+			return nil, err
+		}
+	}
 	if err := s.ensureDefaultProfile(); err != nil {
 		db.Close()
 		return nil, err
@@ -157,7 +172,26 @@ func openStore(path string) (*store, error) {
 		db.Close()
 		return nil, err
 	}
+	if err := s.migrateContestOccurrences(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migrate contest occurrences: %w", err)
+	}
 	tightenDBFilePermissions(path)
+	if path != "" && path != ":memory:" && !strings.Contains(path, "mode=memory") && !strings.HasPrefix(path, "file::memory:") {
+		readDB, err := sql.Open("sqlite", path)
+		if err != nil {
+			db.Close()
+			return nil, err
+		}
+		readDB.SetMaxOpenConns(1)
+		readDB.SetMaxIdleConns(1)
+		if _, err := readDB.Exec(`PRAGMA busy_timeout=5000`); err != nil {
+			readDB.Close()
+			db.Close()
+			return nil, err
+		}
+		s.readDB = readDB
+	}
 	return s, nil
 }
 
@@ -225,6 +259,9 @@ func configureSQLite(db *sql.DB) error {
 }
 
 func (s *store) Close() error {
+	if s.readDB != nil {
+		_ = s.readDB.Close()
+	}
 	return s.db.Close()
 }
 
@@ -268,6 +305,7 @@ func (s *store) migrate() error {
 		{name: "category_operator", definition: "TEXT"},
 		{name: "category_assisted", definition: "TEXT"},
 		{name: "category_power", definition: "TEXT"},
+		{name: "category_station", definition: "TEXT"},
 		{name: "address", definition: "TEXT"},
 	} {
 		exists, err := s.columnExists("station_profile", column.name)
@@ -441,7 +479,7 @@ func (s *store) insertQSO(q qso) (int64, error) {
 // each destination. Keeping these writes in one SQLite transaction closes the
 // gap where a power loss after the QSO commit but before enqueueUpload left a
 // logged contact that would never be delivered externally.
-func (s *store) insertQSOWithUploads(q qso, destinations []string, notBefore time.Time) (int64, error) {
+func (s *store) insertQSOWithUploads(q qso, destinations []string, notBefore time.Time, bindings ...map[string]string) (int64, error) {
 	if err := validateQSO(q); err != nil {
 		return 0, fmt.Errorf("validate qso: %w", err)
 	}
@@ -461,6 +499,11 @@ func (s *store) insertQSOWithUploads(q qso, destinations []string, notBefore tim
 		for _, destination := range destinations {
 			if err := enqueueUploadTx(tx, id, q.profileID, destination, notBefore); err != nil {
 				return 0, err
+			}
+			if len(bindings) > 0 {
+				if _, err := tx.Exec(`UPDATE upload_outbox SET binding=? WHERE qso_id=? AND destination=?`, bindings[0][destination], id, destination); err != nil {
+					return 0, err
+				}
 			}
 		}
 	}
@@ -517,7 +560,11 @@ func insertQSOInto(tx *sql.Tx, q qso) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("insert qso: %w", err)
 	}
-	return res.LastInsertId()
+	id, err := res.LastInsertId()
+	if err == nil && q.unscored {
+		_, err = tx.Exec(`UPDATE qso SET unscored = 1 WHERE id = ?`, id)
+	}
+	return id, err
 }
 
 // insertQSOBatch imports QSOs in bounded transactions, skipping any record
@@ -578,16 +625,21 @@ func (s *store) insertQSOChunk(ctx context.Context, qsos []qso) (int, error) {
 		case err == nil:
 			continue // already imported; skip to keep re-imports idempotent
 		case err != sql.ErrNoRows:
-			return inserted, fmt.Errorf("check existing record %d: %w", index+1, err)
+			return 0, fmt.Errorf("check existing record %d: %w", index+1, err)
 		}
 		country, cqZone, ituZone, dxccNumber := resolveDXCC(q)
 		if _, err := statement.ExecContext(ctx, q.call, qsoDate, timeOn, end.Format("20060102"), end.Format("150405"), q.band, q.frequency, q.mode, q.rstSent, q.rstRcvd, q.name, q.qth, q.grid, q.state, q.county, q.email, country, dxccNumber, cqZone, ituZone, potaSignal(q.potaRef), q.potaRef, q.parkName, q.comment, q.contestID, q.stx, q.stxString, q.srx, q.srxString, q.profileID, q.myGridSquare, q.stationCallsign, q.operatorName, q.myRig, q.myAntenna, q.txPower); err != nil {
-			return inserted, fmt.Errorf("insert record %d: %w", index+1, err)
+			return 0, fmt.Errorf("insert record %d: %w", index+1, err)
+		}
+		if q.unscored {
+			if _, err := tx.ExecContext(ctx, `UPDATE qso SET unscored = 1 WHERE id = last_insert_rowid()`); err != nil {
+				return 0, err
+			}
 		}
 		inserted++
 	}
 	if err := tx.Commit(); err != nil {
-		return inserted, fmt.Errorf("commit import transaction: %w", err)
+		return 0, fmt.Errorf("commit import transaction: %w", err)
 	}
 	return inserted, nil
 }
@@ -620,6 +672,9 @@ func (s *store) insertQSOChunk(ctx context.Context, qsos []qso) (int, error) {
 // sprint whose periods the event catalog doesn't model as distinct
 // sessions). A zero since applies no such floor, the pre-SETDUPE behavior.
 func (s *store) isDupe(call, band, contestID, eventID, dupeScope string, profileID, excludeID int64, now, since time.Time) (bool, error) {
+	if dupeScope == "call+band+location" {
+		return false, fmt.Errorf("location-aware duplicate checking requires the sent and received exchanges")
+	}
 	var (
 		query string
 		args  []any
@@ -634,15 +689,19 @@ func (s *store) isDupe(call, band, contestID, eventID, dupeScope string, profile
 		query = `SELECT COUNT(1) FROM qso WHERE call = ? AND band = ? AND profile_id = ? AND contest_id = ?`
 		args = []any{call, band, profileID, contestID}
 	case dupeScope == "call":
-		query = `SELECT COUNT(1) FROM qso WHERE call = ? AND profile_id = ? AND (contest_id = ? OR contest_id LIKE ?)`
-		args = []any{call, profileID, eventID, eventID + "-%"}
+		query = `SELECT COUNT(1) FROM qso WHERE call = ? AND profile_id = ? AND (contest_id = ? OR contest_id LIKE ? OR contest_id LIKE ?)`
+		args = []any{call, profileID, eventID, eventID + "-%", eventID + "@%"}
 	default:
-		query = `SELECT COUNT(1) FROM qso WHERE call = ? AND band = ? AND profile_id = ? AND (contest_id = ? OR contest_id LIKE ?)`
-		args = []any{call, band, profileID, eventID, eventID + "-%"}
+		query = `SELECT COUNT(1) FROM qso WHERE call = ? AND band = ? AND profile_id = ? AND (contest_id = ? OR contest_id LIKE ? OR contest_id LIKE ?)`
+		args = []any{call, band, profileID, eventID, eventID + "-%", eventID + "@%"}
 	}
 	if excludeID != 0 {
 		query += ` AND id != ?`
 		args = append(args, excludeID)
+	}
+	if _, occurrence, ok := strings.Cut(contestID, "@"); ok && dupeScope != "" {
+		query += ` AND substr(contest_id, instr(contest_id, '@') + 1) = ?`
+		args = append(args, occurrence)
 	}
 	if !since.IsZero() {
 		query += ` AND (qso_date || time_on) >= ?`

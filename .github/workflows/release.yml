@@ -9,6 +9,8 @@ permissions:
   contents: write
 
 jobs:
+  native:
+    uses: ./.github/workflows/native-smoke.yml
   # Tag pushes are excluded from the normal CI triggers (push to main /
   # pull_request), so without this gate a release could publish binaries that
   # never ran the test suite, or whose baked-in appVersion disagrees with the
@@ -24,6 +26,7 @@ jobs:
       - run: go vet ./...
       - run: go test ./...
       - run: go test -race -short ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
       - name: Verify tag matches appVersion
         run: |
           tag="${GITHUB_REF_NAME#v}"
@@ -39,7 +42,7 @@ jobs:
           echo "tag v$tag matches appVersion $appVersion"
 
   build:
-    needs: verify
+    needs: [verify, native]
     runs-on: ubuntu-latest
     strategy:
       matrix:

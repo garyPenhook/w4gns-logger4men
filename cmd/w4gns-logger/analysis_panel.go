@@ -74,6 +74,9 @@ func (m model) analysisPanel(width int) string {
 		band := m.fields[fieldBand].Value()
 		exchangeText := m.contestFields[contestExchangeRcvd].Value()
 		newMult, workedBefore := m.contestIndex.wouldBeNewMultiplier(rules, call, band, exchangeText, entity, entityFound)
+		if event.QSOParty != nil {
+			newMult, workedBefore = m.contestIndex.partyNewMultiplier(m.partyEntryQSO(call))
+		}
 		switch {
 		case newMult:
 			lines = append(lines, truncateToWidth(newMultStyle.Render("NEW MULT"), width))

@@ -5,7 +5,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"time"
 )
 
 const (
@@ -24,6 +26,9 @@ type terminalInvocation struct {
 // windowsize.go) and the chosen emulator supports requesting one, the new
 // window opens at that size instead of the emulator's own default.
 func launchInOwnTerminal() error {
+	if runtime.GOOS == "linux" && (os.Getenv("SSH_CONNECTION") != "" || (os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "")) {
+		return fmt.Errorf("no local graphical session")
+	}
 	executable, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("locate application executable: %w", err)
@@ -32,10 +37,21 @@ func launchInOwnTerminal() error {
 	if err != nil {
 		return err
 	}
-	if err := exec.Command(invocation.program, invocation.args...).Start(); err != nil {
+	cmd := exec.Command(invocation.program, invocation.args...)
+	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start %s: %w", filepath.Base(invocation.program), err)
 	}
-	return nil
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	select {
+	case err := <-done:
+		if err != nil {
+			return fmt.Errorf("terminal exited before launch: %w", err)
+		}
+		return nil
+	case <-time.After(500 * time.Millisecond):
+		return nil
+	}
 }
 
 func findTerminalInvocation(executable, preferredTerminal, geometry string, lookPath func(string) (string, error)) (terminalInvocation, error) {
