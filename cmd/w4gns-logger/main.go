@@ -554,6 +554,7 @@ func newCabrilloCategoryInput(value, placeholder string) textinput.Model {
 }
 
 func (m *model) openStationSetup() {
+	m.setTableFocused(false)
 	profile := m.activeStation
 	m.stationFields = []textinput.Model{
 		newStationTextInput(profile.Name, 20),
@@ -665,6 +666,7 @@ func (m *model) saveStationSetup() tea.Cmd {
 }
 
 func (m *model) openCluster() tea.Cmd {
+	m.setTableFocused(false)
 	m.screen = clusterScreen
 	return m.connectClusterIfNeeded()
 }
@@ -691,6 +693,7 @@ func (m *model) connectClusterIfNeeded() tea.Cmd {
 }
 
 func (m *model) openClusterFilters() {
+	m.setTableFocused(false)
 	f := m.clusterFilters
 	m.clusterFilterFields = []textinput.Model{
 		newStationTextInput(f.DXCC, 14), newStationTextInput(f.DXITUZone, 14),
@@ -970,6 +973,7 @@ func nonCollidingPath(path string) string {
 }
 
 func (m *model) openADIFImport() {
+	m.setTableFocused(false)
 	m.adifPathField = newStationTextInput("", 60)
 	m.adifPathField.Placeholder = "/path/to/log.adi"
 	m.adifPathField.Focus()
@@ -1651,12 +1655,14 @@ func focusTextFields(fields []textinput.Model, focused int) {
 }
 
 func (m *model) openQSODetails() {
+	m.setTableFocused(false)
 	m.screen = qsoDetailsScreen
 	m.detailFocusIdx = 0
 	focusTextFields(m.detailFields, m.detailFocusIdx)
 }
 
 func (m *model) openQSOContest() {
+	m.setTableFocused(false)
 	m.screen = qsoContestScreen
 	m.contestFocusIdx = 0
 	focusTextFields(m.contestFields, m.contestFocusIdx)
@@ -1666,6 +1672,7 @@ func (m *model) openQSOContest() {
 // for the active contest. continentBandFocus starts on the currently
 // selected QSO Entry band so the operator lands on the band they're running.
 func (m *model) openContinentPanel() {
+	m.setTableFocused(false)
 	m.screen = continentScreen
 	bands := m.continentPanelBands()
 	m.continentBandFocus = 0
@@ -1681,6 +1688,7 @@ func (m *model) openContinentPanel() {
 // openHelpPanel opens the in-app command reference (Ctrl+G), reachable from
 // any screen (roadmap §3 Phase 3: "in-app HELP for the new commands").
 func (m *model) openHelpPanel() {
+	m.setTableFocused(false)
 	m.helpReturnScreen = m.screen
 	m.screen = helpScreen
 }
@@ -1700,6 +1708,7 @@ func (m model) continentPanelBands() []string {
 }
 
 func (m *model) openEventCatalog() {
+	m.setTableFocused(false)
 	m.screen = eventCatalogScreen
 	m.eventFocus = 0
 	m.eventSessionFocus = 0
@@ -2671,6 +2680,30 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		// F2-F7 switch screens regardless of whether the Recent QSOs table
+		// has focus: they must be checked before delegating to
+		// updateRecentQSOsTable below, otherwise the bubbles table widget
+		// silently swallows them (it has no bindings for function keys),
+		// making the hotkeys appear dead whenever F9 last had focus.
+		switch msg.String() {
+		case "f2":
+			m.openStationSetup()
+			return m, nil
+		case "f3":
+			return m, m.openCluster()
+		case "f4":
+			m.openClusterFilters()
+			return m, nil
+		case "f5":
+			m.openADIFImport()
+			return m, nil
+		case "f6":
+			m.openQSODetails()
+			return m, nil
+		case "f7":
+			m.openContestOrCatalog()
+			return m, nil
+		}
 		if m.tableFocused {
 			return m.updateRecentQSOsTable(msg)
 		}
@@ -2737,23 +2770,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if leavingCall {
 				return m, tea.Batch(m.autoFillPOTAReference(), m.autoFillFromQRZ())
 			}
-			return m, nil
-		case "f2":
-			m.openStationSetup()
-			return m, nil
-		case "f3":
-			return m, m.openCluster()
-		case "f4":
-			m.openClusterFilters()
-			return m, nil
-		case "f5":
-			m.openADIFImport()
-			return m, nil
-		case "f6":
-			m.openQSODetails()
-			return m, nil
-		case "f7":
-			m.openContestOrCatalog()
 			return m, nil
 		case "left", "down":
 			if m.focusedBaseFieldIndex() == fieldBand {

@@ -416,6 +416,51 @@ func TestF9TogglesTableFocusAndCursorSurvivesEmptyToNonEmptyTransition(t *testin
 	}
 }
 
+// TestScreenSwitchHotkeysWorkWhileRecentQSOsTableFocused guards against a
+// regression where F9-focusing the Recent QSOs table caused F2-F7 to fall
+// straight into updateRecentQSOsTable, which has no bindings for function
+// keys — the bubbles table widget silently swallowed them, making the
+// hotkeys appear dead (e.g. "F6 does nothing") until F9 was pressed again.
+func TestScreenSwitchHotkeysWorkWhileRecentQSOsTableFocused(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyF9})
+	m = updated.(model)
+	if !m.tableFocused {
+		t.Fatal("F9 did not focus the Recent QSOs table")
+	}
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyF6})
+	m = updated.(model)
+	if m.screen != qsoDetailsScreen {
+		t.Fatalf("F6 while table focused: screen = %v, want qsoDetailsScreen", m.screen)
+	}
+
+	// The realistic follow-on: leaving QSO Details back to QSO Entry must
+	// also release the table's focus, or the operator lands back on the
+	// entry form with every keystroke silently swallowed by the (now
+	// invisible, since we're not on that screen) Recent QSOs table instead
+	// of reaching the Call field.
+	if m.tableFocused {
+		t.Fatal("F6 did not release Recent QSOs table focus when opening QSO Details")
+	}
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updated.(model)
+	if m.screen != qsoEntryScreen {
+		t.Fatalf("Esc from QSO Details: screen = %v, want qsoEntryScreen", m.screen)
+	}
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("W")})
+	m = updated.(model)
+	if m.fields[fieldCall].Value() != "W" {
+		t.Fatalf("typing after F6->Esc: Call field = %q, want \"W\" (keystroke must not be swallowed by the table)", m.fields[fieldCall].Value())
+	}
+}
+
 // TestEditQSOFlowSavesChangesWithoutInsertingANewRow drives the full
 // F9 -> Enter -> edit -> save cycle through Update, the way a real
 // keystroke sequence would, and confirms the existing row is updated in
