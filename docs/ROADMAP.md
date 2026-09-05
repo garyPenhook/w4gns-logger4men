@@ -58,10 +58,10 @@ the log, submitted contest results, or external services.
 - 🔧 **Audit and implement scoring per contest before presenting the catalog as
   correct.** Every one of the 429 event records now declares and is validated
   against an explicit `capability`: 9 intentionally generic templates are
-  `selection-only`, 405 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
+  `selection-only`, 404 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
   `CQ-160-CW`, `ARRL-DX-CW`, `CQ-WPX-CW`, `TNQP`, `SAC-CW`, `NAQP-CW`,
   `ARRL-SS-CW`, `IARU-HF`, `NA-SPRINT-CW`, `DARC-WAEDC-CW`, `HELVETIA`,
-  `RDXC`, and `STEW-PERRY` are `scoring-ready`. **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
+  `RDXC`, `STEW-PERRY`, and `WAG` are `scoring-ready`. **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
   side-asymmetric around a fixed "Scandinavian" country group — Norway,
   Finland, Sweden, Iceland, Denmark, and the territories the rules list by
   their own prefix block (Svalbard, Jan Mayen, Åland Islands, Market Reef,
@@ -398,7 +398,18 @@ every panel *and* scoring so they always agree.
 
 **Phase 2 — databases & partials**
 - ⏳ `roster.go`: `.LST` club rosters (bidirectional call↔name↔number), prefill.
-  Blocked on open decision #2 (data licensing).
+  Blocked on open decision #2 (data licensing). A CWops-roster-based version
+  of this was implemented and then reverted (2026-09-04): CWops does publish
+  its own Member Roster as a public CSV export
+  (cwops.org/membership/member-roster-2/), but the club's privacy policy is
+  silent on redistribution/embedding rights for that public page and
+  separately describes a members-only Groups.io channel for
+  logger-integration data — a signal the club treats "publicly viewable"
+  and "cleared for third-party software" differently. Given QRZ lookup
+  already covers name/QTH/grid prefill for any callsign (not just the
+  ~3,400-member CWops subset), the marginal value didn't justify committing
+  static third-party personal data under unresolved terms. Revisit only
+  with an explicitly cleared source.
 - ✅ **Check Partial** list. `contestState.checkPartial` (`contest_state.go`)
   returns prior-logged calls in the active contest containing the in-progress
   fragment (substring match, self-match excluded, sorted, capped at 5); shown
@@ -1047,6 +1058,69 @@ every panel *and* scoring so they always agree.
   (`TestContestStateScorePointsRuleStewPerryDistance`,
   `TestContestStateScoreNoneMultiplierAlwaysCountsOne`), `events_test.go`
   (`TestLoadEventCatalogStewPerryHasRealScoringRules`).
+- ✅ **Real per-contest wiring: Worked All Germany Contest's actual QSO points
+  and multiplier rules**, side-asymmetric like ARRL-DX-CW/WAE/RDXC but the
+  first contest wired here where the non-domestic entrant's points formula
+  is genuinely flat (no country/continent tiering at all) while the domestic
+  entrant's is tiered — the reverse pairing of shapes from every prior
+  side-asymmetric event, which all gave the tiered formula (or a tiered
+  formula plus a group bonus) to both sides. Sourced from darc.de's WAG
+  rules (Sections 4-6) and the contest's own "Districts, DOKs and a
+  mysterious multiplier" service page: Section 6 gives a German entrant 1/3/5
+  points for same-country/same-continent/other-continent — the existing
+  `pointsRule.SameCountry/SameContinent/OtherContinent` fields directly, no
+  schema change — while "each complete exchange counts 3 points for
+  non-German stations" (this app's own station profile) is a flat
+  `PointsPerQSO: 3` with no `Points` block at all, the same shape NAQP-CW's
+  own wiring used. Section 5's exchange format explains why: only a German
+  station's exchange carries a multiplier-bearing value (RS(T) + DOK chapter
+  code), while a non-German operator sends a plain running serial number, and
+  a non-member German operator explicitly sends "NM" instead of a DOK
+  ("will be no multiplier" per the rules) — the first letter of "NM" is
+  itself the real district letter N (Nordrhein-Westfalen), so **new
+  `dok_district.go`** (`dokDistrictCode`) excludes the literal "NM" token by
+  name rather than relying on a letter/digit check alone. Unlike
+  `canton.go`/`tn_county.go`'s fixed value sets, no district letter is
+  actually excluded here: the WAG service page states "the regular DARC/VFDB
+  districts allow for 25 multipliers per band" (every letter except J) plus a
+  documented 26th "mysterious multiplier" from rare special-DOKs that do
+  start with J, so `dokDistrictCode` accepts any letter A-Z. **New
+  `dok_district` multiplier kind** (`contest_state.go`:
+  `dokDistrictByBand`/`dokDistrictAll`, extending `multiplierCount`/
+  `wouldBeNewMultiplier`) implements the non-German entrant's own per-band
+  multiplier ("Stations outside Germany receive one multiplier point for
+  each German district worked ... per band"); the German entrant's own
+  multiplier ("each DXCC/WAE area plus IG9/IH9 ... per band") needed no new
+  code at all, reusing RDXC's existing `dxcc_or_wae` kind unmodified. Curated
+  `WAG` (`events/contestcalendar.json`) carries the real `scoring`
+  (German-entrant) and `dx_scoring` (non-German-entrant, this app's own
+  profile) blocks plus `domestic_countries: ["Fed. Rep. of Germany"]` (the
+  embedded cty.dat's own country name for DL, confirmed by reading
+  `data/cty.dat` directly — not the bare "Germany" the catalog's own
+  `id`/`name` fields might suggest), `adif_contest_id: DARC-WAG` (confirmed
+  against the ADIF Contest ID Enumeration — not the bare `WAG` the catalog's
+  own event id might suggest),
+  and `cabrillo_layout: cw_rst_exchange` (RST + one free-text exchange field
+  — DOK, "NM", or serial number — the same shape every other
+  `cw_rst_exchange` event already uses), promoting `capability` to
+  `scoring-ready`; no de-dup change was needed since the catalog already
+  carried two generated `SD-WAG*` entries (DL/DX side splits) sharing the
+  curated entry's `WAG` Cabrillo token under the existing "token shared by
+  two-or-more generated entries and one curated entry is added fidelity"
+  rule (§2), the same shape Helvetia's own generated duplicates take.
+  **Deliberately out of scope, documented limitations, not rules gaps:**
+  this app logs CW only, and the rules' own per-band-per-mode counting
+  ("once in CW and once in SSB") is moot under that standing limitation,
+  the same class of non-gap as IARU HF's Phone/Mixed exclusion; the rules
+  text found so far gives no separate same-country tier reference beyond
+  Section 6's own wording, so no additional exception table (of the kind
+  CQ WW's North America override or WPX's low-band tiering needed) was
+  found to be missing. Tests: `dok_district_test.go` (`TestDOKDistrictCode`),
+  `contest_state_test.go`
+  (`TestContestStateScoreDOKDistrictMultiplierFromReceivedExchange`,
+  `TestContestStateWouldBeNewMultiplierDOKDistrict`,
+  `TestContestStateScorePointsRuleWAGSideAsymmetric`), `events_test.go`
+  (`TestLoadEventCatalogWAGHasRealScoringRules`).
 - ✅ **CSV export** (`Ctrl+R`). `csv_export.go` (`exportCSV`, `writeCSVAtomic`,
   `csvField`/`csvRow` — RFC 4180 quoting, CRLF rows) streams the active
   contest's QSOs (same `contest_id` scoping as Cabrillo/ADIF export) to

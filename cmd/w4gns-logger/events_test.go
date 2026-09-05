@@ -1249,3 +1249,53 @@ func TestLoadEventCatalogStewPerryHasRealScoringRules(t *testing.T) {
 		t.Fatal("STEW-PERRY scoring is side-symmetric; DXScoring must be nil")
 	}
 }
+
+// TestLoadEventCatalogWAGHasRealScoringRules closes out the Worked All
+// Germany Contest catalog entry (darc.de WAG rules, Sections 4-6 and the
+// contest's own "Districts, DOKs and a mysterious multiplier" service page):
+// a side-asymmetric points formula — a German entrant scores 1/3/5 points for
+// same-country/same-continent/other-continent (Section 6), while a
+// non-German entrant (this app's own station profile) scores a flat 3 points
+// per QSO regardless of tier — and a side-asymmetric multiplier: the DXCC+WAE
+// country union for a German entrant, vs. the worked station's German DOK
+// district letter for a non-German entrant.
+func TestLoadEventCatalogWAGHasRealScoringRules(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	wag := events[eventIndex(t, events, "WAG")]
+	if wag.Capability != catalogCapabilityScoringReady {
+		t.Fatalf("WAG capability = %q, want %q", wag.Capability, catalogCapabilityScoringReady)
+	}
+	if !wag.cabrilloReady() {
+		t.Fatal("WAG must have a checked Cabrillo layout")
+	}
+	if wag.ADIFContestID != "DARC-WAG" {
+		t.Fatalf("WAG adif_contest_id = %q, want DARC-WAG", wag.ADIFContestID)
+	}
+	if !countryInList(wag.DomesticCountries, "Fed. Rep. of Germany") {
+		t.Fatalf("WAG domestic_countries = %v, want it to include Fed. Rep. of Germany", wag.DomesticCountries)
+	}
+	if wag.Scoring == nil || wag.Scoring.Points == nil {
+		t.Fatal("WAG must have a Points-based Scoring rule (the German-entrant side)")
+	}
+	if p := wag.Scoring.Points; p.SameCountry != 1 || p.SameContinent != 3 || p.OtherContinent != 5 {
+		t.Fatalf("WAG scoring.points = %+v, want same-country 1 / same-continent 3 / other-continent 5", p)
+	}
+	if mults := wag.Scoring.effectiveMultipliers(); len(mults) != 1 || mults[0].Kind != "dxcc_or_wae" || mults[0].Per != "band" {
+		t.Fatalf("WAG scoring.multipliers = %+v, want one dxcc_or_wae per band", mults)
+	}
+	if wag.DXScoring == nil {
+		t.Fatal("WAG must have a DXScoring rule (the non-German-entrant side, this app's own profile)")
+	}
+	if wag.DXScoring.Points != nil {
+		t.Fatal("WAG dx_scoring is flat 3 points per QSO; Points must be nil")
+	}
+	if wag.DXScoring.PointsPerQSO != 3 {
+		t.Fatalf("WAG dx_scoring.points_per_qso = %d, want 3", wag.DXScoring.PointsPerQSO)
+	}
+	if mults := wag.DXScoring.effectiveMultipliers(); len(mults) != 1 || mults[0].Kind != "dok_district" || mults[0].Per != "band" {
+		t.Fatalf("WAG dx_scoring.multipliers = %+v, want one dok_district per band", mults)
+	}
+}

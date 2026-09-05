@@ -5153,7 +5153,7 @@
   },
   {
     "id": "WAG",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "Worked All Germany Contest",
     "organizer": "",
     "kind": "annual contest (Active historically, but unconfirmed)",
@@ -5170,6 +5170,8 @@
     "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: DL, DARC-Member: RS(T) + DOK (chapter code) DL, non-DARC: RS(T) + \"NM\" non-DL: RS(T) + Serial No.",
     "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: DL, DARC-Member: RS(T) + DOK (chapter code) DL, non-DARC: RS(T) + \"NM\" non-DL: RS(T) + Serial No.",
     "dupe_scope": "call+band",
+    "adif_contest_id": "DARC-WAG",
+    "cabrillo_layout": "cw_rst_exchange",
     "rules_url": "http://www.darc.de/der-club/referate/conteste/worked-all-germany-contest/en/rules/",
     "score_submission_url": "",
     "sessions": [
@@ -5178,7 +5180,24 @@
         "label": "Worked All Germany Contest",
         "schedule": "1500Z, Oct 17 to 1459Z, Oct 18"
       }
-    ]
+    ],
+    "domestic_countries": ["Fed. Rep. of Germany"],
+    "scoring": {
+      "points": {
+        "same_country": 1,
+        "same_continent": 3,
+        "other_continent": 5
+      },
+      "multipliers": [
+        {"kind": "dxcc_or_wae", "per": "band"}
+      ]
+    },
+    "dx_scoring": {
+      "points_per_qso": 3,
+      "multipliers": [
+        {"kind": "dok_district", "per": "band"}
+      ]
+    }
   },
   {
     "id": "YO-DX-HF",

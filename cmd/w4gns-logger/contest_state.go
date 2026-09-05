@@ -146,6 +146,14 @@ type contestState struct {
 	// every qualifying entity has a DXCC number to key on.
 	countryOrWAEByBand map[string]map[string]struct{}
 	countryOrWAEAll    map[string]struct{}
+	// dokDistrictByBand/dokDistrictAll mirror cantonByBand/cantonAll for the
+	// "dok_district" multiplier kind (dok_district.go's dokDistrictCode): the
+	// German DOK district letter parsed from the worked station's received
+	// exchange text, the Worked All Germany Contest's own non-German-entrant
+	// per-band multiplier (darc.de WAG rules, Section 5: "Stations outside
+	// Germany receive one multiplier point for each German district worked").
+	dokDistrictByBand map[string]map[string]struct{}
+	dokDistrictAll    map[string]struct{}
 	// pointCategoryCountry records the worked entity's cty.dat country name
 	// for every scored "CALL|BAND" key, independent of whether the operator's
 	// own station resolved — a pointsRule.CountryGroup check (e.g. SAC's
@@ -260,6 +268,8 @@ func newContestState() *contestState {
 		oblastAll:              make(map[string]struct{}),
 		countryOrWAEByBand:     make(map[string]map[string]struct{}),
 		countryOrWAEAll:        make(map[string]struct{}),
+		dokDistrictByBand:      make(map[string]map[string]struct{}),
+		dokDistrictAll:         make(map[string]struct{}),
 		pointCategory:          make(map[string]qsoPointCategory),
 		pointCategoryContinent: make(map[string]string),
 		pointCategoryCountry:   make(map[string]string),
@@ -335,6 +345,7 @@ func (c *contestState) record(q qso) {
 		recordMultiplierStringValue(c.tnCountyByBand, c.tnCountyAll, band, tnCountyCode(q.srxString))
 		recordMultiplierStringValue(c.cantonByBand, c.cantonAll, band, cantonCode(q.srxString))
 		recordMultiplierStringValue(c.oblastByBand, c.oblastAll, band, rdxcOblastCode(q.srxString))
+		recordMultiplierStringValue(c.dokDistrictByBand, c.dokDistrictAll, band, dokDistrictCode(q.srxString))
 		recordMultiplierStringValue(c.naqpAreaByBand, c.naqpAreaAll, band, naqpAreaCode(q.srxString))
 		recordMultiplierStringValue(c.arrlSectionByBand, c.arrlSectionAll, band, arrlSectionCode(q.srxString))
 		if special := iaruExchangeSpecial(q.srxString); special != "" {
@@ -766,6 +777,15 @@ func (c *contestState) multiplierCount(rule multiplierRule) int {
 			return total
 		}
 		return len(c.countryOrWAEAll)
+	case "dok_district":
+		if strings.TrimSpace(rule.Per) == "band" {
+			total := 0
+			for _, set := range c.dokDistrictByBand {
+				total += len(set)
+			}
+			return total
+		}
+		return len(c.dokDistrictAll)
 	}
 	var byBand map[string]map[int]struct{}
 	var all map[int]struct{}
@@ -899,6 +919,22 @@ func (c *contestState) wouldBeNewMultiplier(rules *scoringRules, call, band, exc
 				_, already = c.oblastByBand[band][oblast]
 			} else {
 				_, already = c.oblastAll[oblast]
+			}
+			if already {
+				workedBefore = true
+			} else {
+				newMult = true
+			}
+		case "dok_district":
+			district := dokDistrictCode(exchangeText)
+			if district == "" {
+				continue
+			}
+			var already bool
+			if strings.TrimSpace(rule.Per) == "band" {
+				_, already = c.dokDistrictByBand[band][district]
+			} else {
+				_, already = c.dokDistrictAll[district]
 			}
 			if already {
 				workedBefore = true

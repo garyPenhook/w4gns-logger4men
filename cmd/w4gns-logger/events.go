@@ -401,7 +401,7 @@ type multiplierRule struct {
 // "no multiplier configured" the same way it does for every other event.
 func validMultiplierKind(kind string) bool {
 	switch strings.TrimSpace(kind) {
-	case "unique_call", "dxcc", "cqzone", "ituzone", "prefix", "exchange_area", "tn_county", "sac_area", "naqp_area", "arrl_section", "iaru_zone", "iaru_hq", "wae_country", "dxcc_non_wae", "canton", "oblast", "dxcc_or_wae", "none":
+	case "unique_call", "dxcc", "cqzone", "ituzone", "prefix", "exchange_area", "tn_county", "sac_area", "naqp_area", "arrl_section", "iaru_zone", "iaru_hq", "wae_country", "dxcc_non_wae", "canton", "oblast", "dxcc_or_wae", "dok_district", "none":
 		return true
 	default:
 		return false

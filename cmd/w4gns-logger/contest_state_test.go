@@ -1459,3 +1459,85 @@ func TestContestStateScoreNoneMultiplierAlwaysCountsOne(t *testing.T) {
 		t.Fatalf("total = %d, want 6 (2 QSOs * 3 points * 1 multiplier)", score.total())
 	}
 }
+
+// TestContestStateScoreDOKDistrictMultiplierFromReceivedExchange exercises
+// the Worked All Germany Contest's non-German-entrant "dok_district"
+// multiplier: the German district letter (first letter of the worked
+// station's DOK) parsed from the received exchange text, counted per band
+// (darc.de WAG rules §5: "Stations outside Germany receive one multiplier
+// point for each German district worked ... per band"). A repeated district
+// on the same band doesn't add another; the same district on a different
+// band does; a non-member's "NM" exchange and a non-German station's own
+// sent serial number both contribute nothing.
+func TestContestStateScoreDOKDistrictMultiplierFromReceivedExchange(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "DL1AA", band: "20M", srxString: "F41"}) // new: F/20M
+	state.record(qso{call: "DL2BB", band: "20M", srxString: "f22"}) // same district+band, case-insensitive
+	state.record(qso{call: "DL3CC", band: "40M", srxString: "F09"}) // same district, new band
+	state.record(qso{call: "DL4DD", band: "20M", srxString: "P03"}) // new: P/20M
+	state.record(qso{call: "DL5EE", band: "20M", srxString: "NM"})  // non-member: no multiplier
+	state.record(qso{call: "W1AW", band: "20M", srxString: "042"})  // non-German station's own serial
+
+	rules := &scoringRules{
+		PointsPerQSO: 1,
+		Multipliers:  []multiplierRule{{Kind: "dok_district", Per: "band"}},
+	}
+	score := state.score(rules)
+	if score.multipliers != 3 {
+		t.Fatalf("multipliers = %d, want 3 (F/20M + F/40M + P/20M)", score.multipliers)
+	}
+}
+
+// TestContestStateWouldBeNewMultiplierDOKDistrict exercises the as-you-type
+// "NEW MULT" flag for the dok_district kind, which — like canton/tn_county —
+// has no callsign-derived fallback and reads only the operator's
+// in-progress received-exchange field text.
+func TestContestStateWouldBeNewMultiplierDOKDistrict(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "DL1AA", band: "20M", srxString: "F41"})
+
+	rules := &scoringRules{
+		Multipliers: []multiplierRule{{Kind: "dok_district", Per: "band"}},
+	}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "DL2BB", "20M", "F22", dxccEntity{}, false); newMult || !workedBefore {
+		t.Fatalf("F/20M (already worked) = newMult=%v workedBefore=%v, want false/true", newMult, workedBefore)
+	}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "DL3CC", "40M", "F09", dxccEntity{}, false); !newMult || workedBefore {
+		t.Fatalf("F/40M (new band) = newMult=%v workedBefore=%v, want true/false", newMult, workedBefore)
+	}
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "DL5EE", "20M", "NM", dxccEntity{}, false); newMult || workedBefore {
+		t.Fatalf("non-member NM exchange = newMult=%v workedBefore=%v, want false/false", newMult, workedBefore)
+	}
+}
+
+// TestContestStateScorePointsRuleWAGSideAsymmetric exercises the Worked All
+// Germany Contest's side-asymmetric points formula (darc.de WAG rules §6): a
+// German entrant scores 1/3/5 points for same-country/same-continent/
+// other-continent, while a non-German entrant (this app's own station
+// profile) scores a flat 3 points per complete exchange regardless of the
+// worked station's country or continent.
+func TestContestStateScorePointsRuleWAGSideAsymmetric(t *testing.T) {
+	german := newContestState()
+	german.setStation("DL1AA")
+	german.record(qso{call: "DL2BB", band: "20M"}) // same country
+	german.record(qso{call: "G4ABC", band: "20M"}) // same continent
+	german.record(qso{call: "W1AW", band: "20M"})  // other continent
+
+	germanRules := &scoringRules{
+		Points: &pointsRule{SameCountry: 1, SameContinent: 3, OtherContinent: 5},
+	}
+	if score := german.score(germanRules); score.qsoPoints != 9 {
+		t.Fatalf("German-entrant qsoPoints = %d, want 9 (1 + 3 + 5)", score.qsoPoints)
+	}
+
+	nonGerman := newContestState()
+	nonGerman.setStation("W1AW")
+	nonGerman.record(qso{call: "DL1AA", band: "20M"})  // Germany
+	nonGerman.record(qso{call: "G4ABC", band: "20M"})  // Europe, non-Germany
+	nonGerman.record(qso{call: "JA1ABC", band: "20M"}) // other continent
+
+	nonGermanRules := &scoringRules{PointsPerQSO: 3}
+	if score := nonGerman.score(nonGermanRules); score.qsoPoints != 9 {
+		t.Fatalf("non-German-entrant qsoPoints = %d, want 9 (flat 3 x 3 QSOs)", score.qsoPoints)
+	}
+}
