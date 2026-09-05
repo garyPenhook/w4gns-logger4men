@@ -1,7 +1,7 @@
 [
   {
     "id": "K1USN-SST",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "K1USN Slow Speed Test (SST)",
     "organizer": "K1USN Radio Club",
     "kind": "weekly event",
@@ -12,9 +12,15 @@
     "received_exchange_hint": "Name + State/Province/Country",
     "dupe_scope": "call+band+session",
     "cabrillo_omit_rst": true,
+    "cabrillo_layout": "cw_exchange_only",
     "cabrillo_contest": "SLOW-SPEED-TEST",
+    "adif_contest_id": "K1USN-SST",
     "rules_url": "https://www.k1usn.com/sst_rules.html",
     "score_submission_url": "https://www.3830scores.com/",
+    "scoring": {
+      "points_per_qso": 1,
+      "multipliers": [{"kind": "sst_area", "per": "contest"}]
+    },
     "sessions": [
       {"id": "FRI", "label": "SST-Fri", "schedule": "Friday 2000-2100 UTC"},
       {"id": "MON", "label": "SST-Mon", "schedule": "Monday 0000-0100 UTC"}

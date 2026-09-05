@@ -652,6 +652,52 @@ func TestContestStateWouldBeNewMultiplierNAQPArea(t *testing.T) {
 	}
 }
 
+// TestContestStateScoreSSTAreaMultiplierCountsOncePerContest exercises
+// K1USN SST's "sst_area" multiplier: a state/province or worldwide-DXCC-
+// country value parsed from the last token of the worked station's received
+// exchange text ("Name Location"), counted once for the whole contest (SST's
+// rules give one flat total-multiplier figure, not a per-band one, unlike
+// NAQP's own naqp_area wiring). A repeated value anywhere doesn't add
+// another; a non-North-America worked station still counts here, unlike
+// naqp_area's NA-only fallback.
+func TestContestStateScoreSSTAreaMultiplierCountsOncePerContest(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "W4ABC", band: "20M", srxString: "BOB CA"})  // new: CA
+	state.record(qso{call: "K6XYZ", band: "40M", srxString: "JOE CA"})  // same area, no new mult
+	state.record(qso{call: "W1AW", band: "20M", srxString: "SUE CT"})   // new: CT
+	state.record(qso{call: "JA1JKL", band: "20M", srxString: "KEN JA"}) // worldwide DX: new mult
+
+	rules := &scoringRules{
+		PointsPerQSO: 1,
+		Multipliers:  []multiplierRule{{Kind: "sst_area", Per: "contest"}},
+	}
+	score := state.score(rules)
+	if score.multipliers != 3 {
+		t.Fatalf("multipliers = %d, want 3 (CA + CT + Japan)", score.multipliers)
+	}
+}
+
+// TestContestStateWouldBeNewMultiplierSSTArea exercises the as-you-type
+// "NEW MULT" flag for the sst_area kind.
+func TestContestStateWouldBeNewMultiplierSSTArea(t *testing.T) {
+	state := newContestState()
+	state.record(qso{call: "W4ABC", band: "20M", srxString: "BOB CA"})
+
+	rules := &scoringRules{
+		Multipliers: []multiplierRule{{Kind: "sst_area", Per: "contest"}},
+	}
+	// Same area, already worked (counted once per contest, not per band):
+	// not a new mult even on a different band.
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "K6XYZ", "40M", "JOE CA", dxccEntity{}, false); newMult || !workedBefore {
+		t.Fatalf("CA (already worked) = newMult=%v workedBefore=%v, want false/true", newMult, workedBefore)
+	}
+	// Worldwide DX worked station: new mult (unlike naqp_area, no NA
+	// restriction).
+	if newMult, workedBefore := state.wouldBeNewMultiplier(rules, "JA1JKL", "20M", "KEN JA", dxccEntity{}, false); !newMult || workedBefore {
+		t.Fatalf("Japan (worldwide DX) = newMult=%v workedBefore=%v, want true/false", newMult, workedBefore)
+	}
+}
+
 // TestContestStateScoreARRLSectionMultiplierCountsOncePerContest exercises
 // ARRL Sweepstakes' "arrl_section" multiplier (Rule 5.2/5.3,
 // contests.arrl.org/ContestRules/SS-Rules.pdf): the section parsed from the

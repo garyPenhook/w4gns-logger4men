@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.30.0
+
+- Wired the K1USN Slow Speed Test (SST)'s real scoring rules: a flat 1 point per QSO times a multiplier that's the sum of distinct US states, Canadian provinces, and worldwide DXCC countries worked (no DXCC credit for the USA/Canada themselves), counted once for the whole contest, sourced from the K1USN SST Rules. New `sst_area` multiplier kind reuses NAQP CW's existing state/province table and exchange parsing but drops its North-America-only restriction on the DXCC fallback, since SST's own DXCC multiplier is worldwide.
+
 ### v1.29.0
 
 - Wired the Oceania DX Contest, CW's real scoring rules: a flat points value per QSO looked up solely by band (20/10/5/1/2/3 points on 160/80/40/20/15/10M), times the existing CQ WPX-style prefix multiplier counted per band instead of once per contest, sourced from oceaniadxcontest.com's official rules. New `pointsRule.PerBand` schema is the first points formula with no country/continent classification at all. Also fixed a pre-existing catalog de-dup gap: the generated duplicate's Cabrillo token was missing the contest's mode suffix, so it never matched the curated entry's own (correct) token.

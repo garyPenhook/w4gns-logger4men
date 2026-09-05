@@ -58,10 +58,11 @@ the log, submitted contest results, or external services.
 - 🔧 **Audit and implement scoring per contest before presenting the catalog as
   correct.** Every one of the 429 event records now declares and is validated
   against an explicit `capability`: 9 intentionally generic templates are
-  `selection-only`, 404 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
+  `selection-only`, 403 are `entry-aware`, and `CW-OPEN`, `CWT`, `CQ-WW-CW`,
   `CQ-160-CW`, `ARRL-DX-CW`, `CQ-WPX-CW`, `TNQP`, `SAC-CW`, `NAQP-CW`,
   `ARRL-SS-CW`, `IARU-HF`, `NA-SPRINT-CW`, `DARC-WAEDC-CW`, `HELVETIA`,
-  `RDXC`, `STEW-PERRY`, `WAG`, and `OCEANIA-DX-CW` are `scoring-ready`.
+  `RDXC`, `STEW-PERRY`, `WAG`, `OCEANIA-DX-CW`, and `K1USN-SST` are
+  `scoring-ready`.
   **SAC-CW's real scoring** (sactest.net's Sections 7-8) is
   side-asymmetric around a fixed "Scandinavian" country group — Norway,
   Finland, Sweden, Iceland, Denmark, and the territories the rules list by
@@ -1154,6 +1155,42 @@ every panel *and* scoring so they always agree.
   (`TestContestStateScorePointsRulePerBand`), `events_test.go`
   (`TestLoadEventCatalogOceaniaDXHasRealScoringRules`, new `TestValidateScoringRules`
   cases for `per_band`).
+- ✅ **Real per-contest wiring: K1USN Slow Speed Test (SST)'s actual scoring
+  rules**, closing out the one curated event left without a `scoring` block.
+  Sourced from the K1USN SST Rules (linked from k1usn.com/sst_rules.html; the
+  rules text itself lives in a Google Doc embedded via iframe, which needed a
+  direct fetch of the doc's own publish URL rather than the wrapper page,
+  the same class of non-trivial-to-extract source as RDXC's oblast table):
+  "SCORING 1 point for each QSO regardless of QTH. Multipliers are the sum
+  of States, Provinces and DXCC Countries. No DXCC credit for the USA lower
+  48 States or Canada ... DXCC Multiplier for stations worked outside the
+  USA lower 48 states and Canada (applies to USA/Canada and all DX)" — a
+  flat 1 point per QSO (no continent/country tiering, no schema change
+  needed) times a multiplier counted once for the whole contest (the rules'
+  own worked example sums a single flat "Total Multipliers" figure, not a
+  per-band one). **New `sst_area` multiplier kind** (`sst_area.go`,
+  `sstAreaCode`) reuses `naqp_area.go`'s existing 50-state/DC/13-province
+  table and "Name Location" last-token exchange parsing unmodified (SST's
+  own `sent_exchange_hint`, "First name + state/province/DX country", is the
+  same shape) but drops naqpAreaCode's North-America-only restriction on its
+  DXCC fallback: SST's DXCC multiplier is worldwide, not NA-only, so any
+  cty.dat entity outside the United States/Canada counts, keyed by country
+  name like `naqp_area`/`exchange_area`. `contest_state.go` extends the
+  index with `sstAreaByBand`/`sstAreaAll` (recorded in `record()`, summed in
+  `multiplierCount()`) and wires the as-you-type "NEW MULT" flag in
+  `wouldBeNewMultiplier`. Curated `K1USN-SST` (`events/k1usn.json`) carries
+  the real `scoring` block plus `adif_contest_id: K1USN-SST` (confirmed
+  against the ADIF Contest ID Enumeration) and `cabrillo_layout:
+  cw_exchange_only` (no RST, matching CW Open/NAQP-CW/ARRL SS/NA Sprint's
+  shape — SST's `cabrillo_omit_rst: true` was already set), promoting
+  `capability` to `scoring-ready`; the generated `SD-SST` duplicate remains
+  dropped via the pre-existing curated-vs-generated de-dup (shared
+  `SLOW-SPEED-TEST` Cabrillo token, from §2's "Real sessions/schedules"
+  entry). Tests: `sst_area_test.go` (`TestSSTAreaCode`),
+  `contest_state_test.go`
+  (`TestContestStateScoreSSTAreaMultiplierCountsOncePerContest`,
+  `TestContestStateWouldBeNewMultiplierSSTArea`), `events_test.go`
+  (`TestLoadEventCatalogK1USNSSTHasRealScoringRules`).
 - ✅ **CSV export** (`Ctrl+R`). `csv_export.go` (`exportCSV`, `writeCSVAtomic`,
   `csvField`/`csvRow` — RFC 4180 quoting, CRLF rows) streams the active
   contest's QSOs (same `contest_id` scoping as Cabrillo/ADIF export) to

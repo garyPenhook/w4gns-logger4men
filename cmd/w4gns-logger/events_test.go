@@ -1353,3 +1353,45 @@ func TestLoadEventCatalogOceaniaDXHasRealScoringRules(t *testing.T) {
 		}
 	}
 }
+
+// TestLoadEventCatalogK1USNSSTHasRealScoringRules guards curated
+// K1USN-SST's actual scoring config, sourced from the K1USN SST Rules
+// (linked from k1usn.com/sst_rules.html): "1 point for each QSO regardless
+// of QTH" times a "sst_area" multiplier — the sum of distinct US states,
+// Canadian provinces, and worldwide DXCC countries worked (no DXCC credit
+// for the USA/Canada themselves), counted once for the whole contest per the
+// rules' own single "Total Multipliers" figure, not per band. The exchange
+// (name + state/province/DX country) carries no RST, the same
+// cw_exchange_only/cabrillo_omit_rst shape as NAQP-CW/NA-SPRINT-CW.
+func TestLoadEventCatalogK1USNSSTHasRealScoringRules(t *testing.T) {
+	events, err := loadEventCatalog()
+	if err != nil {
+		t.Fatalf("loadEventCatalog: %v", err)
+	}
+	sst := events[eventIndex(t, events, "K1USN-SST")]
+	if sst.Capability != catalogCapabilityScoringReady {
+		t.Fatalf("K1USN-SST capability = %q, want %q", sst.Capability, catalogCapabilityScoringReady)
+	}
+	if sst.Scoring == nil || sst.Scoring.PointsPerQSO != 1 {
+		t.Fatalf("K1USN-SST scoring = %+v, want PointsPerQSO 1", sst.Scoring)
+	}
+	mults := sst.Scoring.effectiveMultipliers()
+	want := []multiplierRule{{Kind: "sst_area", Per: "contest"}}
+	if len(mults) != len(want) || mults[0] != want[0] {
+		t.Fatalf("K1USN-SST multipliers = %+v, want %+v", mults, want)
+	}
+	if sst.ADIFContestID != "K1USN-SST" {
+		t.Fatalf("K1USN-SST adif_contest_id = %q, want K1USN-SST", sst.ADIFContestID)
+	}
+	if sst.CabrilloLayout != "cw_exchange_only" {
+		t.Fatalf("K1USN-SST cabrillo_layout = %q, want cw_exchange_only", sst.CabrilloLayout)
+	}
+	if !sst.CabrilloOmitRST {
+		t.Fatalf("K1USN-SST cabrillo_omit_rst = false, want true")
+	}
+	for _, event := range events {
+		if event.ID == "SD-SST" {
+			t.Fatalf("generated SD-SST should have been de-duped against curated K1USN-SST")
+		}
+	}
+}

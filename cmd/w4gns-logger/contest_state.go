@@ -87,6 +87,13 @@ type contestState struct {
 	// station's received exchange text.
 	naqpAreaByBand map[string]map[string]struct{}
 	naqpAreaAll    map[string]struct{}
+	// sstAreaByBand/sstAreaAll mirror naqpAreaByBand/naqpAreaAll for the
+	// "sst_area" multiplier kind (sst_area.go's sstAreaCode): K1USN SST's
+	// state/province/worldwide-DXCC-country value, derived from the worked
+	// station's received exchange text — unlike naqpAreaCode's own DXCC
+	// fallback, SST's isn't restricted to North America.
+	sstAreaByBand map[string]map[string]struct{}
+	sstAreaAll    map[string]struct{}
 	// arrlSectionByBand/arrlSectionAll mirror naqpAreaByBand/naqpAreaAll for
 	// the "arrl_section" multiplier kind (arrl_section.go's arrlSectionCode):
 	// the ARRL/RAC section parsed from the worked station's received exchange
@@ -252,6 +259,8 @@ func newContestState() *contestState {
 		sacAreaAll:             make(map[string]struct{}),
 		naqpAreaByBand:         make(map[string]map[string]struct{}),
 		naqpAreaAll:            make(map[string]struct{}),
+		sstAreaByBand:          make(map[string]map[string]struct{}),
+		sstAreaAll:             make(map[string]struct{}),
 		arrlSectionByBand:      make(map[string]map[string]struct{}),
 		arrlSectionAll:         make(map[string]struct{}),
 		iaruZoneByBand:         make(map[string]map[int]struct{}),
@@ -347,6 +356,7 @@ func (c *contestState) record(q qso) {
 		recordMultiplierStringValue(c.oblastByBand, c.oblastAll, band, rdxcOblastCode(q.srxString))
 		recordMultiplierStringValue(c.dokDistrictByBand, c.dokDistrictAll, band, dokDistrictCode(q.srxString))
 		recordMultiplierStringValue(c.naqpAreaByBand, c.naqpAreaAll, band, naqpAreaCode(q.srxString))
+		recordMultiplierStringValue(c.sstAreaByBand, c.sstAreaAll, band, sstAreaCode(q.srxString))
 		recordMultiplierStringValue(c.arrlSectionByBand, c.arrlSectionAll, band, arrlSectionCode(q.srxString))
 		if special := iaruExchangeSpecial(q.srxString); special != "" {
 			recordMultiplierStringValue(c.iaruSpecialByBand, c.iaruSpecialAll, band, special)
@@ -731,6 +741,15 @@ func (c *contestState) multiplierCount(rule multiplierRule) int {
 			return total
 		}
 		return len(c.naqpAreaAll)
+	case "sst_area":
+		if strings.TrimSpace(rule.Per) == "band" {
+			total := 0
+			for _, set := range c.sstAreaByBand {
+				total += len(set)
+			}
+			return total
+		}
+		return len(c.sstAreaAll)
 	case "arrl_section":
 		if strings.TrimSpace(rule.Per) == "band" {
 			total := 0
@@ -985,6 +1004,22 @@ func (c *contestState) wouldBeNewMultiplier(rules *scoringRules, call, band, exc
 				_, already = c.naqpAreaByBand[band][area]
 			} else {
 				_, already = c.naqpAreaAll[area]
+			}
+			if already {
+				workedBefore = true
+			} else {
+				newMult = true
+			}
+		case "sst_area":
+			area := sstAreaCode(exchangeText)
+			if area == "" {
+				continue
+			}
+			var already bool
+			if strings.TrimSpace(rule.Per) == "band" {
+				_, already = c.sstAreaByBand[band][area]
+			} else {
+				_, already = c.sstAreaAll[area]
 			}
 			if already {
 				workedBefore = true
