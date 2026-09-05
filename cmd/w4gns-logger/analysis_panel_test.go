@@ -48,10 +48,41 @@ func TestAnalysisPanelWidthAndPreconditionGating(t *testing.T) {
 		t.Fatalf("analysisPanel with no callsign typed = %q, want empty", got)
 	}
 
+	// The panel still shows callsign lookup (country/bearing) and any POTA
+	// spot with no active contest — only the contest-specific NEW MULT/
+	// worked-before/Check-Partial lines require one.
 	m.fields[fieldCall].SetValue("1A0KM")
 	m.contestFields[contestName].SetValue("")
-	if got := m.analysisPanel(200); got != "" {
-		t.Fatalf("analysisPanel with no active contest = %q, want empty", got)
+	got := m.analysisPanel(200)
+	if got == "" {
+		t.Fatal("analysisPanel with no active contest = empty, want country/bearing content")
+	}
+	if strings.Contains(got, "NEW MULT") || strings.Contains(got, "Worked before") {
+		t.Fatalf("analysisPanel with no active contest = %q, want no contest-scoped lines", got)
+	}
+}
+
+// TestAnalysisPanelShowsPOTASpot guards the POTA-spot indicator: it appears
+// only when potaSpottedCall matches the callsign currently being typed (a
+// spot recorded for a previous callsign must not bleed into the next QSO),
+// and works with no active contest, since POTA hunting is usually not a
+// contest QSO.
+func TestAnalysisPanelShowsPOTASpot(t *testing.T) {
+	m := analysisTestModel(t)
+	m.contestFields[contestName].SetValue("")
+	m.fields[fieldCall].SetValue("K1ABC")
+	m.potaSpottedCall = "K1ABC"
+	m.potaSpottedRef = "US-1234"
+	m.potaSpottedPark = "Some Park"
+
+	panel := m.analysisPanel(200)
+	if !strings.Contains(panel, "POTA SPOTTED: US-1234 Some Park") {
+		t.Fatalf("panel = %q, want a POTA SPOTTED line", panel)
+	}
+
+	m.fields[fieldCall].SetValue("K1XYZ")
+	if got := m.analysisPanel(200); strings.Contains(got, "POTA SPOTTED") {
+		t.Fatalf("panel = %q, spot for a different callsign must not show", got)
 	}
 }
 

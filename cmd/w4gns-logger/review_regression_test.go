@@ -385,7 +385,7 @@ func TestReviewLookupCorrelation(t *testing.T) {
 	if err != nil || got.potaRef != "US-1234" || got.parkName != "Park" {
 		t.Fatal("late POTA result lost")
 	}
-	m.detailFields[detailPOTARef].SetValue("US-9999")
+	m.fields[fieldPOTARef].SetValue("US-9999")
 	updated, _ = m.Update(potaLookupMsg{call: q.call, reference: "US-1234", parkName: "Wrong"})
 	m = updated.(model)
 	if m.detailFields[detailParkName].Value() != "" {

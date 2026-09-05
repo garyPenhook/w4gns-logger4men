@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS qso (
     qth TEXT,
     gridsquare TEXT,
 	my_gridsquare TEXT,
+	my_iota_ref TEXT,
 	station_callsign TEXT,
 	operator_name TEXT,
 	my_rig TEXT,
@@ -54,6 +55,8 @@ CREATE TABLE IF NOT EXISTS qso (
 	sig TEXT,
 	sig_info TEXT,
 	park_name TEXT,
+	iota_ref TEXT,
+	island_name TEXT,
     comment TEXT,
     qsl_sent TEXT DEFAULT 'N',
     qsl_rcvd TEXT DEFAULT 'N',
@@ -85,6 +88,7 @@ CREATE TABLE IF NOT EXISTS station_profile (
     category_power TEXT,
     category_station TEXT,
     address TEXT,
+    my_iota_ref TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -273,6 +277,7 @@ func (s *store) migrate() error {
 		definition string
 	}{
 		{name: "my_gridsquare", definition: "TEXT"},
+		{name: "my_iota_ref", definition: "TEXT"},
 		{name: "profile_id", definition: "INTEGER"},
 		{name: "qso_date_off", definition: "TEXT"},
 		{name: "time_off", definition: "TEXT"},
@@ -286,6 +291,8 @@ func (s *store) migrate() error {
 		{name: "county", definition: "TEXT"},
 		{name: "email", definition: "TEXT"},
 		{name: "park_name", definition: "TEXT"},
+		{name: "iota_ref", definition: "TEXT"},
+		{name: "island_name", definition: "TEXT"},
 		{name: "unscored", definition: "INTEGER NOT NULL DEFAULT 0"},
 	} {
 		exists, err := s.columnExists("qso", column.name)
@@ -307,6 +314,7 @@ func (s *store) migrate() error {
 		{name: "category_power", definition: "TEXT"},
 		{name: "category_station", definition: "TEXT"},
 		{name: "address", definition: "TEXT"},
+		{name: "my_iota_ref", definition: "TEXT"},
 	} {
 		exists, err := s.columnExists("station_profile", column.name)
 		if err != nil {
@@ -518,8 +526,8 @@ func insertQSOInto(tx *sql.Tx, q qso) (int64, error) {
 	utcTimeOff := q.timeOff.UTC()
 	country, cqZone, ituZone, dxccNumber := resolveDXCC(q)
 	res, err := tx.Exec(
-		`INSERT INTO qso (call, qso_date, time_on, qso_date_off, time_off, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, county, email, country, dxcc, cqz, ituz, sig, sig_info, park_name, comment, contest_id, stx, stx_string, srx, srx_string, profile_id, my_gridsquare, station_callsign, operator_name, my_rig, my_antenna, tx_pwr)
-			 VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO qso (call, qso_date, time_on, qso_date_off, time_off, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, county, email, country, dxcc, cqz, ituz, sig, sig_info, park_name, iota_ref, island_name, comment, contest_id, stx, stx_string, srx, srx_string, profile_id, my_gridsquare, my_iota_ref, station_callsign, operator_name, my_rig, my_antenna, tx_pwr)
+			 VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		q.call,
 		utcTime.Format("20060102"),
 		utcTime.Format("150405"),
@@ -543,6 +551,8 @@ func insertQSOInto(tx *sql.Tx, q qso) (int64, error) {
 		potaSignal(q.potaRef),
 		q.potaRef,
 		q.parkName,
+		q.iotaRef,
+		q.islandName,
 		q.comment,
 		q.contestID,
 		q.stx,
@@ -551,6 +561,7 @@ func insertQSOInto(tx *sql.Tx, q qso) (int64, error) {
 		q.srxString,
 		q.profileID,
 		q.myGridSquare,
+		q.myIotaRef,
 		q.stationCallsign,
 		q.operatorName,
 		q.myRig,
@@ -610,8 +621,8 @@ func (s *store) insertQSOChunk(ctx context.Context, qsos []qso) (int, error) {
 		return 0, fmt.Errorf("prepare import dupe check: %w", err)
 	}
 	defer existsStatement.Close()
-	statement, err := tx.PrepareContext(ctx, `INSERT INTO qso (call, qso_date, time_on, qso_date_off, time_off, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, county, email, country, dxcc, cqz, ituz, sig, sig_info, park_name, comment, contest_id, stx, stx_string, srx, srx_string, profile_id, my_gridsquare, station_callsign, operator_name, my_rig, my_antenna, tx_pwr)
-		VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	statement, err := tx.PrepareContext(ctx, `INSERT INTO qso (call, qso_date, time_on, qso_date_off, time_off, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, county, email, country, dxcc, cqz, ituz, sig, sig_info, park_name, iota_ref, island_name, comment, contest_id, stx, stx_string, srx, srx_string, profile_id, my_gridsquare, my_iota_ref, station_callsign, operator_name, my_rig, my_antenna, tx_pwr)
+		VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return 0, fmt.Errorf("prepare import insert: %w", err)
 	}
@@ -628,7 +639,7 @@ func (s *store) insertQSOChunk(ctx context.Context, qsos []qso) (int, error) {
 			return 0, fmt.Errorf("check existing record %d: %w", index+1, err)
 		}
 		country, cqZone, ituZone, dxccNumber := resolveDXCC(q)
-		if _, err := statement.ExecContext(ctx, q.call, qsoDate, timeOn, end.Format("20060102"), end.Format("150405"), q.band, q.frequency, q.mode, q.rstSent, q.rstRcvd, q.name, q.qth, q.grid, q.state, q.county, q.email, country, dxccNumber, cqZone, ituZone, potaSignal(q.potaRef), q.potaRef, q.parkName, q.comment, q.contestID, q.stx, q.stxString, q.srx, q.srxString, q.profileID, q.myGridSquare, q.stationCallsign, q.operatorName, q.myRig, q.myAntenna, q.txPower); err != nil {
+		if _, err := statement.ExecContext(ctx, q.call, qsoDate, timeOn, end.Format("20060102"), end.Format("150405"), q.band, q.frequency, q.mode, q.rstSent, q.rstRcvd, q.name, q.qth, q.grid, q.state, q.county, q.email, country, dxccNumber, cqZone, ituZone, potaSignal(q.potaRef), q.potaRef, q.parkName, q.iotaRef, q.islandName, q.comment, q.contestID, q.stx, q.stxString, q.srx, q.srxString, q.profileID, q.myGridSquare, q.myIotaRef, q.stationCallsign, q.operatorName, q.myRig, q.myAntenna, q.txPower); err != nil {
 			return 0, fmt.Errorf("insert record %d: %w", index+1, err)
 		}
 		if q.unscored {
@@ -758,15 +769,15 @@ func (s *store) qsoByID(profileID, id int64) (qso, error) {
 	err := s.db.QueryRow(`SELECT id, call, qso_date, time_on, COALESCE(qso_date_off, ''), COALESCE(time_off, ''), band,
 		COALESCE(freq, ''), mode, COALESCE(rst_sent, ''), COALESCE(rst_rcvd, ''), COALESCE(name, ''), COALESCE(qth, ''),
 		COALESCE(gridsquare, ''), COALESCE(state, ''), COALESCE(county, ''), COALESCE(email, ''), COALESCE(country, ''), CAST(dxcc AS TEXT), CAST(cqz AS TEXT), CAST(ituz AS TEXT),
-		COALESCE(sig_info, ''), COALESCE(park_name, ''), COALESCE(comment, ''), COALESCE(contest_id, ''),
+		COALESCE(sig_info, ''), COALESCE(park_name, ''), COALESCE(iota_ref, ''), COALESCE(island_name, ''), COALESCE(comment, ''), COALESCE(contest_id, ''),
 		COALESCE(stx, ''), COALESCE(stx_string, ''), COALESCE(srx, ''), COALESCE(srx_string, ''), profile_id,
-		COALESCE(my_gridsquare, ''), COALESCE(station_callsign, ''), COALESCE(operator_name, ''),
+		COALESCE(my_gridsquare, ''), COALESCE(my_iota_ref, ''), COALESCE(station_callsign, ''), COALESCE(operator_name, ''),
 		COALESCE(my_rig, ''), COALESCE(my_antenna, ''), COALESCE(tx_pwr, ''), unscored
 		FROM qso WHERE id = ? AND profile_id = ?`, id, profileID).Scan(
 		&q.id, &q.call, &date, &timeOn, &dateOff, &timeOff, &q.band, &q.frequency, &q.mode, &q.rstSent, &q.rstRcvd,
-		&q.name, &q.qth, &q.grid, &q.state, &q.county, &q.email, &q.country, &dxccNumber, &cqZone, &ituZone, &q.potaRef, &q.parkName, &q.comment, &q.contestID,
+		&q.name, &q.qth, &q.grid, &q.state, &q.county, &q.email, &q.country, &dxccNumber, &cqZone, &ituZone, &q.potaRef, &q.parkName, &q.iotaRef, &q.islandName, &q.comment, &q.contestID,
 		&q.stx, &q.stxString, &q.srx, &q.srxString, &q.profileID,
-		&q.myGridSquare, &q.stationCallsign, &q.operatorName, &q.myRig, &q.myAntenna, &q.txPower, &q.unscored,
+		&q.myGridSquare, &q.myIotaRef, &q.stationCallsign, &q.operatorName, &q.myRig, &q.myAntenna, &q.txPower, &q.unscored,
 	)
 	if err != nil {
 		return qso{}, fmt.Errorf("load qso %d: %w", id, err)
@@ -794,11 +805,11 @@ func (s *store) updateQSO(id int64, q qso) error {
 	_, err := s.db.Exec(
 		`UPDATE qso SET call = ?, band = ?, freq = NULLIF(?, ''), rst_sent = ?, rst_rcvd = ?, name = ?, qth = ?,
 			gridsquare = ?, state = ?, county = ?, email = ?, country = NULLIF(?, ''), dxcc = ?, cqz = ?, ituz = ?, sig = NULLIF(?, ''),
-			sig_info = NULLIF(?, ''), park_name = ?, comment = ?, contest_id = ?, stx = ?, stx_string = ?, srx = ?, srx_string = ?
+			sig_info = NULLIF(?, ''), park_name = ?, iota_ref = ?, island_name = ?, comment = ?, contest_id = ?, stx = ?, stx_string = ?, srx = ?, srx_string = ?
 			WHERE id = ? AND profile_id = ?`,
 		q.call, q.band, q.frequency, q.rstSent, q.rstRcvd, q.name, q.qth,
 		q.grid, q.state, q.county, q.email, country, dxccNumber, cqZone, ituZone, potaSignal(q.potaRef),
-		q.potaRef, q.parkName, q.comment, q.contestID, q.stx, q.stxString, q.srx, q.srxString,
+		q.potaRef, q.parkName, q.iotaRef, q.islandName, q.comment, q.contestID, q.stx, q.stxString, q.srx, q.srxString,
 		id, q.profileID,
 	)
 	if err != nil {

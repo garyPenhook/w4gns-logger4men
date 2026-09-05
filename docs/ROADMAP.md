@@ -1661,7 +1661,7 @@ every panel *and* scoring so they always agree.
 - ⏳ **CW keyer + ESM + WinKey** — 8 memories w/ tokens, Enter-Sends-Message
   Run/S&P, speed/weight/QRS, cut numbers. Hardware I/O.
 - ⏳ **Voice keyer** (`.WAV` F1–F8) — out of scope for a TUI; noted only.
-- ⏳ **WAE QTC** send/receive/log · **IOTA** island-ref mults · **Sked/reminder** (`.MMO`).
+- ⏳ **WAE QTC** send/receive/log · **Sked/reminder** (`.MMO`).
 - ⏳ **CTY refresh tooling** (cty.dat is embedded today).
 
 Not applicable (SD is a Windows console app on wine; this app is native Go):
@@ -1678,7 +1678,7 @@ install / Legacy-Console-Host / colors / codepage / `SD.MAP` keyboard sections.
 4. ❓ **Prefs surface** — extend the station profile vs a new app-prefs store for
    distance units, autofill on/off, dupe beep, etc.?
 5. ❓ **Scope of "all SD features"** — recommend Phases 1–3 as the real target;
-   treat keyer/rig/voice/band-map/WAE/IOTA/skeds as Later.
+   treat keyer/rig/voice/band-map/WAE/skeds as Later.
 
 ## 6. Cross-cutting engineering rules
 
@@ -1834,8 +1834,10 @@ QRS; calibrate; cut numbers — **Later/Skip** (hardware)
 
 **Voice keyer** — `.WAV` F1–F8, DVR — **Skip** (hardware)
 
-**Special contests** — WAE **QTC** — **Later**; IOTA island-ref mults — **Later**;
-DXpedition/special-event templates — **Core** (data-driven)
+**Special contests** — WAE **QTC** — **Later**; RSGB IOTA Contest island-ref
+mults and points — **Have** (`iota` multiplier kind, `pointsRule.IOTA`, own-
+station My IOTA Ref in Station Setup); DXpedition/special-event templates —
+**Core** (data-driven)
 
 **Files/config/output**
 - Text log (`.ALL`), audit/backup (`.AUD`), power-loss safe — **Have** (SQLite +

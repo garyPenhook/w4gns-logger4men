@@ -15,13 +15,19 @@ type stationProfile struct {
 	Callsign     string
 	OperatorName string
 	MyGridSquare string
-	Latitude     *float64
-	Longitude    *float64
-	Timezone     string
-	Club         string
-	Rig          string
-	Antenna      string
-	PowerWatts   string
+	// MyIOTARef, when set, declares the station is operating as an IOTA
+	// island station (e.g. for the RSGB IOTA Contest) rather than a "world"
+	// station — see iotaPointsRule. Empty means "not an island station";
+	// there is no separate boolean, so clearing this field is how an
+	// operator returns to world-station status after an activation.
+	MyIOTARef  string
+	Latitude   *float64
+	Longitude  *float64
+	Timezone   string
+	Club       string
+	Rig        string
+	Antenna    string
+	PowerWatts string
 
 	// Contest-submission (Cabrillo) header fields. Free text: contest
 	// sponsors' accepted values (e.g. CATEGORY-OPERATOR: SINGLE-OP,
@@ -37,12 +43,12 @@ type stationProfile struct {
 func (s *store) activeStationProfile() (stationProfile, error) {
 	var profile stationProfile
 	var latitude, longitude sqlNullFloat64
-	err := s.db.QueryRow(`SELECT id, name, COALESCE(callsign, ''), COALESCE(operator_name, ''), COALESCE(my_gridsquare, ''), latitude, longitude, timezone, COALESCE(club, ''), COALESCE(rig, ''), COALESCE(antenna, ''), COALESCE(CAST(power_watts AS TEXT), ''), COALESCE(category_operator, ''), COALESCE(category_assisted, ''), COALESCE(category_power, ''), COALESCE(address, ''), COALESCE(category_station, '')
+	err := s.db.QueryRow(`SELECT id, name, COALESCE(callsign, ''), COALESCE(operator_name, ''), COALESCE(my_gridsquare, ''), latitude, longitude, timezone, COALESCE(club, ''), COALESCE(rig, ''), COALESCE(antenna, ''), COALESCE(CAST(power_watts AS TEXT), ''), COALESCE(category_operator, ''), COALESCE(category_assisted, ''), COALESCE(category_power, ''), COALESCE(address, ''), COALESCE(category_station, ''), COALESCE(my_iota_ref, '')
 		FROM station_profile ORDER BY id LIMIT 1`).Scan(
 		&profile.ID, &profile.Name, &profile.Callsign, &profile.OperatorName, &profile.MyGridSquare,
 		&latitude, &longitude, &profile.Timezone, &profile.Club, &profile.Rig, &profile.Antenna, &profile.PowerWatts,
 		&profile.CategoryOperator, &profile.CategoryAssisted, &profile.CategoryPower, &profile.Address,
-		&profile.CategoryStation,
+		&profile.CategoryStation, &profile.MyIOTARef,
 	)
 	if err != nil {
 		return stationProfile{}, fmt.Errorf("load active station profile: %w", err)
@@ -67,6 +73,7 @@ func (s *store) saveStationProfile(profile stationProfile) (stationProfile, erro
 	profile.Callsign = strings.ToUpper(strings.TrimSpace(profile.Callsign))
 	profile.OperatorName = strings.TrimSpace(profile.OperatorName)
 	profile.MyGridSquare = strings.ToUpper(strings.TrimSpace(profile.MyGridSquare))
+	profile.MyIOTARef = strings.ToUpper(strings.TrimSpace(profile.MyIOTARef))
 	profile.Timezone = strings.TrimSpace(profile.Timezone)
 	profile.Club = strings.TrimSpace(profile.Club)
 	profile.Rig = strings.TrimSpace(profile.Rig)
@@ -116,13 +123,16 @@ func (s *store) saveStationProfile(profile stationProfile) (stationProfile, erro
 		profile.Latitude, profile.Longitude = &grid.Latitude, &grid.Longitude
 		latitude, longitude = grid.Latitude, grid.Longitude
 	}
+	if profile.MyIOTARef != "" && iotaReferenceCode(profile.MyIOTARef) != profile.MyIOTARef {
+		return stationProfile{}, fmt.Errorf("invalid station IOTA reference %q: must look like EU-005", profile.MyIOTARef)
+	}
 	if profile.ID == 0 {
 		return stationProfile{}, fmt.Errorf("station profile is missing an identifier")
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
-	if _, err := s.db.Exec(`UPDATE station_profile SET name=?, callsign=?, operator_name=?, my_gridsquare=?, latitude=?, longitude=?, timezone=?, club=?, rig=?, antenna=?, power_watts=?, category_operator=?, category_assisted=?, category_power=?, address=?, category_station=?, updated_at=? WHERE id=?`,
+	if _, err := s.db.Exec(`UPDATE station_profile SET name=?, callsign=?, operator_name=?, my_gridsquare=?, latitude=?, longitude=?, timezone=?, club=?, rig=?, antenna=?, power_watts=?, category_operator=?, category_assisted=?, category_power=?, address=?, category_station=?, my_iota_ref=?, updated_at=? WHERE id=?`,
 		profile.Name, profile.Callsign, profile.OperatorName, profile.MyGridSquare, latitude, longitude, profile.Timezone, profile.Club, profile.Rig, profile.Antenna, powerWatts,
-		profile.CategoryOperator, profile.CategoryAssisted, profile.CategoryPower, profile.Address, profile.CategoryStation, now, profile.ID,
+		profile.CategoryOperator, profile.CategoryAssisted, profile.CategoryPower, profile.Address, profile.CategoryStation, profile.MyIOTARef, now, profile.ID,
 	); err != nil {
 		return stationProfile{}, fmt.Errorf("save station profile: %w", err)
 	}

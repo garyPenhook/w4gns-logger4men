@@ -6655,7 +6655,7 @@
   },
   {
     "id": "RSGB-IOTA",
-    "capability": "entry-aware",
+    "capability": "scoring-ready",
     "name": "RSGB IOTA Contest",
     "organizer": "",
     "kind": "annual contest",
@@ -6671,6 +6671,7 @@
     "sent_exchange_hint": "CW, SSB contest \u2014 CW exchange: RS(T) + Serial No. + IOTA No. (if operating from a qualifying island)",
     "received_exchange_hint": "CW, SSB contest \u2014 CW exchange: RS(T) + Serial No. + IOTA No. (if operating from a qualifying island)",
     "dupe_scope": "call+band",
+    "cabrillo_layout": "cw_rst_exchange",
     "rules_url": "https://www.rsgbcc.org/hf/rules/2026/riota.shtml",
     "score_submission_url": "",
     "sessions": [
@@ -6679,7 +6680,21 @@
         "label": "RSGB IOTA Contest",
         "schedule": "1200Z, Jul 25 to 1200Z, Jul 26"
       }
-    ]
+    ],
+    "scoring": {
+      "points": {
+        "iota": {
+          "island_works_world": 5,
+          "island_works_same_reference": 5,
+          "island_works_other_island": 15,
+          "world_works_world": 2,
+          "world_works_island": 15
+        }
+      },
+      "multipliers": [
+        {"kind": "iota", "per": "band"}
+      ]
+    }
   },
   {
     "id": "ALL-AUSTRIAN-160-METER-CONTEST",

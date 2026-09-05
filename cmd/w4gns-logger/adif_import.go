@@ -150,6 +150,8 @@ func qsoFromADI(record map[string]string, profileID int64) (qso, bool) {
 		potaRef:    adifPOTAReference(record),
 		contestID:  contestID,
 		parkName:   strings.TrimSpace(record["APP_W4GNS_LOGGER_PARK_NAME"]),
+		iotaRef:    strings.ToUpper(strings.TrimSpace(record["IOTA"])),
+		islandName: strings.TrimSpace(record["APP_W4GNS_LOGGER_ISLAND_NAME"]),
 		unscored:   record["APP_W4GNS_LOGGER_UNSCORED"] == "Y",
 		stx:        strings.TrimSpace(record["STX"]),
 		stxString:  strings.TrimSpace(record["STX_STRING"]),
@@ -161,6 +163,7 @@ func qsoFromADI(record map[string]string, profileID int64) (qso, bool) {
 		profileID:  profileID,
 
 		myGridSquare:    strings.TrimSpace(record["MY_GRIDSQUARE"]) + strings.TrimSpace(record["MY_GRIDSQUARE_EXT"]),
+		myIotaRef:       strings.ToUpper(strings.TrimSpace(record["MY_IOTA"])),
 		stationCallsign: strings.ToUpper(strings.TrimSpace(record["STATION_CALLSIGN"])),
 		// MY_NAME is the logging operator's name per the ADIF field table;
 		// OPERATOR means the operator's *callsign*. OPERATOR/OPERATOR_INTL
@@ -182,6 +185,7 @@ func qsoApproxBytes(q qso) int {
 		len(q.frequency) + len(q.name) + len(q.qth) + len(q.grid) + len(q.state) +
 		len(q.county) + len(q.email) + len(q.country) + len(q.cqZone) + len(q.ituZone) +
 		len(q.dxccNumber) + len(q.comment) + len(q.potaRef) + len(q.contestID) +
+		len(q.iotaRef) + len(q.islandName) + len(q.myIotaRef) +
 		len(q.stx) + len(q.stxString) + len(q.srx) + len(q.srxString) + len(q.exchange) +
 		len(q.srxString) + len(q.myGridSquare) + len(q.stationCallsign) +
 		len(q.operatorName) + len(q.myRig) + len(q.myAntenna) + len(q.txPower)

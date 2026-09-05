@@ -1,5 +1,12 @@
 # Changelog
 
+### v1.32.0
+
+- Add IOTA (Islands on the Air) tracking: an `iotaRef`/`islandName` pair on every QSO, ADIF `IOTA`/`APP_W4GNS_LOGGER_ISLAND_NAME` export and import, and DX-Cluster-comment auto-fill (no equivalent third-party spot API exists for IOTA, unlike POTA).
+- Wire the RSGB IOTA Contest's real scoring rules: a new `iotaPointsRule` implements all five official point tiers (island/world station × same/other/no reference), and a new `iota` per-band multiplier kind counts distinct references worked. A new Station Setup "My IOTA Ref" field declares your own station an island station for the QSOs logged while it's set, snapshotted per QSO so a later profile edit never rescoring already-logged contacts.
+- Move POTA Ref and the new IOTA Ref onto the main QSO Entry screen (after Frequency), both optional and clearing after each QSO like Call; Park Name and the new Island Name stay on the QSO Details screen as free-text labels for whichever reference was entered.
+- Add a live "POTA SPOTTED" indicator to the QSO Entry analysis panel, sourced from the real POTA spot feed (api.pota.app) for whatever callsign is currently being typed — shown even if a reference was already entered by hand. The analysis panel (country/zone/bearing plus this indicator) now also renders with no contest active, since POTA hunting is typically not a contest QSO.
+
 ### v1.31.0
 
 - Synchronize the README, entry design, state-party guide, and roadmap with the eight implemented parties, category defaults, county-line export, retained sent exchanges, and remaining audit work; correct obsolete Tennessee bonus/scope notes.

@@ -1294,7 +1294,7 @@ func TestQSOEntryTabOrder(t *testing.T) {
 	defer st.Close()
 
 	m := initialModel(st)
-	want := []int{fieldRSTSent, fieldRSTRcvd, fieldBand, fieldFrequency, fieldCall}
+	want := []int{fieldRSTSent, fieldRSTRcvd, fieldBand, fieldFrequency, fieldPOTARef, fieldIOTARef, fieldCall}
 	for _, field := range want {
 		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
 		m = updated.(model)

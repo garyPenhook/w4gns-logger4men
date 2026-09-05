@@ -45,7 +45,7 @@ func TestExportADIFRoundTripPreservesQSOFields(t *testing.T) {
 	}
 	q := qso{
 		call: "W1AW", band: "20M", frequency: "14.025", mode: "CW", rstSent: "599", rstRcvd: "579",
-		name: "José", qth: "Newington", grid: "FN31", state: "CT", potaRef: "K-0001", comment: "test contact",
+		name: "José", qth: "Newington", grid: "FN31", state: "CT", potaRef: "K-0001", iotaRef: "NA-013", islandName: "Long Island", comment: "test contact",
 		contestID: "ARRL-DX-CW", stx: "12", stxString: "CT", srx: "34", srxString: "MA",
 		time: time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC), timeOff: time.Date(2026, 8, 31, 12, 1, 30, 0, time.UTC), profileID: profile.ID,
 	}
@@ -83,8 +83,8 @@ func TestExportADIFRoundTripPreservesQSOFields(t *testing.T) {
 	var got qso
 	var date, timeOn, dateOff, timeOff string
 	var dxcc sql.NullString
-	err = destination.db.QueryRow(`SELECT call, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, CAST(dxcc AS TEXT), sig_info, comment, contest_id, stx, stx_string, srx, srx_string, qso_date, time_on, qso_date_off, time_off FROM qso`).Scan(
-		&got.call, &got.band, &got.frequency, &got.mode, &got.rstSent, &got.rstRcvd, &got.name, &got.qth, &got.grid, &got.state, &dxcc, &got.potaRef, &got.comment, &got.contestID, &got.stx, &got.stxString, &got.srx, &got.srxString, &date, &timeOn, &dateOff, &timeOff,
+	err = destination.db.QueryRow(`SELECT call, band, freq, mode, rst_sent, rst_rcvd, name, qth, gridsquare, state, CAST(dxcc AS TEXT), sig_info, iota_ref, island_name, comment, contest_id, stx, stx_string, srx, srx_string, qso_date, time_on, qso_date_off, time_off FROM qso`).Scan(
+		&got.call, &got.band, &got.frequency, &got.mode, &got.rstSent, &got.rstRcvd, &got.name, &got.qth, &got.grid, &got.state, &dxcc, &got.potaRef, &got.iotaRef, &got.islandName, &got.comment, &got.contestID, &got.stx, &got.stxString, &got.srx, &got.srxString, &date, &timeOn, &dateOff, &timeOff,
 	)
 	if err != nil {
 		t.Fatal(err)

@@ -1201,6 +1201,42 @@ func TestContestStateScorePointsRuleZoneTiers(t *testing.T) {
 	}
 }
 
+// TestContestStateScorePointsRuleIOTATiers exercises all five RSGB IOTA
+// Contest point tiers (rsgbcc.org/hf/rules "Scoring"): which one applies
+// depends on the QSO's own snapshotted island status (myIotaRef) and the
+// worked station's exchanged IOTA reference, not the callsign.
+func TestContestStateScorePointsRuleIOTATiers(t *testing.T) {
+	state := newContestState()
+	// Operator is a "World station" (myIotaRef blank) for these two QSOs.
+	state.record(qso{call: "K5ABC", band: "20M", srxString: "599 001"})       // world works world
+	state.record(qso{call: "G6ABC", band: "20M", srxString: "59 002 EU-005"}) // world works island
+	// Operator is an "Island station" (myIotaRef set) for the rest.
+	state.record(qso{call: "K5DEF", band: "40M", srxString: "599 003", myIotaRef: "NA-013"})       // island works world
+	state.record(qso{call: "G6DEF", band: "40M", srxString: "59 004 NA-013", myIotaRef: "NA-013"}) // island works same reference
+	state.record(qso{call: "G6GHI", band: "40M", srxString: "59 005 EU-005", myIotaRef: "NA-013"}) // island works other island
+
+	rules := &scoringRules{
+		Points: &pointsRule{IOTA: &iotaPointsRule{
+			IslandWorksWorld:         5,
+			IslandWorksSameReference: 5,
+			IslandWorksOtherIsland:   15,
+			WorldWorksWorld:          2,
+			WorldWorksIsland:         15,
+		}},
+		Multipliers: []multiplierRule{{Kind: "iota", Per: "band"}},
+	}
+	score := state.score(rules)
+	if want := 2 + 15 + 5 + 5 + 15; score.qsoPoints != want {
+		t.Fatalf("qsoPoints = %d, want %d (2+15+5+5+15)", score.qsoPoints, want)
+	}
+	// Multiplier: EU-005 on 20M, NA-013 on 40M, EU-005 on 40M = 3 distinct
+	// (band, reference) pairs; the "world works world" QSO exchanged no
+	// reference and doesn't contribute one.
+	if score.multipliers != 3 {
+		t.Fatalf("multipliers = %d, want 3", score.multipliers)
+	}
+}
+
 // TestContestStateScoreIARUZoneAndHQMultipliers exercises the iaru_zone/
 // iaru_hq multiplier kinds together (Rule 5.2.1): each distinct exchanged
 // ITU zone and each distinct HQ/Official abbreviation counts once per band;

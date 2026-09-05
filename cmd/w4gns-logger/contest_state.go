@@ -168,6 +168,13 @@ type contestState struct {
 	// Germany receive one multiplier point for each German district worked").
 	dokDistrictByBand map[string]map[string]struct{}
 	dokDistrictAll    map[string]struct{}
+	// iotaByBand/iotaAll mirror dokDistrictByBand/dokDistrictAll for the
+	// "iota" multiplier kind (iota.go's iotaReferenceCode): the IOTA island
+	// group reference (e.g. "EU-005") parsed from the worked station's
+	// received exchange text, per the RSGB IOTA Contest rules (one multiplier
+	// per island group worked).
+	iotaByBand map[string]map[string]struct{}
+	iotaAll    map[string]struct{}
 	// pointCategoryCountry records the worked entity's cty.dat country name
 	// for every scored "CALL|BAND" key, independent of whether the operator's
 	// own station resolved — a pointsRule.CountryGroup check (e.g. SAC's
@@ -221,7 +228,33 @@ type contestState struct {
 	// a QSO missing either one contributes 0 distance points rather than
 	// guessing.
 	distanceKmByKey map[string]float64
+	// pointCategoryIOTA holds, per "CALL|BAND" key, which bucket of a
+	// pointsRule.IOTA rule the QSO falls into — populated by record() from
+	// the QSO's own snapshotted island status (q.myIotaRef, not a live
+	// station-profile lookup, so a later profile edit can't retroactively
+	// change a logged QSO's score) and the worked station's exchanged IOTA
+	// reference (iotaMultiplierValue).
+	pointCategoryIOTA map[string]iotaPointCategory
 }
+
+// iotaPointCategory classifies a scored QSO for pointsRule.IOTA: which tier
+// of the RSGB IOTA Contest's points table it falls into.
+type iotaPointCategory int
+
+// iotaCategoryUnknown deliberately does not start at 0 the way other
+// point-category zero values are avoided elsewhere in this file, even
+// though every record() call always assigns one of the other five values —
+// keeping the convention consistent means a future caller that reads the
+// map without checking record() ran still gets "no category" instead of
+// silently matching a real bucket.
+const (
+	iotaCategoryUnknown iotaPointCategory = iota
+	iotaCategoryIslandWorksWorld
+	iotaCategoryIslandWorksSameReference
+	iotaCategoryIslandWorksOtherIsland
+	iotaCategoryWorldWorksWorld
+	iotaCategoryWorldWorksIsland
+)
 
 // qsoPointCategory classifies a worked station relative to the operator's own
 // station for a continent/country-tiered points rule (pointsRule).
@@ -288,11 +321,14 @@ func newContestState() *contestState {
 		countryOrWAEAll:        make(map[string]struct{}),
 		dokDistrictByBand:      make(map[string]map[string]struct{}),
 		dokDistrictAll:         make(map[string]struct{}),
+		iotaByBand:             make(map[string]map[string]struct{}),
+		iotaAll:                make(map[string]struct{}),
 		pointCategory:          make(map[string]qsoPointCategory),
 		pointCategoryContinent: make(map[string]string),
 		pointCategoryCountry:   make(map[string]string),
 		pointCategoryZone:      make(map[string]qsoPointCategory),
 		distanceKmByKey:        make(map[string]float64),
+		pointCategoryIOTA:      make(map[string]iotaPointCategory),
 	}
 }
 
@@ -380,6 +416,8 @@ func (c *contestState) record(q qso) {
 		recordMultiplierStringValue(c.cantonByBand, c.cantonAll, band, cantonCode(q.srxString))
 		recordMultiplierStringValue(c.oblastByBand, c.oblastAll, band, rdxcOblastCode(q.srxString))
 		recordMultiplierStringValue(c.dokDistrictByBand, c.dokDistrictAll, band, dokDistrictCode(q.srxString))
+		recordMultiplierStringValue(c.iotaByBand, c.iotaAll, band, iotaMultiplierValue(q))
+		c.pointCategoryIOTA[key] = iotaCategory(q)
 		recordMultiplierStringValue(c.naqpAreaByBand, c.naqpAreaAll, band, naqpAreaCode(q.srxString))
 		recordMultiplierStringValue(c.sstAreaByBand, c.sstAreaAll, band, sstAreaCode(q.srxString))
 		recordMultiplierStringValue(c.arrlSectionByBand, c.arrlSectionAll, band, arrlSectionCode(q.srxString))
@@ -608,6 +646,9 @@ func (c *contestState) pointsTotal(rule *pointsRule) int {
 	if len(rule.PerBand) > 0 {
 		return c.perBandPointsTotal(rule.PerBand)
 	}
+	if rule.IOTA != nil {
+		return c.iotaPointsTotal(rule.IOTA)
+	}
 	total := 0
 	for key := range c.scoredCallBand {
 		lowBand := wpxLowBand(bandFromCallBandKey(key))
@@ -692,6 +733,28 @@ func (c *contestState) perBandPointsTotal(perBand map[string]int) int {
 	total := 0
 	for key := range c.scoredCallBand {
 		total += perBand[bandFromCallBandKey(key)]
+	}
+	return total
+}
+
+// iotaPointsTotal sums a pointsRule.IOTA rule over every scored (call, band)
+// QSO, reading pointCategoryIOTA (populated by record() via iotaCategory). A
+// QSO with no recorded category contributes 0 rather than guessing.
+func (c *contestState) iotaPointsTotal(rule *iotaPointsRule) int {
+	total := 0
+	for key := range c.scoredCallBand {
+		switch c.pointCategoryIOTA[key] {
+		case iotaCategoryIslandWorksWorld:
+			total += rule.IslandWorksWorld
+		case iotaCategoryIslandWorksSameReference:
+			total += rule.IslandWorksSameReference
+		case iotaCategoryIslandWorksOtherIsland:
+			total += rule.IslandWorksOtherIsland
+		case iotaCategoryWorldWorksWorld:
+			total += rule.WorldWorksWorld
+		case iotaCategoryWorldWorksIsland:
+			total += rule.WorldWorksIsland
+		}
 	}
 	return total
 }
@@ -858,6 +921,15 @@ func (c *contestState) multiplierCount(rule multiplierRule) int {
 			return total
 		}
 		return len(c.dokDistrictAll)
+	case "iota":
+		if strings.TrimSpace(rule.Per) == "band" {
+			total := 0
+			for _, set := range c.iotaByBand {
+				total += len(set)
+			}
+			return total
+		}
+		return len(c.iotaAll)
 	}
 	var byBand map[string]map[int]struct{}
 	var all map[int]struct{}
@@ -1024,6 +1096,22 @@ func (c *contestState) wouldBeNewMultiplier(rules *scoringRules, call, band, exc
 				_, already = c.dokDistrictByBand[band][district]
 			} else {
 				_, already = c.dokDistrictAll[district]
+			}
+			if already {
+				workedBefore = true
+			} else {
+				newMult = true
+			}
+		case "iota":
+			reference := iotaReferenceCode(exchangeText)
+			if reference == "" {
+				continue
+			}
+			var already bool
+			if strings.TrimSpace(rule.Per) == "band" {
+				_, already = c.iotaByBand[band][reference]
+			} else {
+				_, already = c.iotaAll[reference]
 			}
 			if already {
 				workedBefore = true

@@ -115,6 +115,18 @@ func validateSubmissionExchange(eventID, call, serial, text string) error {
 		}
 	case "ARRL-DX-CW", "CQ-160-CW", "NAQP-CW", "NA-SPRINT-CW", "CWT", "K1USN-SST", "TNQP":
 		return validateLocationSubmission(eventID, call, token)
+	case "RSGB-IOTA":
+		// "RS(T) + Serial No. + IOTA No. (if operating from a qualifying
+		// island)" (rsgbcc.org/hf/rules): the IOTA reference is optional
+		// (world stations send only a serial), but a second field must be a
+		// valid reference, not arbitrary trailing text.
+		fields := strings.Fields(token)
+		if len(fields) < 1 || len(fields) > 2 || !positiveSerial(fields[0]) {
+			return fmt.Errorf("exchange must be a positive serial, optionally followed by an IOTA reference")
+		}
+		if len(fields) == 2 && iotaReferenceCode(fields[1]) != fields[1] {
+			return fmt.Errorf("IOTA reference must look like EU-005")
+		}
 	default:
 		return fmt.Errorf("event %q has no checked exchange validator", eventID)
 	}

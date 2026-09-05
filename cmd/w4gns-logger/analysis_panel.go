@@ -10,31 +10,36 @@ import (
 // the panel at all, matching dxSpotsPanelMinWidth's role for DX Spots.
 const analysisPanelMinWidth = 30
 
-// analysisPanel renders the contest analysis column shown beside QSO Entry
-// (roadmap docs/ROADMAP.md §3 Phase 1 / Appendix B, C): the callsign's
-// country/CQ/ITU/continent, beam heading + distance from the station's own
-// coordinates, whether it would be a new multiplier, and which bands it's
-// already been worked on in the active contest. It renders "" — and the
-// caller falls back to the pre-panel layout — when there's no active
-// contest, no callsign typed yet, or not enough width, exactly like
-// dxSpotsPanel degrades on narrow terminals.
+// analysisPanel renders the analysis column shown beside QSO Entry (roadmap
+// docs/ROADMAP.md §3 Phase 1 / Appendix B, C): the callsign's country/CQ/ITU/
+// continent, beam heading + distance from the station's own coordinates,
+// whether a POTA spot exists for the call, and — only while a contest is
+// active — whether it would be a new multiplier and which bands it's already
+// been worked on. It renders "" — and the caller falls back to the
+// pre-panel layout — when no callsign is typed yet or there's not enough
+// width, exactly like dxSpotsPanel degrades on narrow terminals.
 func (m model) analysisPanel(width int) string {
 	if width < analysisPanelMinWidth {
-		return ""
-	}
-	event, ok := m.eventForContestID()
-	if !ok {
 		return ""
 	}
 	call := normalizeCall(m.fields[fieldCall].Value())
 	if call == "" {
 		return ""
 	}
+	event, contestActive := m.eventForContestID()
 
 	var lines []string
-	lines = append(lines, helpStyle.Render(truncateToWidth("Analysis: "+event.Name, width)))
+	if contestActive {
+		lines = append(lines, helpStyle.Render(truncateToWidth("Analysis: "+event.Name, width)))
+	} else {
+		lines = append(lines, helpStyle.Render(truncateToWidth("Analysis", width)))
+	}
 	if m.contestIndexError != "" {
 		lines = append(lines, truncateToWidth(dupeStyle.Render("STALE — "+m.contestIndexError), width))
+	}
+	if strings.EqualFold(m.potaSpottedCall, call) && (m.potaSpottedRef != "" || m.potaSpottedPark != "") {
+		spot := strings.TrimSpace(m.potaSpottedRef + " " + m.potaSpottedPark)
+		lines = append(lines, truncateToWidth(newMultStyle.Render("POTA SPOTTED: "+spot), width))
 	}
 
 	var entity dxccEntity
@@ -66,22 +71,24 @@ func (m model) analysisPanel(width int) string {
 		}
 	}
 
-	rules := event.effectiveScoring(stationCountry(m.activeStation.Callsign))
-	switch {
-	case m.dupeWarning:
-		lines = append(lines, truncateToWidth(dupeStyle.Render("DUPE — worked before on this band"), width))
-	case m.contestIndex != nil && rules != nil:
-		band := m.fields[fieldBand].Value()
-		exchangeText := m.contestFields[contestExchangeRcvd].Value()
-		newMult, workedBefore := m.contestIndex.wouldBeNewMultiplier(rules, call, band, exchangeText, entity, entityFound)
-		if event.QSOParty != nil {
-			newMult, workedBefore = m.contestIndex.partyNewMultiplier(m.partyEntryQSO(call))
-		}
+	if contestActive {
+		rules := event.effectiveScoring(stationCountry(m.activeStation.Callsign))
 		switch {
-		case newMult:
-			lines = append(lines, truncateToWidth(newMultStyle.Render("NEW MULT"), width))
-		case workedBefore:
-			lines = append(lines, truncateToWidth("Worked before — not a new mult", width))
+		case m.dupeWarning:
+			lines = append(lines, truncateToWidth(dupeStyle.Render("DUPE — worked before on this band"), width))
+		case m.contestIndex != nil && rules != nil:
+			band := m.fields[fieldBand].Value()
+			exchangeText := m.contestFields[contestExchangeRcvd].Value()
+			newMult, workedBefore := m.contestIndex.wouldBeNewMultiplier(rules, call, band, exchangeText, entity, entityFound)
+			if event.QSOParty != nil {
+				newMult, workedBefore = m.contestIndex.partyNewMultiplier(m.partyEntryQSO(call))
+			}
+			switch {
+			case newMult:
+				lines = append(lines, truncateToWidth(newMultStyle.Render("NEW MULT"), width))
+			case workedBefore:
+				lines = append(lines, truncateToWidth("Worked before — not a new mult", width))
+			}
 		}
 	}
 

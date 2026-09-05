@@ -20,6 +20,7 @@ func TestSaveStationProfileValidatesAndPersistsStationData(t *testing.T) {
 	profile.Callsign = "w4gns"
 	profile.OperatorName = "Operator"
 	profile.MyGridSquare = "fn31pr"
+	profile.MyIOTARef = "eu-005"
 	profile.Timezone = "America/New_York"
 	profile.Rig = "HF Rig"
 	profile.PowerWatts = "100"
@@ -27,7 +28,7 @@ func TestSaveStationProfileValidatesAndPersistsStationData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("saveStationProfile returned error: %v", err)
 	}
-	if saved.Callsign != "W4GNS" || saved.MyGridSquare != "FN31PR" || saved.PowerWatts != "100" {
+	if saved.Callsign != "W4GNS" || saved.MyGridSquare != "FN31PR" || saved.PowerWatts != "100" || saved.MyIOTARef != "EU-005" {
 		t.Errorf("saved profile = %#v", saved)
 	}
 	if saved.Latitude == nil || saved.Longitude == nil {
@@ -38,8 +39,30 @@ func TestSaveStationProfileValidatesAndPersistsStationData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload profile: %v", err)
 	}
-	if reloaded.Name != "Home" || reloaded.Callsign != "W4GNS" || reloaded.MyGridSquare != "FN31PR" || reloaded.PowerWatts != "100" {
+	if reloaded.Name != "Home" || reloaded.Callsign != "W4GNS" || reloaded.MyGridSquare != "FN31PR" || reloaded.PowerWatts != "100" || reloaded.MyIOTARef != "EU-005" {
 		t.Errorf("reloaded profile = %#v", reloaded)
+	}
+}
+
+// TestSaveStationProfileRejectsInvalidIOTARef guards the same "reject rather
+// than store garbage" rule ParseGridSquare's callers already get: a
+// malformed MyIOTARef would otherwise reach iotaCategory/iotaMultiplierValue
+// silently interpreted as "not an island station" (an empty match), scoring
+// every QSO as a world station without any error surfaced.
+func TestSaveStationProfileRejectsInvalidIOTARef(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+	profile, err := st.activeStationProfile()
+	if err != nil {
+		t.Fatalf("activeStationProfile returned error: %v", err)
+	}
+	profile.Timezone = "UTC"
+	profile.MyIOTARef = "not-an-iota-ref"
+	if _, err := st.saveStationProfile(profile); err == nil {
+		t.Fatal("saveStationProfile accepted invalid IOTA reference")
 	}
 }
 

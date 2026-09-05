@@ -538,6 +538,34 @@ func TestInsertQSOPersistsDetailAndContestFields(t *testing.T) {
 	}
 }
 
+func TestInsertQSOPersistsIOTAFields(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	q := validTestQSO()
+	q.iotaRef, q.islandName = "EU-005", "Great Britain"
+	id, err := st.insertQSO(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var iotaRef, islandName string
+	if err := st.db.QueryRow(`SELECT iota_ref, island_name FROM qso WHERE id = ?`, id).Scan(&iotaRef, &islandName); err != nil {
+		t.Fatal(err)
+	}
+	if iotaRef != "EU-005" || islandName != "Great Britain" {
+		t.Fatalf("stored iota fields = %q, %q, want EU-005, Great Britain", iotaRef, islandName)
+	}
+	got, err := st.qsoByID(0, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.iotaRef != "EU-005" || got.islandName != "Great Britain" {
+		t.Fatalf("qsoByID iota fields = %q, %q, want EU-005, Great Britain", got.iotaRef, got.islandName)
+	}
+}
+
 func TestQSOByIDLoadsEditableFields(t *testing.T) {
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {

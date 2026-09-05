@@ -83,6 +83,18 @@ func TestAdifQSOFieldsExportsPotaRefAlongsideSig(t *testing.T) {
 	}
 }
 
+func TestAdifQSOFieldsExportsIOTARef(t *testing.T) {
+	q := validTestQSO()
+	q.iotaRef, q.islandName = "EU-005", "Great Britain"
+	fields := adifQSOFields(q)
+	if value, _ := fieldValue(fields, "IOTA"); value != "EU-005" {
+		t.Errorf("IOTA = %q, want %q", value, "EU-005")
+	}
+	if value, _ := fieldValue(fields, "APP_W4GNS_LOGGER_ISLAND_NAME"); value != "Great Britain" {
+		t.Errorf("APP_W4GNS_LOGGER_ISLAND_NAME = %q, want %q", value, "Great Britain")
+	}
+}
+
 // TestAdifQSOFieldsExportsStationSnapshot also guards the ADIF field
 // semantics: OPERATOR is defined as the logging operator's *callsign*, not
 // their name, so the human name (q.operatorName) must go in MY_NAME, and

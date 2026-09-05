@@ -128,6 +128,8 @@ func TestValidateScoringRules(t *testing.T) {
 		{"blank per_band band key", &scoringRules{Points: &pointsRule{PerBand: map[string]int{"": 1}}}},
 		{"negative per_band value", &scoringRules{Points: &pointsRule{PerBand: map[string]int{"20M": -1}}}},
 		{"per_band combined with country/continent fields", &scoringRules{Points: &pointsRule{SameCountry: 1, PerBand: map[string]int{"20M": 1}}}},
+		{"negative iota points value", &scoringRules{Points: &pointsRule{IOTA: &iotaPointsRule{IslandWorksWorld: -1}}}},
+		{"iota combined with country/continent fields", &scoringRules{Points: &pointsRule{SameCountry: 1, IOTA: &iotaPointsRule{IslandWorksWorld: 5}}}},
 	}
 	for _, tc := range cases {
 		if err := validateScoringRules("EVT", "dx_scoring", tc.rules); err == nil {

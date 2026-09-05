@@ -184,6 +184,15 @@ func validateScoringRules(eventID, label string, rules *scoringRules) error {
 			return fmt.Errorf("event %q must not combine %s.per_band with any other points field", eventID, label)
 		}
 	}
+	if iotaRule := p.IOTA; iotaRule != nil {
+		if iotaRule.IslandWorksWorld < 0 || iotaRule.IslandWorksSameReference < 0 || iotaRule.IslandWorksOtherIsland < 0 ||
+			iotaRule.WorldWorksWorld < 0 || iotaRule.WorldWorksIsland < 0 {
+			return fmt.Errorf("event %q has a negative %s.iota points value", eventID, label)
+		}
+		if p.SameCountry != 0 || p.SameContinent != 0 || p.OtherContinent != 0 || len(p.CountryGroup) > 0 || p.Zone != nil || p.Distance != nil || len(p.PerBand) > 0 {
+			return fmt.Errorf("event %q must not combine %s.iota with any other points field", eventID, label)
+		}
+	}
 	for continent, value := range p.SameContinentOverrides {
 		if !validContinentCode(continent) {
 			return fmt.Errorf("event %q has a %s.same_continent_overrides entry for unsupported continent %q", eventID, label, continent)
@@ -372,6 +381,38 @@ type pointsRule struct {
 	// scores 0. Mutually exclusive with every other field, enforced by
 	// validateScoringRules.
 	PerBand map[string]int `json:"per_band,omitempty"`
+	// IOTA, when set, replaces every tier above with the RSGB IOTA Contest's
+	// shape (rsgbcc.org/hf/rules "Scoring"): points depend on whether the
+	// operator's own station is declared an island station for the QSO
+	// (qso.myIotaRef, snapshotted from the station profile's My IOTA Ref at
+	// log time — see stationProfile.MyIOTARef) and whether the worked station
+	// exchanged an IOTA reference (iotaMultiplierValue) — mutually exclusive
+	// with every other field, enforced by validateScoringRules.
+	IOTA *iotaPointsRule `json:"iota,omitempty"`
+}
+
+// iotaPointsRule is the RSGB IOTA Contest's points table. The contest
+// distinguishes "Island stations" (operating from a qualifying island) from
+// "World stations" (everyone else); which one the operator's own station is
+// for a given QSO comes from qso.myIotaRef, not the worked callsign.
+type iotaPointsRule struct {
+	// IslandWorksWorld is scored when the operator is an island station and
+	// works a world station (rules: "World Stations: 5 points").
+	IslandWorksWorld int `json:"island_works_world"`
+	// IslandWorksSameReference is scored when the operator is an island
+	// station and works another station on the *same* IOTA reference (rules:
+	// "Island Stations having the same IOTA reference: 5 points").
+	IslandWorksSameReference int `json:"island_works_same_reference"`
+	// IslandWorksOtherIsland is scored when the operator is an island
+	// station and works a *different* island station (rules: "Other Island
+	// Stations: 15 points").
+	IslandWorksOtherIsland int `json:"island_works_other_island"`
+	// WorldWorksWorld is scored when the operator is a world station and
+	// works another world station (rules: "World Stations: 2 points").
+	WorldWorksWorld int `json:"world_works_world"`
+	// WorldWorksIsland is scored when the operator is a world station and
+	// works an island station (rules: "Island Stations: 15 points").
+	WorldWorksIsland int `json:"world_works_island"`
 }
 
 // distancePointsRule is the Stew Perry Topband Distance Challenge's points
@@ -430,7 +471,7 @@ type multiplierRule struct {
 // "no multiplier configured" the same way it does for every other event.
 func validMultiplierKind(kind string) bool {
 	switch strings.TrimSpace(kind) {
-	case "unique_call", "dxcc", "cqzone", "ituzone", "prefix", "exchange_area", "county", "tn_county", "sac_area", "naqp_area", "sst_area", "arrl_section", "iaru_zone", "iaru_hq", "wae_country", "dxcc_non_wae", "canton", "oblast", "dxcc_or_wae", "dok_district", "none":
+	case "unique_call", "dxcc", "cqzone", "ituzone", "prefix", "exchange_area", "county", "tn_county", "sac_area", "naqp_area", "sst_area", "arrl_section", "iaru_zone", "iaru_hq", "wae_country", "dxcc_non_wae", "canton", "oblast", "dxcc_or_wae", "dok_district", "iota", "none":
 		return true
 	default:
 		return false

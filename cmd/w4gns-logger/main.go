@@ -26,6 +26,8 @@ const (
 	fieldRSTRcvd
 	fieldBand
 	fieldFrequency
+	fieldPOTARef
+	fieldIOTARef
 	fieldCount
 )
 
@@ -42,7 +44,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.31.0"
+const appVersion = "1.32.0"
 
 type screen int
 
@@ -66,13 +68,13 @@ const (
 	detailState
 	detailCounty
 	detailEmail
-	detailPOTARef
 	detailParkName
+	detailIslandName
 	detailNotes
 	detailFieldCount
 )
 
-var detailLabels = [detailFieldCount]string{"Name", "QTH", "Grid", "State", "County", "Email", "POTA Ref", "Park Name", "Notes"}
+var detailLabels = [detailFieldCount]string{"Name", "QTH", "Grid", "State", "County", "Email", "Park Name", "Island Name", "Notes"}
 
 const (
 	contestName = iota
@@ -100,6 +102,7 @@ const (
 	stationCallsignField
 	stationOperatorField
 	stationGridField
+	stationIOTARefField
 	stationTimezoneField
 	stationClubField
 	stationRigField
@@ -116,7 +119,7 @@ const (
 )
 
 var stationFieldLabels = [stationFieldCount]string{
-	"Profile", "Callsign", "Operator", "Grid", "Timezone", "Club", "Rig", "Antenna", "Power (W)",
+	"Profile", "Callsign", "Operator", "Grid", "My IOTA Ref", "Timezone", "Club", "Rig", "Antenna", "Power (W)",
 	"Cat-Operator", "Cat-Assisted", "Cat-Power", "Cat-Station", "Address",
 	"QRZ XML User", "QRZ XML Pass",
 }
@@ -150,6 +153,8 @@ var fieldLabels = [fieldCount]string{
 	fieldRSTRcvd:   "RST Rcvd",
 	fieldBand:      "Band",
 	fieldFrequency: "Freq MHz",
+	fieldPOTARef:   "POTA Ref",
+	fieldIOTARef:   "IOTA Ref",
 }
 
 type qso struct {
@@ -174,6 +179,8 @@ type qso struct {
 	comment    string
 	potaRef    string
 	parkName   string
+	iotaRef    string
+	islandName string
 	contestID  string
 	stx        string
 	stxString  string
@@ -192,6 +199,7 @@ type qso struct {
 	// later edits to the station profile never rewrite the operating context
 	// of a past QSO.
 	myGridSquare    string
+	myIotaRef       string
 	stationCallsign string
 	operatorName    string
 	myRig           string
@@ -260,6 +268,15 @@ type model struct {
 	potaLookups       map[uint64]qrzLookupPending
 	potaSequence      uint64
 	potaActive        uint64
+	// potaSpottedCall/Ref/Park hold the most recent successful POTA spot
+	// lookup (api.pota.app, via lookupPOTASpot) for the callsign it was for,
+	// so the analysis panel can show "SPOTTED" persistently rather than only
+	// the transient statusMsg the lookup also sets. Stale once the operator
+	// moves on to a different call — analysisPanel only renders these when
+	// potaSpottedCall still matches the callsign currently being typed.
+	potaSpottedCall   string
+	potaSpottedRef    string
+	potaSpottedPark   string
 	uploadQueueStatus string
 	serialResumeError string
 
@@ -487,11 +504,14 @@ func initialModel(st *store) model {
 	fields[fieldBand].SetValue("20M")
 	fields[fieldFrequency] = newTextInput("14.025", 9)
 	fields[fieldFrequency].SetValue("14.025")
+	fields[fieldPOTARef] = newTextInput("K-0001", 12)
+	fields[fieldIOTARef] = newTextInput("EU-005", 10)
 	details := []textinput.Model{
 		newTextInput("Operator name", 20), newTextInput("City / QTH", 20),
 		newTextInput("Grid square", 10), newTextInput("State / province", 12),
 		newTextInput("County", 16), newTextInput("Email", 24),
-		newTextInput("US-0000", 12), newTextInput("Park name", 30), newTextInput("QSO notes", 36),
+		newTextInput("Park name", 30),
+		newTextInput("Island name", 30), newTextInput("QSO notes", 36),
 	}
 	contests := []textinput.Model{
 		newTextInput("Contest name", 20), newTextInput("001", 8), newTextInput("Sent exchange", 16),
@@ -571,6 +591,7 @@ func (m *model) openStationSetup() {
 		newStationTextInput(profile.Callsign, 14),
 		newStationTextInput(profile.OperatorName, 24),
 		newStationTextInput(profile.MyGridSquare, 12),
+		newStationTextInput(profile.MyIOTARef, 10),
 		newStationTextInput(profile.Timezone, 24),
 		newStationTextInput(profile.Club, 20),
 		newStationTextInput(profile.Rig, 24),
@@ -624,6 +645,7 @@ func (m *model) saveStationSetup() tea.Cmd {
 		Callsign:     m.stationFields[stationCallsignField].Value(),
 		OperatorName: m.stationFields[stationOperatorField].Value(),
 		MyGridSquare: m.stationFields[stationGridField].Value(),
+		MyIOTARef:    m.stationFields[stationIOTARefField].Value(),
 		Timezone:     m.stationFields[stationTimezoneField].Value(),
 		Club:         m.stationFields[stationClubField].Value(),
 		Rig:          m.stationFields[stationRigField].Value(),
@@ -642,7 +664,7 @@ func (m *model) saveStationSetup() tea.Cmd {
 		return nil
 	}
 	m.activeStation = saved
-	identityChanged := previous.Callsign != saved.Callsign || previous.MyGridSquare != saved.MyGridSquare
+	identityChanged := previous.Callsign != saved.Callsign || previous.MyGridSquare != saved.MyGridSquare || previous.MyIOTARef != saved.MyIOTARef
 	if identityChanged || previous.CategoryStation != saved.CategoryStation || previous.CategoryPower != saved.CategoryPower {
 		// pointsRule classification and bearing origin both depend on the
 		// station identity. The contest id itself did not change, so the usual
@@ -1214,14 +1236,16 @@ func (m *model) beginEditQSO(q qso) {
 	m.fields[fieldRSTRcvd].SetValue(full.rstRcvd)
 	m.fields[fieldBand].SetValue(full.band)
 	m.fields[fieldFrequency].SetValue(full.frequency)
+	m.fields[fieldPOTARef].SetValue(full.potaRef)
+	m.fields[fieldIOTARef].SetValue(full.iotaRef)
 	m.detailFields[detailName].SetValue(full.name)
 	m.detailFields[detailQTH].SetValue(full.qth)
 	m.detailFields[detailGrid].SetValue(full.grid)
 	m.detailFields[detailState].SetValue(full.state)
 	m.detailFields[detailCounty].SetValue(full.county)
 	m.detailFields[detailEmail].SetValue(full.email)
-	m.detailFields[detailPOTARef].SetValue(full.potaRef)
 	m.detailFields[detailParkName].SetValue(full.parkName)
+	m.detailFields[detailIslandName].SetValue(full.islandName)
 	m.detailFields[detailNotes].SetValue(full.comment)
 	m.contestFields[contestName].SetValue(full.contestID)
 	m.contestFields[contestSerialSent].SetValue(full.stx)
@@ -1825,9 +1849,13 @@ func (m *model) autoFillPOTAReference() tea.Cmd {
 	if call == "" {
 		return nil
 	}
-	if reference, ok := recentClusterPOTAReference(m.clusterSpots, call, time.Now()); ok && strings.TrimSpace(m.detailFields[detailPOTARef].Value()) == "" {
-		m.detailFields[detailPOTARef].SetValue(reference)
+	if reference, ok := recentClusterPOTAReference(m.clusterSpots, call, time.Now()); ok && strings.TrimSpace(m.fields[fieldPOTARef].Value()) == "" {
+		m.fields[fieldPOTARef].SetValue(reference)
 		m.statusMsg = "POTA " + reference + " from recent cluster spot"
+	}
+	if reference, ok := recentClusterIOTAReference(m.clusterSpots, call, time.Now()); ok && strings.TrimSpace(m.fields[fieldIOTARef].Value()) == "" {
+		m.fields[fieldIOTARef].SetValue(reference)
+		m.statusMsg = "IOTA " + reference + " from recent cluster spot"
 	}
 	delete(m.potaLookups, m.potaActive)
 	m.potaSequence++
@@ -2069,25 +2097,27 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 	// The fields the operator can actually edit, whether logging a new QSO
 	// or correcting an existing one.
 	edited := qso{
-		call:      call,
-		band:      m.qsoBand(),
-		rstSent:   m.fields[fieldRSTSent].Value(),
-		rstRcvd:   m.fields[fieldRSTRcvd].Value(),
-		frequency: m.qsoFrequency(),
-		name:      strings.TrimSpace(m.detailFields[detailName].Value()),
-		qth:       strings.TrimSpace(m.detailFields[detailQTH].Value()),
-		grid:      strings.TrimSpace(m.detailFields[detailGrid].Value()),
-		state:     strings.TrimSpace(m.detailFields[detailState].Value()),
-		county:    strings.TrimSpace(m.detailFields[detailCounty].Value()),
-		email:     strings.TrimSpace(m.detailFields[detailEmail].Value()),
-		potaRef:   strings.ToUpper(strings.TrimSpace(m.detailFields[detailPOTARef].Value())),
-		parkName:  strings.TrimSpace(m.detailFields[detailParkName].Value()),
-		comment:   strings.TrimSpace(m.detailFields[detailNotes].Value()),
-		contestID: strings.TrimSpace(m.contestFields[contestName].Value()),
-		stx:       strings.TrimSpace(m.contestFields[contestSerialSent].Value()),
-		stxString: strings.TrimSpace(m.contestFields[contestExchangeSent].Value()),
-		srx:       strings.TrimSpace(m.contestFields[contestSerialRcvd].Value()),
-		srxString: strings.TrimSpace(m.contestFields[contestExchangeRcvd].Value()),
+		call:       call,
+		band:       m.qsoBand(),
+		rstSent:    m.fields[fieldRSTSent].Value(),
+		rstRcvd:    m.fields[fieldRSTRcvd].Value(),
+		frequency:  m.qsoFrequency(),
+		name:       strings.TrimSpace(m.detailFields[detailName].Value()),
+		qth:        strings.TrimSpace(m.detailFields[detailQTH].Value()),
+		grid:       strings.TrimSpace(m.detailFields[detailGrid].Value()),
+		state:      strings.TrimSpace(m.detailFields[detailState].Value()),
+		county:     strings.TrimSpace(m.detailFields[detailCounty].Value()),
+		email:      strings.TrimSpace(m.detailFields[detailEmail].Value()),
+		potaRef:    strings.ToUpper(strings.TrimSpace(m.fields[fieldPOTARef].Value())),
+		parkName:   strings.TrimSpace(m.detailFields[detailParkName].Value()),
+		iotaRef:    strings.ToUpper(strings.TrimSpace(m.fields[fieldIOTARef].Value())),
+		islandName: strings.TrimSpace(m.detailFields[detailIslandName].Value()),
+		comment:    strings.TrimSpace(m.detailFields[detailNotes].Value()),
+		contestID:  strings.TrimSpace(m.contestFields[contestName].Value()),
+		stx:        strings.TrimSpace(m.contestFields[contestSerialSent].Value()),
+		stxString:  strings.TrimSpace(m.contestFields[contestExchangeSent].Value()),
+		srx:        strings.TrimSpace(m.contestFields[contestSerialRcvd].Value()),
+		srxString:  strings.TrimSpace(m.contestFields[contestExchangeRcvd].Value()),
 	}
 
 	if m.editingQSOID != 0 {
@@ -2098,6 +2128,7 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		logged := m.editingOriginal
 		logged.call, logged.band, logged.rstSent, logged.rstRcvd, logged.frequency = edited.call, edited.band, edited.rstSent, edited.rstRcvd, edited.frequency
 		logged.name, logged.qth, logged.grid, logged.state, logged.county, logged.email, logged.potaRef, logged.parkName, logged.comment = edited.name, edited.qth, edited.grid, edited.state, edited.county, edited.email, edited.potaRef, edited.parkName, edited.comment
+		logged.iotaRef, logged.islandName = edited.iotaRef, edited.islandName
 		logged.contestID, logged.stx, logged.stxString, logged.srx, logged.srxString = edited.contestID, edited.stx, edited.stxString, edited.srx, edited.srxString
 		// A single-line widget sanitizes newlines/tabs for display. Retain the
 		// original value when that displayed representation was not changed.
@@ -2107,6 +2138,7 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		}{
 			{m.editingOriginal.name, &logged.name}, {m.editingOriginal.qth, &logged.qth},
 			{m.editingOriginal.comment, &logged.comment}, {m.editingOriginal.parkName, &logged.parkName},
+			{m.editingOriginal.islandName, &logged.islandName},
 			{m.editingOriginal.email, &logged.email}, {m.editingOriginal.county, &logged.county},
 			{m.editingOriginal.stxString, &logged.stxString}, {m.editingOriginal.srxString, &logged.srxString},
 		} {
@@ -2167,6 +2199,7 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 	logged.time = startedAt
 	logged.timeOff = endedAt
 	logged.myGridSquare = m.activeStation.MyGridSquare
+	logged.myIotaRef = m.activeStation.MyIOTARef
 	logged.stationCallsign = m.activeStation.Callsign
 	logged.operatorName = m.activeStation.OperatorName
 	logged.myRig = m.activeStation.Rig
@@ -2385,6 +2418,9 @@ func (m *model) clearQSOForm() {
 	m.potaActive = 0
 	m.fields[fieldCall].SetValue("")
 	m.fields[fieldRSTRcvd].SetValue("599")
+	m.fields[fieldPOTARef].SetValue("")
+	m.fields[fieldIOTARef].SetValue("")
+	m.potaSpottedCall, m.potaSpottedRef, m.potaSpottedPark = "", "", ""
 	for index := range m.detailFields {
 		m.detailFields[index].SetValue("")
 	}
@@ -2425,12 +2461,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMsg = "POTA lookup unavailable: " + message.err.Error()
 			return m, nil
 		}
+		// Record the spot regardless of whether it also autofilled a field
+		// below, so the analysis panel can show "SPOTTED" for a call the
+		// operator already entered a reference for by hand.
+		if message.reference != "" || message.parkName != "" {
+			m.potaSpottedCall = call
+			m.potaSpottedRef = message.reference
+			m.potaSpottedPark = message.parkName
+		}
 		filled := false
-		if message.reference != "" && strings.TrimSpace(m.detailFields[detailPOTARef].Value()) == "" {
-			m.detailFields[detailPOTARef].SetValue(message.reference)
+		if message.reference != "" && strings.TrimSpace(m.fields[fieldPOTARef].Value()) == "" {
+			m.fields[fieldPOTARef].SetValue(message.reference)
 			filled = true
 		}
-		if message.parkName != "" && strings.TrimSpace(m.detailFields[detailParkName].Value()) == "" && strings.EqualFold(strings.TrimSpace(m.detailFields[detailPOTARef].Value()), message.reference) {
+		if message.parkName != "" && strings.TrimSpace(m.detailFields[detailParkName].Value()) == "" && strings.EqualFold(strings.TrimSpace(m.fields[fieldPOTARef].Value()), message.reference) {
 			m.detailFields[detailParkName].SetValue(message.parkName)
 			filled = true
 		}

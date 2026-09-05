@@ -25,6 +25,7 @@ func TestCheckedCatalogSubmissionExchanges(t *testing.T) {
 		"HELVETIA": "001", "RDXC": "001", "WAG": "001",
 		"CWT": "GARY 1234", "CW-OPEN": "001 GARY",
 		"K1USN-SST": "GARY TN", "TNQP": "HAMI", "ARRL-SS-CW": "A 99 TN",
+		"RSGB-IOTA": "001 EU-005",
 	}
 	catalog, err := loadEventCatalog()
 	if err != nil {
