@@ -48,7 +48,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.43.0"
+const appVersion = "1.44.0"
 
 type screen int
 
@@ -1608,9 +1608,12 @@ func (m *model) showWorkedCall(call string) {
 // slots normally occupy positions 0..fieldCount-1 in the returned order, but
 // RST Sent/Rcvd are dropped entirely while an active event's
 // CabrilloOmitRST is set (e.g. CW Open, NAQP CW: no RST is exchanged in
-// those contests), so callers must not assume a fixed fieldXXX-to-position
-// mapping — use focusedBaseFieldIndex for a position-independent check
-// instead of comparing m.focusIdx to a fieldXXX constant directly.
+// those contests), and POTA/IOTA Ref are dropped entirely during a US state
+// QSO party (event.QSOParty != nil): those events don't score or exchange
+// park/island references, so callers must not assume a fixed
+// fieldXXX-to-position mapping — use focusedBaseFieldIndex for a
+// position-independent check instead of comparing m.focusIdx to a fieldXXX
+// constant directly.
 type entrySlot struct {
 	contest bool
 	post    bool
@@ -1628,13 +1631,20 @@ type entrySlot struct {
 // (SD 599/59 default doesn't apply), so prompting for it mid-QSO both wastes
 // keystrokes and implies an exchange that was never sent — Cabrillo export
 // already drops the columns for these events (cw_exchange_only layout), but
-// the on-screen form still showed and cycled through them before this.
+// the on-screen form still showed and cycled through them before this. POTA
+// Ref/IOTA Ref are similarly omitted during a QSO party (event.QSOParty !=
+// nil): US state QSO parties exchange serial/county/state, never a park or
+// island reference, so those fields are just clutter mid-contest.
 func (m model) entrySlots() []entrySlot {
 	event, contestActive := m.eventForContestID()
 	skipRST := contestActive && event.CabrilloOmitRST
+	skipPOTAIOTA := contestActive && event.QSOParty != nil
 	slots := make([]entrySlot, 0, fieldCount+3)
 	for i := 0; i < fieldCount; i++ {
 		if skipRST && (i == fieldRSTSent || i == fieldRSTRcvd) {
+			continue
+		}
+		if skipPOTAIOTA && (i == fieldPOTARef || i == fieldIOTARef) {
 			continue
 		}
 		slots = append(slots, entrySlot{idx: i, label: fieldLabels[i]})
@@ -2550,9 +2560,11 @@ func (m model) qrzOutboxUploadCmd(q qso) tea.Cmd {
 		logID, err := uploadQSOToQRZ(ctx, apiKey, q)
 		if err != nil {
 			queueErr := st.recordUploadFailure(q.id, uploadDestQRZ, err.Error(), time.Now())
+			_ = st.logUploadEvent(q.id, uploadDestQRZ, q.call, uploadLogFailed, "", err.Error())
 			return qrzUploadMsg{qsoID: q.id, call: q.call, err: err, deliveryPersisted: queueErr == nil, queueErr: queueErr}
 		}
 		queueErr := st.markUploadDone(q.id, uploadDestQRZ)
+		_ = st.logUploadEvent(q.id, uploadDestQRZ, q.call, uploadLogSent, logID, "")
 		return qrzUploadMsg{qsoID: q.id, call: q.call, logID: logID, deliveryPersisted: queueErr == nil, queueErr: queueErr}
 	}, func(r any) tea.Msg {
 		return qrzUploadMsg{qsoID: q.id, call: q.call, err: fmt.Errorf("panic during QRZ upload: %v", r)}
@@ -2574,9 +2586,11 @@ func (m model) wrlOutboxUploadCmd(q qso) tea.Cmd {
 		err := uploadQSOToWRL(ctx, apiKey, logbookID, q)
 		if err != nil {
 			queueErr := st.recordUploadFailure(q.id, uploadDestWRL, err.Error(), time.Now())
+			_ = st.logUploadEvent(q.id, uploadDestWRL, q.call, uploadLogFailed, "", err.Error())
 			return wrlUploadMsg{qsoID: q.id, call: q.call, err: err, deliveryPersisted: queueErr == nil, queueErr: queueErr}
 		}
 		queueErr := st.markUploadDone(q.id, uploadDestWRL)
+		_ = st.logUploadEvent(q.id, uploadDestWRL, q.call, uploadLogSent, "", "")
 		return wrlUploadMsg{qsoID: q.id, call: q.call, deliveryPersisted: queueErr == nil, queueErr: queueErr}
 	}, func(r any) tea.Msg {
 		return wrlUploadMsg{qsoID: q.id, call: q.call, err: fmt.Errorf("panic during WRL upload: %v", r)}
@@ -2816,6 +2830,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err := m.store.recordUploadFailure(message.qsoID, uploadDestQRZ, message.err.Error(), time.Now()); err != nil {
 				m.statusMsg = fmt.Sprintf("upload queue error: %v", err)
 			} else {
+				_ = m.store.logUploadEvent(message.qsoID, uploadDestQRZ, message.call, uploadLogFailed, "", message.err.Error())
 				m.statusMsg = fmt.Sprintf("QRZ upload failed for %s (see upload queue): %v", message.call, message.err)
 			}
 		} else {
@@ -2826,6 +2841,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err := m.store.markUploadDone(message.qsoID, uploadDestQRZ); err != nil {
 				m.statusMsg = fmt.Sprintf("upload queue error: %v", err)
 			} else {
+				_ = m.store.logUploadEvent(message.qsoID, uploadDestQRZ, message.call, uploadLogSent, message.logID, "")
 				m.statusMsg = fmt.Sprintf("QRZ upload OK for %s (LOGID %s)", message.call, message.logID)
 			}
 		}
@@ -2843,6 +2859,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err := m.store.recordUploadFailure(message.qsoID, uploadDestWRL, message.err.Error(), time.Now()); err != nil {
 				m.statusMsg = fmt.Sprintf("upload queue error: %v", err)
 			} else {
+				_ = m.store.logUploadEvent(message.qsoID, uploadDestWRL, message.call, uploadLogFailed, "", message.err.Error())
 				m.statusMsg = fmt.Sprintf("WRL upload failed for %s (see upload queue): %v", message.call, message.err)
 			}
 		} else {
@@ -2853,6 +2870,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err := m.store.markUploadDone(message.qsoID, uploadDestWRL); err != nil {
 				m.statusMsg = fmt.Sprintf("upload queue error: %v", err)
 			} else {
+				_ = m.store.logUploadEvent(message.qsoID, uploadDestWRL, message.call, uploadLogSent, "", "")
 				m.statusMsg = fmt.Sprintf("WRL upload OK for %s", message.call)
 			}
 		}

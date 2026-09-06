@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -28,6 +29,14 @@ func (m *model) refreshUploadStatus() {
 		if err := m.store.db.QueryRow(`SELECT last_error FROM upload_outbox WHERE profile_id=? AND last_error IS NOT NULL ORDER BY next_attempt_at DESC LIMIT 1`, m.activeStation.ID).Scan(&last); err == nil {
 			m.uploadQueueStatus += "\nLast upload error: " + sanitizeClusterText(last)
 		}
+	}
+	var destination, call, status, refID, occurredAt string
+	if err := m.store.db.QueryRow(`SELECT destination, call, status, COALESCE(ref_id,''), occurred_at FROM upload_log ORDER BY id DESC LIMIT 1`).Scan(&destination, &call, &status, &refID, &occurredAt); err == nil {
+		summary := fmt.Sprintf("Last delivery: %s to %s %s at %s", strings.ToUpper(destination), call, status, occurredAt)
+		if status == uploadLogSent && refID != "" {
+			summary += " (ref " + refID + ")"
+		}
+		m.uploadQueueStatus += "\n" + summary
 	}
 }
 

@@ -122,6 +122,42 @@ func TestQRZOutboxUploadPersistsSuccessBeforeUpdate(t *testing.T) {
 	if len(entries) != 0 {
 		t.Fatalf("outbox still has %d delivery after command success, want 0", len(entries))
 	}
+
+	var status, refID string
+	if err := st.db.QueryRow(`SELECT status, ref_id FROM upload_log WHERE qso_id = ? AND destination = ?`, id, uploadDestQRZ).Scan(&status, &refID); err != nil {
+		t.Fatalf("query upload_log: %v", err)
+	}
+	if status != uploadLogSent || refID != "123" {
+		t.Fatalf("upload_log row = status %q, ref_id %q, want %q, %q", status, refID, uploadLogSent, "123")
+	}
+}
+
+// TestLogUploadEventRecordsOutcome confirms logUploadEvent persists a
+// terminal delivery outcome that survives independently of the outbox row
+// (which is deleted on success), so an operator can confirm after the fact
+// whether a QSO actually reached a destination.
+func TestLogUploadEventRecordsOutcome(t *testing.T) {
+	st := openTestStore(t)
+	if err := st.logUploadEvent(42, uploadDestWRL, "W1AW", uploadLogSent, "", ""); err != nil {
+		t.Fatalf("logUploadEvent: %v", err)
+	}
+	if err := st.logUploadEvent(42, uploadDestQRZ, "W1AW", uploadLogFailed, "", "QRZ rejected QSO: bad band"); err != nil {
+		t.Fatalf("logUploadEvent: %v", err)
+	}
+	var count int
+	if err := st.db.QueryRow(`SELECT COUNT(*) FROM upload_log WHERE qso_id = 42`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Fatalf("upload_log rows for qso 42 = %d, want 2", count)
+	}
+	var detail string
+	if err := st.db.QueryRow(`SELECT detail FROM upload_log WHERE qso_id = 42 AND destination = ?`, uploadDestQRZ).Scan(&detail); err != nil {
+		t.Fatal(err)
+	}
+	if detail != "QRZ rejected QSO: bad band" {
+		t.Fatalf("detail = %q, want the recorded error text", detail)
+	}
 }
 
 // TestOutboxClaimLeasesAndDoesNotDoubleClaim confirms a claimed delivery is

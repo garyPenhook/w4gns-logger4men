@@ -1,5 +1,10 @@
 # Changelog
 
+### v1.44.0
+
+- Record every QRZ/WRL upload's terminal outcome (sent/failed, QRZ's LOGID, and any error) in a persistent upload log, and show the most recent delivery in the footer status line, so an operator can confirm after the fact whether a QSO actually reached a destination.
+- Hide the POTA Ref/IOTA Ref fields from the QSO Entry form during a US state QSO party (e.g. Tennessee QSO Party): those contests exchange serial/county/state, never a park or island reference.
+
 ### v1.43.0
 
 - Clear the previous station's POTA/IOTA references when replacing an unsaved callsign, while preserving references during an existing-QSO edit.

@@ -206,6 +206,50 @@ func TestEntrySlotsHideRSTForCabrilloOmitRSTEvent(t *testing.T) {
 	}
 }
 
+// TestEntrySlotsHidePOTAIOTAForQSOParty guards the fix for POTA Ref/IOTA Ref
+// appearing in the QSO Entry form during a US state QSO party: those
+// contests exchange serial/county/state, never a park or island reference,
+// so entrySlots must drop both fields entirely rather than show them as
+// unused clutter mid-contest.
+func TestEntrySlotsHidePOTAIOTAForQSOParty(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	tnqp := m.events[eventIndex(t, m.events, "TNQP")]
+	if tnqp.QSOParty == nil {
+		t.Fatal("test assumes TNQP has qso_party rules set")
+	}
+	m.selectEvent(tnqp, tnqp.Sessions[0])
+	m.screen = qsoEntryScreen
+	m.focusField(fieldCall)
+
+	for _, s := range m.entrySlots() {
+		if !s.contest && !s.post && (s.idx == fieldPOTARef || s.idx == fieldIOTARef) {
+			t.Fatalf("entrySlots included a POTA/IOTA slot (%+v) for a QSO party event", s)
+		}
+	}
+	if view := m.View(); strings.Contains(view, "POTA Ref") || strings.Contains(view, "IOTA Ref") {
+		t.Fatalf("QSO Entry view still shows POTA/IOTA fields for TNQP:\n%s", view)
+	}
+
+	// A non-QSO-party event (CQ WW CW) still shows both.
+	cqww := m.events[eventIndex(t, m.events, "CQ-WW-CW")]
+	m.selectEvent(cqww, cqww.Sessions[0])
+	found := map[int]bool{}
+	for _, s := range m.entrySlots() {
+		if !s.contest && !s.post {
+			found[s.idx] = true
+		}
+	}
+	if !found[fieldPOTARef] || !found[fieldIOTARef] {
+		t.Fatal("entrySlots dropped POTA/IOTA fields for a non-QSO-party event")
+	}
+}
+
 // TestEnterAfterCallAdvancesOneFieldOutsideContest guards against the fast
 // path firing when no contest is active — there is no received exchange to
 // jump to, so Enter must keep its normal one-field-at-a-time advance.

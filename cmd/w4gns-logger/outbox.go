@@ -45,7 +45,42 @@ CREATE TABLE IF NOT EXISTS upload_outbox (
     PRIMARY KEY (qso_id, destination)
 );
 CREATE INDEX IF NOT EXISTS idx_outbox_due ON upload_outbox(next_attempt_at);
+
+CREATE TABLE IF NOT EXISTS upload_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    qso_id INTEGER NOT NULL,
+    destination TEXT NOT NULL,
+    call TEXT NOT NULL,
+    status TEXT NOT NULL,
+    ref_id TEXT,
+    detail TEXT,
+    occurred_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_upload_log_qso ON upload_log(qso_id);
+CREATE INDEX IF NOT EXISTS idx_upload_log_occurred ON upload_log(occurred_at);
 `
+
+// uploadLogStatus values recorded in upload_log.status.
+const (
+	uploadLogSent   = "sent"
+	uploadLogFailed = "failed"
+)
+
+// logUploadEvent records the terminal outcome of one delivery attempt so an
+// operator can confirm after the fact whether a QSO actually reached QRZ or
+// WRL, without relying on the transient footer status message or the
+// external service's own UI. refID is the destination's confirmation
+// identifier when it has one (QRZ's LOGID; WRL returns none).
+func (s *store) logUploadEvent(qsoID int64, destination, call, status, refID, detail string) error {
+	_, err := s.db.Exec(
+		`INSERT INTO upload_log (qso_id, destination, call, status, ref_id, detail, occurred_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		qsoID, destination, call, status, refID, detail, time.Now().UTC().Format(time.RFC3339),
+	)
+	if err != nil {
+		return fmt.Errorf("log %s upload event for qso %d: %w", destination, qsoID, err)
+	}
+	return nil
+}
 
 // enqueueUpload records that qsoID should be delivered to destination no
 // earlier than notBefore (used to honor the post-log edit window). INSERT OR
