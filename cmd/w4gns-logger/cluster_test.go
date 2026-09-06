@@ -151,3 +151,40 @@ func TestMapFeedTapUsesCachedQRZLocationOverCountryReference(t *testing.T) {
 		t.Fatalf("DXLocation = %+v, want the cached QRZ location (source QRZProfile, lat 35.6/lon 139.7)", loc)
 	}
 }
+
+// TestMapFeedTapUsesCachedPOTALocationOverQRZ covers the POTA activation
+// location feature end to end through Update: once potaGeoCache has a park
+// location cached for a reference named in a spot's comment, that spot's
+// DXLocation must use it even when a QRZ profile location is also cached
+// for the same callsign — the activation site takes priority.
+func TestMapFeedTapUsesCachedPOTALocationOverQRZ(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+	m := initialModel(st)
+
+	updated, _ := m.Update(qrzMapGeoMsg{
+		call:   "W4GNS",
+		record: qrzCallsignRecord{hasLatLon: true, latitude: 1, longitude: 1, country: "United States"},
+	})
+	m = updated.(model)
+	updated, _ = m.Update(potaGeoMsg{
+		reference: "K-1234",
+		record:    potaParkRecord{Latitude: 35.9307, Longitude: -85.9401, EntityName: "United States of America"},
+	})
+	m = updated.(model)
+
+	updated, _ = m.Update(clusterLineMsg{line: "DX de K3LR-1:  14025.0 W4GNS QRP FROM K-1234 2000Z"})
+	m = updated.(model)
+
+	snap := m.mapReports.Snapshot()
+	if len(snap) != 1 {
+		t.Fatalf("mapReports.Len() = %d, want 1", len(snap))
+	}
+	loc := snap[0].DXLocation
+	if loc == nil || loc.Source != geo.SourcePOTAPark || loc.Latitude != 35.9307 || loc.Longitude != -85.9401 {
+		t.Fatalf("DXLocation = %+v, want the cached POTA location (source POTAPark, lat 35.9307/lon -85.9401)", loc)
+	}
+}

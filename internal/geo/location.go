@@ -24,6 +24,10 @@ const (
 	// self-reported address, more precise than a country reference but not
 	// an operator-confirmed override or a spot-attributed locator.
 	SourceQRZProfile
+	// SourcePOTAPark is a Parks on the Air park's coordinate, used when a
+	// spot names a POTA reference — the station's current activation site,
+	// which takes priority over its QRZ home address for that report.
+	SourcePOTAPark
 )
 
 // Precision categorizes how tightly a Location bounds the true station
@@ -44,6 +48,10 @@ const (
 	// PrecisionQRZProfile is a QRZ.com profile's self-reported address
 	// coordinate — station/address-level, but not verified.
 	PrecisionQRZProfile
+	// PrecisionPOTAPark is a POTA park's coordinate — park-level, generally
+	// tighter than a country reference and more relevant than a home QRZ
+	// profile for a station currently activating that park.
+	PrecisionPOTAPark
 )
 
 // Location is a resolved endpoint coordinate with its provenance attached.

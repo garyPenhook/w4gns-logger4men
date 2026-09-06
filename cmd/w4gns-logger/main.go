@@ -357,7 +357,11 @@ type model struct {
 	// qrzGeoCache caches QRZ profile locations for cluster-spotted callsigns
 	// (see resolveMapLocation), independent of qrzLookups/qrzActiveLookup's
 	// single active QSO Entry auto-fill lookup.
-	qrzGeoCache       *qrzGeoCache
+	qrzGeoCache *geoCache
+	// potaGeoCache caches POTA park locations by reference, used for a
+	// spot's DX/activator location when its comment names one (see
+	// resolveDXLocation) — no credential gate, POTA's park API is public.
+	potaGeoCache      *geoCache
 	clusterStatus     string
 	clusterConnecting bool
 	clusterGeneration uint64
@@ -580,6 +584,7 @@ func initialModel(st *store) model {
 		clusterFilters: defaultClusterFilters(),
 		mapReports:     mapfeed.NewStore(mapReportsCapacity),
 		qrzGeoCache:    newQRZGeoCache(),
+		potaGeoCache:   newPOTAGeoCache(),
 		bgCtx:          bgCtx,
 		bgCancel:       bgCancel,
 		bgTasks:        &sync.WaitGroup{},
@@ -1918,6 +1923,22 @@ func (m *model) startQRZGeoLookupIfNeeded(call string) tea.Cmd {
 	return qrzMapGeoLookupCmd(m.qrzXMLCreds, m.qrzXMLSessionKey, call)
 }
 
+// startPOTAGeoLookupIfNeeded returns a command to look up reference's POTA
+// park location for the map's location cache, or nil when no lookup is
+// needed: reference is blank, or potaGeoCache already has a fresh entry (or
+// an in-flight lookup) for it. Unlike QRZ, POTA's park API is public, so
+// there's no credential gate.
+func (m *model) startPOTAGeoLookupIfNeeded(reference string) tea.Cmd {
+	reference = strings.ToUpper(strings.TrimSpace(reference))
+	if reference == "" || m.potaGeoCache == nil {
+		return nil
+	}
+	if !m.potaGeoCache.startIfNeeded(reference) {
+		return nil
+	}
+	return potaGeoLookupCmd(reference)
+}
+
 func (m *model) autoFillFromQRZ() tea.Cmd {
 	call := normalizeCall(m.fields[fieldCall].Value())
 	if call == "" || m.qrzXMLCreds.empty() {
@@ -2614,6 +2635,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	if message, ok := msg.(potaGeoMsg); ok {
+		if m.potaGeoCache != nil {
+			var loc *geo.Location
+			if message.err == nil {
+				loc = potaRecordLocation(message.record)
+			}
+			m.potaGeoCache.store(message.reference, loc)
+		}
+		return m, nil
+	}
 	if message, ok := msg.(qrzCallsignLookupMsg); ok {
 		// Only the compatibility/test path uses uncorrelated messages.
 		if message.requestID == 0 && message.sessionKey != "" {
@@ -2862,8 +2893,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// second spotter reporting the same DX still reaches the map,
 			// even when the terminal itself won't show it again.
 			if band, freqMHz, ok := isBaselineCWEligible(cspot, mapFeedBands); ok {
-				m.mapReports.Add(buildMapReport(cspot, band, freqMHz, m.qrzGeoCache))
+				m.mapReports.Add(buildMapReport(cspot, band, freqMHz, m.qrzGeoCache, m.potaGeoCache))
 				geoLookups = append(geoLookups, m.startQRZGeoLookupIfNeeded(cspot.Callsign), m.startQRZGeoLookupIfNeeded(cspot.Spotter))
+				if reference, ok := potaReferenceFromComment(cspot.Comment); ok {
+					geoLookups = append(geoLookups, m.startPOTAGeoLookupIfNeeded(reference))
+				}
 			}
 			if m.clusterFilters.allowsSpot(cspot) {
 				m.addClusterSpot(cspot)

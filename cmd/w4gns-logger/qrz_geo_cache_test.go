@@ -55,7 +55,7 @@ func TestQRZGeoCacheStoreNilIsStillCached(t *testing.T) {
 
 func TestQRZGeoCacheTTLExpires(t *testing.T) {
 	c := newQRZGeoCache()
-	c.entries["W1AW"] = qrzGeoEntry{
+	c.entries["W1AW"] = geoCacheEntry{
 		location:  &geo.Location{Latitude: 41.7, Longitude: -72.7},
 		fetchedAt: time.Now().Add(-(qrzGeoTTL + time.Minute)),
 	}
@@ -71,7 +71,7 @@ func TestQRZGeoCacheCapacityCapsNewEntries(t *testing.T) {
 	c := newQRZGeoCache()
 	for i := 0; i < qrzGeoCacheCapacity; i++ {
 		call := formatSerial(i + 1)
-		c.entries[call] = qrzGeoEntry{fetchedAt: time.Now()}
+		c.entries[call] = geoCacheEntry{fetchedAt: time.Now()}
 	}
 	if c.startIfNeeded("OVERFLOW") {
 		t.Fatal("startIfNeeded at capacity for a new call = true, want false")

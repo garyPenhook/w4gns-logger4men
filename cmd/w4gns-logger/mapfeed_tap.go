@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"time"
 
 	"w4gns-logger/internal/geo"
@@ -15,11 +16,13 @@ import (
 var mapFeedBands = defaultClusterFilters().Bands
 
 // buildMapReport converts an already-baseline-eligible cluster spot into a
-// spot.Report, resolving both endpoints' locations via resolveMapLocation —
-// a cached QRZ profile coordinate when one is available (see qrzGeoCache),
-// otherwise the bundled DXCC country/prefix reference table. A callsign
-// that resolves via neither gets a nil Location rather than a guessed one.
-func buildMapReport(cspot clusterSpot, band string, freqMHz float64, qrzCache *qrzGeoCache) spot.Report {
+// spot.Report. SpotterLocation resolves via resolveMapLocation (a cached QRZ
+// profile coordinate when available, otherwise the DXCC country/prefix
+// reference). DXLocation additionally prefers a POTA park coordinate when
+// the spot's comment names a reference — see resolveDXLocation. A callsign
+// that resolves via none of these gets a nil Location rather than a guessed
+// one.
+func buildMapReport(cspot clusterSpot, band string, freqMHz float64, qrzCache, potaCache *geoCache) spot.Report {
 	return spot.Report{
 		ReceivedAtUTC:   cspot.Received.UTC(),
 		DXCall:          cspot.Callsign,
@@ -27,16 +30,50 @@ func buildMapReport(cspot clusterSpot, band string, freqMHz float64, qrzCache *q
 		FrequencyHz:     spot.FrequencyHzFromMHz(freqMHz),
 		Band:            band,
 		Comment:         cspot.Comment,
-		DXLocation:      resolveMapLocation(cspot.Callsign, qrzCache),
+		DXLocation:      resolveDXLocation(cspot, qrzCache, potaCache),
 		SpotterLocation: resolveMapLocation(cspot.Spotter, qrzCache),
 	}
+}
+
+// resolveDXLocation prefers a cached POTA park coordinate when cspot's
+// comment names a POTA reference — the DX station's current activation
+// site, more relevant and more precise than its permanent QRZ home address
+// for this report — falling back to resolveMapLocation's QRZ/country-
+// reference precedence otherwise. POTA applies only to the DX/activator
+// side of a spot: the spotter is presumably at their own location, not the
+// activator's park, matching how recentClusterPOTAReference (pota.go) is
+// likewise only ever applied to the worked/spotted call.
+func resolveDXLocation(cspot clusterSpot, qrzCache, potaCache *geoCache) *geo.Location {
+	if potaCache != nil {
+		if reference, ok := potaReferenceFromComment(cspot.Comment); ok {
+			if loc, ok := potaCache.lookup(reference); ok && loc != nil {
+				return loc
+			}
+		}
+	}
+	return resolveMapLocation(cspot.Callsign, qrzCache)
+}
+
+// potaReferenceFromComment extracts a POTA park reference from a single
+// cluster spot's comment, applying the same "skip an IOTA-shaped match"
+// exclusion recentClusterPOTAReference (pota.go) uses when scanning spot
+// history — potaReferencePattern's shape also matches IOTA island-group
+// references (e.g. "EU-005"), so a comment carrying both must not report the
+// IOTA reference as if it were a POTA one.
+func potaReferenceFromComment(comment string) (string, bool) {
+	for _, candidate := range potaReferencePattern.FindAllString(comment, -1) {
+		if !iotaReferencePattern.MatchString(candidate) {
+			return strings.ToUpper(candidate), true
+		}
+	}
+	return "", false
 }
 
 // resolveMapLocation prefers a fresh, cached QRZ profile coordinate for call
 // (see qrzGeoCache) — more precise than the country reference — falling
 // back to the country/prefix reference table when the cache has no entry or
 // a cached miss (QRZ reached but had no usable coordinate).
-func resolveMapLocation(call string, qrzCache *qrzGeoCache) *geo.Location {
+func resolveMapLocation(call string, qrzCache *geoCache) *geo.Location {
 	if qrzCache != nil {
 		if loc, ok := qrzCache.lookup(normalizeCall(call)); ok && loc != nil {
 			return loc
@@ -59,6 +96,34 @@ func qrzRecordLocation(record qrzCallsignRecord) *geo.Location {
 		Longitude:  record.longitude,
 		Source:     geo.SourceQRZProfile,
 		Precision:  geo.PrecisionQRZProfile,
+		ResolvedAt: time.Now().UTC(),
+	}
+}
+
+// potaRecordLocation converts a POTA park lookup result into a map
+// Location, or nil when the record carried no usable coordinate (see
+// potaParkRecord.hasCoordinates) — POTA already uses the standard north/
+// east-positive convention, so no sign conversion is needed here. Country is
+// normalized to the exact string "United States" when EntityName names it
+// (POTA's "United States of America" wouldn't otherwise match the DX/USA map
+// filter, which compares against the same exact string cty.dat and QRZ
+// already produce); other entities keep POTA's own EntityName as a
+// best-effort display label, at the cost of not participating in that
+// filter — not worth a full prefix-to-country table for.
+func potaRecordLocation(record potaParkRecord) *geo.Location {
+	if !record.hasCoordinates() {
+		return nil
+	}
+	country := record.EntityName
+	if strings.Contains(country, "United States") {
+		country = "United States"
+	}
+	return &geo.Location{
+		Country:    country,
+		Latitude:   record.Latitude,
+		Longitude:  record.Longitude,
+		Source:     geo.SourcePOTAPark,
+		Precision:  geo.PrecisionPOTAPark,
 		ResolvedAt: time.Now().UTC(),
 	}
 }
