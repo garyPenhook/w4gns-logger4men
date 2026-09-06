@@ -5,3 +5,12 @@ Conversion: flatten Polygon/MultiPolygon features into polygon arrays,
 retain exterior and interior rings, round longitude/latitude to 2 decimals,
 discard feature properties. world.json contains these coordinate arrays.
 Country boundaries are cartographic context, not a statement of sovereignty.
+
+US state polygons: Natural Earth 1:110m admin-1 states/provinces, v5.1.2,
+filtered to features with admin "United States of America" (50 states + DC).
+https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_110m_admin_1_states_provinces.geojson
+Public domain: https://www.naturalearthdata.com/about/terms-of-use/
+Same conversion as world.json (flatten to polygon arrays, retain exterior
+and interior rings, round to 2 decimals, discard feature properties).
+us_states.json contains these coordinate arrays. State boundaries are
+cartographic context for orientation, not a legal/administrative statement.

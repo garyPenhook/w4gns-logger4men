@@ -1,7 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const colors={'160M':'#b69cff','80M':'#aebcff','60M':'#df9dd2','40M':'#eead79','30M':'#e7cd75','20M':'#70dfc4','17M':'#73cce5','15M':'#7eafff','12M':'#c4df7e','10M':'#f192a4','6M':'#dfbcfa'};
-let reports=new Map(), state={}, world=[], visible=[], selected='', inspectorPoint='', page=0, hits=[], scale=1, pan=[0,0], drag=null, online=false, lastPacket=0;
+let reports=new Map(), state={}, world=[], usStates=[], visible=[], selected='', inspectorPoint='', page=0, hits=[], scale=1, pan=[0,0], drag=null, online=false, lastPacket=0;
 const canvas=$('map'), ctx=canvas.getContext('2d');
 const key=r=>r.DXCall+' / '+r.Band;
 for(const [band,color] of Object.entries(colors)) {
@@ -26,6 +26,10 @@ function drawPath(a,b,w,h,color){const points=greatCircle(a,b);ctx.strokeStyle=c
 function draw(){const [w,h]=size();ctx.clearRect(0,0,w,h);ctx.fillStyle='#0b1724';ctx.fillRect(0,0,w,h);ctx.strokeStyle='#192e40';ctx.lineWidth=.6;for(let lon=-180;lon<=180;lon+=30){strokeRing([[lon,-90],[lon,90]],w,h);ctx.stroke();}for(let lat=-60;lat<=60;lat+=30){strokeRing([[-180,lat],[180,lat]],w,h);ctx.stroke();}
   ctx.fillStyle='#20394a';ctx.strokeStyle='#3b5667';ctx.lineWidth=.55;
   for(const polygon of world){ctx.beginPath();for(const ring of polygon){ring.forEach(([lon,lat],i)=>{const [x,y]=project(lon,lat,w,h);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});ctx.closePath();}ctx.fill('evenodd');ctx.stroke();}
+  // US state outlines: cartographic context only, drawn under everything
+  // else (paths/markers), thin/dim enough not to compete with them.
+  ctx.strokeStyle='#2c4356';ctx.lineWidth=.4;
+  for(const polygon of usStates)for(const ring of polygon){ctx.beginPath();ring.forEach(([lon,lat],i)=>{const [x,y]=project(lon,lat,w,h);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});ctx.closePath();ctx.stroke();}
   const pathMode=$('paths').value;let pathCount=0;const seenPaths=new Set();
   for(const r of visible){if(pathMode==='off'||(pathMode==='selected'&&key(r)!==selected)||!r.DXLocation||!r.SpotterLocation)continue;const k=key(r)+' '+r.SpotterCall;if(seenPaths.has(k))continue;seenPaths.add(k);if(pathCount++>=500)break;drawPath(r.SpotterLocation,r.DXLocation,w,h,colors[r.Band]+'88');const [x,y]=project(r.SpotterLocation.Longitude,r.SpotterLocation.Latitude,w,h);ctx.strokeStyle=colors[r.Band];ctx.strokeRect(x-3,y-3,6,6);}
   const groups=new Map();for(const r of visible){if(!r.DXLocation)continue;const loc=r.DXLocation,k=loc.Longitude+','+loc.Latitude;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r);}
@@ -63,5 +67,8 @@ canvas.addEventListener('wheel',e=>{e.preventDefault();zoom(e.deltaY<0?1.15:1/1.
 canvas.onpointerdown=e=>{drag={x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,moved:false};canvas.setPointerCapture(e.pointerId);};canvas.onpointermove=e=>{if(!drag)return;pan[0]+=e.clientX-drag.x;pan[1]+=e.clientY-drag.y;drag.moved ||= Math.hypot(e.clientX-drag.startX,e.clientY-drag.startY)>4;drag.x=e.clientX;drag.y=e.clientY;draw();};canvas.onpointerup=e=>{if(drag&&!drag.moved){const box=canvas.getBoundingClientRect(),x=e.clientX-box.left,y=e.clientY-box.top;const hit=hits.find(p=>Math.hypot(p.x-x,p.y-y)<p.radius+6);if(hit){if(new Set(hit.group.map(key)).size>1)details(hit.group);else select(key(hit.group[0]));}}drag=null;};canvas.onpointercancel=()=>{drag=null;};
 new ResizeObserver(draw).observe($('viewport'));
 fetch('world.json').then(r=>{if(!r.ok)throw Error();return r.json();}).then(data=>{world=data;draw();}).catch(()=>{$('mapnotice').textContent='Could not load bundled world geography';});
+// US state outlines are a supplementary layer; missing/failed load just
+// means no state lines draw, not a map-wide error notice.
+fetch('us_states.json').then(r=>{if(!r.ok)throw Error();return r.json();}).then(data=>{usStates=data;draw();}).catch(()=>{});
 const stream=new EventSource('events');stream.onmessage=e=>{const packet=JSON.parse(e.data);online=true;lastPacket=Date.now();state=packet.State;if(packet.Reset)reports.clear();for(const r of packet.Reports)reports.set(r.EventID,r);for(const [id,r]of reports)if(id<packet.OldestID||Date.parse(r.ReceivedAtUTC)<Date.parse(packet.Now)-3600000)reports.delete(id);$('connection').textContent='● Logger connected';$('status').textContent=(state.Status||'Waiting for cluster')+(packet.AtCapacity?' · Report capacity reached; history may be truncated':'');$('home').textContent=state.Home?'★ '+state.Callsign+' · '+state.Home.Locator:'Home grid not configured';render();};stream.onerror=()=>{online=false;$('connection').textContent='Logger disconnected · reconnecting…';};
 function tick(){$('clock').textContent=new Date().toISOString().slice(11,19)+' UTC';if(online&&Date.now()-lastPacket>5000)$('connection').textContent='Logger stream stale · waiting…';if(!online)render();}tick();setInterval(tick,1000);
