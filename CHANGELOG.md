@@ -1,5 +1,13 @@
 # Changelog
 
+### v1.43.0
+
+- Clear the previous station's POTA/IOTA references when replacing an unsaved callsign, while preserving references during an existing-QSO edit.
+- Export formula-like CSV fields as spreadsheet text instead of executable formulas.
+- Publish map spots with fallback locations when a park lookup cannot be admitted; bound the total pending queue and expire waits, with late park results enriching those fallbacks.
+- Update existing DX and spotter locations when QRZ results arrive, sending browser deltas with stable report IDs and preserving more precise park/grid/override locations.
+- Reject non-finite and out-of-range QRZ/POTA coordinates so malformed locations cannot break the map's JSON stream.
+
 ### v1.42.0
 
 - Fix World Map POTA locations: a spot naming a POTA park reference not yet resolved is now held until the park lookup completes instead of being permanently stranded at the coarser DXCC country reference.

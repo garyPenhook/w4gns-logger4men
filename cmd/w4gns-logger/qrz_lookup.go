@@ -14,6 +14,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"w4gns-logger/internal/geo"
 )
 
 // qrzXMLAPI is a var (not const) so tests can point it at a local server.
@@ -244,7 +245,7 @@ func parseQRZLatLon(latText, lonText string) (lat, lon float64, ok bool) {
 	}
 	lat, latErr := strconv.ParseFloat(latText, 64)
 	lon, lonErr := strconv.ParseFloat(lonText, 64)
-	if latErr != nil || lonErr != nil {
+	if latErr != nil || lonErr != nil || !geo.ValidCoordinates(lat, lon) {
 		return 0, 0, false
 	}
 	return lat, lon, true

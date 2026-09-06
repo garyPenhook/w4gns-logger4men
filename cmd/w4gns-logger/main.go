@@ -48,7 +48,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.42.0"
+const appVersion = "1.43.0"
 
 type screen int
 
@@ -363,16 +363,10 @@ type model struct {
 	// resolveDXLocation) — no credential gate, POTA's park API is public.
 	potaGeoCache *geoCache
 	// pendingPOTASpots holds map reports whose comment names a POTA
-	// reference not yet in potaGeoCache, keyed by that (uppercased)
-	// reference. Added immediately, they'd resolve to the coarser DXCC
-	// country reference (potaGeoCache.lookup misses before the async park
-	// lookup completes) and never get upgraded once it does — buildMapReport
-	// only resolves a location at Add time, and the map store has no update
-	// path. Holding them until potaGeoMsg arrives (see its handler) means
-	// the first sighting of a park gets the precise coordinate too, at the
-	// cost of a short delay (typically well under a second) before it first
-	// appears. potaPendingSpotCap bounds it against an unbounded pileup if a
-	// lookup is unusually slow.
+	// reference with an admitted lookup, keyed by that (uppercased) reference.
+	// A short, globally bounded wait avoids jumping from a country reference
+	// to the park on first display. Capacity/timeout fallbacks are enriched
+	// in place if the park result subsequently arrives.
 	pendingPOTASpots  map[string][]pendingPOTASpot
 	clusterStatus     string
 	clusterConnecting bool
@@ -1957,14 +1951,29 @@ func (m *model) startPOTAGeoLookupIfNeeded(reference string) tea.Cmd {
 // whatever fallback resolveDXLocation currently finds rather than waiting
 // indefinitely.
 func (m *model) queuePendingPOTASpot(reference string, cspot clusterSpot, band string, freqMHz float64) {
+	m.expirePendingPOTASpots(time.Now())
 	if m.pendingPOTASpots == nil {
 		m.pendingPOTASpots = make(map[string][]pendingPOTASpot)
 	}
-	if len(m.pendingPOTASpots[reference]) >= potaPendingSpotCap {
+	total := 0
+	for _, pending := range m.pendingPOTASpots {
+		total += len(pending)
+	}
+	if len(m.pendingPOTASpots[reference]) >= potaPendingSpotCap || total >= potaPendingTotalCap {
 		m.mapReports.Add(buildMapReport(cspot, band, freqMHz, m.qrzGeoCache, m.potaGeoCache))
 		return
 	}
 	m.pendingPOTASpots[reference] = append(m.pendingPOTASpots[reference], pendingPOTASpot{cspot: cspot, band: band, freqMHz: freqMHz})
+}
+
+// A lookup can spend time waiting for its concurrency slot. Publish fallback
+// locations after a bounded wait, even when no further cluster spots arrive.
+func (m *model) expirePendingPOTASpots(now time.Time) {
+	for reference, pending := range m.pendingPOTASpots {
+		if len(pending) > 0 && now.Sub(pending[0].cspot.Received) >= potaParkLookupTimeout {
+			m.flushPendingPOTASpots(reference)
+		}
+	}
 }
 
 // flushPendingPOTASpots adds every spot queued behind reference (see
@@ -2013,6 +2022,11 @@ func (m *model) resetDetailsForCall(call string) {
 	if m.editingQSOID != 0 || call == m.detailsCall {
 		return
 	}
+	if m.detailsCall != "" {
+		m.fields[fieldPOTARef].SetValue("")
+		m.fields[fieldIOTARef].SetValue("")
+	}
+	m.potaSpottedCall, m.potaSpottedRef, m.potaSpottedPark = "", "", ""
 	m.detailsCall = call
 	for index := range m.detailFields {
 		m.detailFields[index].SetValue("")
@@ -2675,6 +2689,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				loc = qrzRecordLocation(message.record)
 			}
 			m.qrzGeoCache.store(message.call, loc)
+			enrichQRZReports(m.mapReports, message.call, loc)
 		}
 		return m, nil
 	}
@@ -2685,6 +2700,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				loc = potaRecordLocation(message.record)
 			}
 			m.potaGeoCache.store(message.reference, loc)
+			enrichPOTAReports(m.mapReports, message.reference, loc)
 		}
 		m.flushPendingPOTASpots(message.reference)
 		return m, nil
@@ -2783,6 +2799,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if _, ok := msg.(uploadDrainMsg); ok {
+		m.expirePendingPOTASpots(time.Now())
 		cmds := m.drainOutbox()
 		cmds = append(cmds, uploadDrainTickCmd())
 		return m, tea.Batch(cmds...)
@@ -2938,11 +2955,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// even when the terminal itself won't show it again.
 			if band, freqMHz, ok := isBaselineCWEligible(cspot, mapFeedBands); ok {
 				reference, hasReference := potaReferenceFromComment(cspot.Comment)
-				resolved := true
-				if hasReference && m.potaGeoCache != nil {
-					_, resolved = m.potaGeoCache.lookup(reference)
+				if hasReference {
+					geoLookups = append(geoLookups, m.startPOTAGeoLookupIfNeeded(reference))
 				}
-				if hasReference && m.potaGeoCache != nil && !resolved {
+				if hasReference && m.potaGeoCache != nil && m.potaGeoCache.isPending(reference) {
 					// Hold this spot back rather than adding it now with the
 					// coarser DXCC fallback — see queuePendingPOTASpot.
 					m.queuePendingPOTASpot(reference, cspot, band, freqMHz)
@@ -2950,9 +2966,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.mapReports.Add(buildMapReport(cspot, band, freqMHz, m.qrzGeoCache, m.potaGeoCache))
 				}
 				geoLookups = append(geoLookups, m.startQRZGeoLookupIfNeeded(cspot.Callsign), m.startQRZGeoLookupIfNeeded(cspot.Spotter))
-				if hasReference {
-					geoLookups = append(geoLookups, m.startPOTAGeoLookupIfNeeded(reference))
-				}
 			}
 			if m.clusterFilters.allowsSpot(cspot) {
 				m.addClusterSpot(cspot)

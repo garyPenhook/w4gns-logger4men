@@ -11,6 +11,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"w4gns-logger/internal/geo"
 )
 
 // potaParkAPI is a var (not const) so tests can point it at a local server,
@@ -49,7 +50,7 @@ type potaParkRecord struct {
 // dxccEntity.HasCoordinates uses, since a bare JSON null response decodes to
 // exactly this zero value.
 func (r potaParkRecord) hasCoordinates() bool {
-	return r.Latitude != 0 || r.Longitude != 0
+	return (r.Latitude != 0 || r.Longitude != 0) && geo.ValidCoordinates(r.Latitude, r.Longitude)
 }
 
 // potaGeoMsg carries a map-feed POTA park lookup result, keyed by reference

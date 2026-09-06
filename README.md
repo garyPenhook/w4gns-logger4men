@@ -444,7 +444,8 @@ Press `Ctrl+R` from any screen to write a plain CSV listing of whatever contest 
 - The file is written to your Downloads folder (`~/Downloads`, created if missing) as `<CALLSIGN>_<CONTEST>.csv`, e.g. `W4GNS_CQ-WPX-CW-0000ZMay29.csv`. Running it again for the same contest overwrites that file.
 - Only QSOs tagged with the currently loaded contest ID are included, same scoping as Cabrillo; ADIF exports the whole active profile.
 - Columns: Date, Time, Call, Band, Mode, Freq(MHz), RST Sent, Sent Exch, RST Rcvd, Rcvd Exch — one row per QSO, in chronological order. There's no per-row score column; it's a QSO listing, not a scored one — see `CLAIMED-SCORE` in the Cabrillo export above for the computed score.
-- Fields are quoted per RFC 4180 only when they contain a comma or quote; rows are CRLF-terminated.
+- Fields containing a comma or quote are escaped per RFC 4180; rows are CRLF-terminated.
+- Formula-like values beginning with `=`, `+`, `-`, or `@` (also after whitespace or in full-width form) are prefixed with an apostrophe and quoted for spreadsheet use. The stored QSO and ADIF export retain the original text.
 - The status bar reports `CSV exported: <N> QSOs -> <path>` on success or `CSV export failed: ...` on failure. Exporting runs asynchronously and never blocks QSO entry; pressing `Ctrl+R` again while one is already running is ignored.
 
 ## QRZ Logbook upload

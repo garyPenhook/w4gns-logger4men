@@ -164,6 +164,12 @@ func TestParseQRZLatLon(t *testing.T) {
 		{"blank lon", "35.931347", "", false, 0, 0},
 		{"malformed lat", "not-a-number", "-85.925827", false, 0, 0},
 		{"both blank", "", "", false, 0, 0},
+		{"NaN latitude", "NaN", "0", false, 0, 0},
+		{"infinite longitude", "0", "+Inf", false, 0, 0},
+		{"latitude out of bounds", "90.01", "0", false, 0, 0},
+		{"longitude out of bounds", "0", "-180.01", false, 0, 0},
+		{"boundary", "-90", "180", true, -90, 180},
+		{"origin", "0", "0", true, 0, 0},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

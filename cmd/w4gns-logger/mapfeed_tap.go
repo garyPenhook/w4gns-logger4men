@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"w4gns-logger/internal/geo"
+	"w4gns-logger/internal/mapfeed"
 	"w4gns-logger/internal/spot"
 )
 
@@ -87,7 +88,7 @@ func resolveMapLocation(call string, qrzCache *geoCache) *geo.Location {
 // qrzCallsignRecord.hasLatLon) — QRZ already uses the standard north/east-
 // positive convention, so no sign conversion is needed here.
 func qrzRecordLocation(record qrzCallsignRecord) *geo.Location {
-	if !record.hasLatLon {
+	if !record.hasLatLon || !geo.ValidCoordinates(record.latitude, record.longitude) {
 		return nil
 	}
 	return &geo.Location{
@@ -166,3 +167,45 @@ type pendingPOTASpot struct {
 // protects against unbounded growth if a park lookup hangs near its
 // potaParkLookupTimeout during a busy pileup on one activation.
 const potaPendingSpotCap = 25
+
+// Bound all waiting references together, including a burst of distinct parks.
+const potaPendingTotalCap = 500
+
+// enrichQRZReports replaces only fallback/profile locations. A park, explicit
+// override, or report-attributed grid remains more authoritative than QRZ.
+func enrichQRZReports(reports *mapfeed.Store, call string, loc *geo.Location) {
+	if reports == nil || loc == nil {
+		return
+	}
+	call = normalizeCall(call)
+	eligible := func(old *geo.Location) bool {
+		return old == nil || old.Source == geo.SourceCountryReference || old.Source == geo.SourceQRZProfile
+	}
+	reports.UpdateLocations(func(r spot.Report) (*geo.Location, *geo.Location) {
+		dx, spotter := r.DXLocation, r.SpotterLocation
+		if normalizeCall(r.DXCall) == call && eligible(dx) {
+			dx = loc
+		}
+		if normalizeCall(r.SpotterCall) == call && eligible(spotter) {
+			spotter = loc
+		}
+		return dx, spotter
+	})
+}
+
+// Late park results also enrich spots published as fallbacks when the pending
+// queue filled or timed out. Match the reference on each report, not the call:
+// one station can activate different parks during the retained history.
+func enrichPOTAReports(reports *mapfeed.Store, reference string, loc *geo.Location) {
+	if reports == nil || loc == nil {
+		return
+	}
+	reports.UpdateLocations(func(r spot.Report) (*geo.Location, *geo.Location) {
+		dx := r.DXLocation
+		if ref, ok := potaReferenceFromComment(r.Comment); ok && ref == reference &&
+			(dx == nil || dx.Source == geo.SourceCountryReference || dx.Source == geo.SourceQRZProfile || dx.Source == geo.SourcePOTAPark) {
+			dx = loc
+		}
+		return dx, r.SpotterLocation
+	})
+}

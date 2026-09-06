@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"w4gns-logger/internal/geo"
 	"w4gns-logger/internal/mapfeed"
 	"w4gns-logger/internal/spot"
 )
@@ -30,6 +31,58 @@ func browser(t *testing.T, s *Server) (*http.Client, string) {
 		t.Fatalf("launch: %d", res.StatusCode)
 	}
 	return client, strings.Split(u, "/launch")[0]
+}
+
+func TestStreamDeliversLocationUpdatesWithStableIDs(t *testing.T) {
+	store := mapfeed.NewStore(20)
+	id := store.Add(spot.Report{DXCall: "W1AW", ReceivedAtUTC: time.Now()})
+	store.Add(spot.Report{DXCall: "K1ABC", ReceivedAtUTC: time.Now()})
+	s := New(store)
+	defer s.Close()
+	client, base := browser(t, s)
+	res, err := client.Get(base + "/events")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	reader := bufio.NewScanner(res.Body)
+	initial := nextPacket(t, reader)
+	if !initial.Reset || len(initial.Reports) != 2 {
+		t.Fatalf("initial: %+v", initial)
+	}
+	loc := &geo.Location{Latitude: 41.7, Longitude: -72.7, Source: geo.SourceQRZProfile}
+	store.UpdateLocations(func(r spot.Report) (*geo.Location, *geo.Location) {
+		if r.EventID == id {
+			return loc, r.SpotterLocation
+		}
+		return r.DXLocation, r.SpotterLocation
+	})
+	p := nextPacket(t, reader)
+	if p.Reset || len(p.Reports) != 1 || p.Reports[0].EventID != id || p.Reports[0].DXLocation == nil || p.Reports[0].DXLocation.Latitude != loc.Latitude {
+		t.Fatalf("location delta: %+v", p)
+	}
+	// Match the browser's EventID-keyed upsert behavior: enrichment replaces
+	// the old location without introducing an extra spot or a new timestamp.
+	retained := map[int64]report{}
+	for _, r := range initial.Reports {
+		retained[r.EventID] = r
+	}
+	for _, r := range p.Reports {
+		retained[r.EventID] = r
+	}
+	if len(retained) != 2 || retained[id].ReceivedAtUTC != initial.Reports[0].ReceivedAtUTC {
+		t.Fatal("enrichment changed report identity")
+	}
+	res.Body.Close()
+	res, err = client.Get(base + "/events")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	p = nextPacket(t, bufio.NewScanner(res.Body))
+	if !p.Reset || len(p.Reports) != 2 || p.Reports[0].DXLocation == nil || p.Reports[0].DXLocation.Source != geo.SourceQRZProfile {
+		t.Fatalf("reconnected snapshot: %+v", p)
+	}
 }
 
 func TestLocalAccessAndLaunchLifecycle(t *testing.T) {

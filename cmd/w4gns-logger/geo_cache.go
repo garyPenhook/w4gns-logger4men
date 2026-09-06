@@ -62,11 +62,27 @@ func (c *geoCache) startIfNeeded(key string) bool {
 	if c.pending[key] {
 		return false
 	}
-	if _, tracked := c.entries[key]; !tracked && len(c.entries)+len(c.pending) >= c.capacity {
+	// Reclaim expired keys before rejecting a new key at capacity. Pending
+	// refreshes retain their reservation; count each key only once below.
+	if len(c.entries)+len(c.pending) >= c.capacity {
+		for k, entry := range c.entries {
+			if !c.pending[k] && time.Since(entry.fetchedAt) > c.ttl {
+				delete(c.entries, k)
+			}
+		}
+	}
+	delete(c.entries, key) // expired entry becomes an in-flight reservation
+	if len(c.entries)+len(c.pending) >= c.capacity {
 		return false
 	}
 	c.pending[key] = true
 	return true
+}
+
+func (c *geoCache) isPending(key string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.pending[key]
 }
 
 // store records a lookup result and clears the in-flight marker. A nil
@@ -76,7 +92,10 @@ func (c *geoCache) store(key string, location *geo.Location) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.pending, key)
-	if _, tracked := c.entries[key]; !tracked && len(c.entries) >= c.capacity {
+	if location != nil && !geo.ValidCoordinates(location.Latitude, location.Longitude) {
+		location = nil
+	}
+	if _, tracked := c.entries[key]; !tracked && len(c.entries)+len(c.pending) >= c.capacity {
 		return // capacity reached while this lookup was in flight; drop it
 	}
 	c.entries[key] = geoCacheEntry{location: location, fetchedAt: time.Now()}

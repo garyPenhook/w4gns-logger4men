@@ -6,6 +6,12 @@ package geo
 
 import "time"
 
+// ValidCoordinates rejects non-finite values as well as points outside the
+// geographic bounds. NaN fails the comparisons, and infinities exceed them.
+func ValidCoordinates(latitude, longitude float64) bool {
+	return latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180
+}
+
 // Source identifies how a Location's coordinates were determined.
 type Source int
 

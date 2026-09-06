@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"w4gns-logger/internal/geo"
 	"w4gns-logger/internal/spot"
 )
 
@@ -23,7 +24,23 @@ type Store struct {
 	capacity  int
 	sessionID string
 	nextEvent int64
-	reports   []spot.Report
+	revision  uint64
+	reports   []retainedReport
+}
+
+type retainedReport struct {
+	spot.Report
+	revision uint64
+}
+
+// Changes is a consistent snapshot of retained inserts/location updates since
+// a cursor. Event IDs stay stable; Revision advances on either kind of change.
+// Metadata covers the entire store even when Reports contains only a delta.
+type Changes struct {
+	Reports    []spot.Report
+	Revision   uint64
+	OldestID   int64
+	AtCapacity bool
 }
 
 // Expire removes reports outside the retention window even when reception stops.
@@ -63,8 +80,10 @@ func (s *Store) Add(report spot.Report) int64 {
 	report.SchemaVersion = spot.SchemaVersion
 	report.SessionID = s.sessionID
 	report.EventID = s.nextEvent
-	s.reports = append(s.reports, report)
+	s.revision++
+	s.reports = append(s.reports, retainedReport{Report: report, revision: s.revision})
 	if len(s.reports) > s.capacity {
+		clear(s.reports[:len(s.reports)-s.capacity])
 		s.reports = s.reports[len(s.reports)-s.capacity:]
 	}
 	return report.EventID
@@ -73,11 +92,52 @@ func (s *Store) Add(report spot.Report) int64 {
 // Snapshot returns a copy of the currently retained reports, oldest first.
 // The returned slice is safe to read without further synchronization.
 func (s *Store) Snapshot() []spot.Report {
+	return s.ChangesSince(0).Reports
+}
+
+// ChangesSince(0) returns a full snapshot. Sampling rows and their revision
+// under the same lock prevents a concurrent enrichment from being skipped.
+func (s *Store) ChangesSince(revision uint64) Changes {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	out := make([]spot.Report, len(s.reports))
-	copy(out, s.reports)
+	out := Changes{Reports: []spot.Report{}, Revision: s.revision, AtCapacity: len(s.reports) >= s.capacity}
+	if len(s.reports) > 0 {
+		out.OldestID = s.reports[0].EventID
+	} else {
+		out.OldestID = s.nextEvent + 1
+	}
+	for _, r := range s.reports {
+		if r.revision > revision {
+			out.Reports = append(out.Reports, r.Report)
+		}
+	}
 	return out
+}
+
+// UpdateLocations enriches retained reports without changing their identity or
+// receipt time. resolve runs under the store lock and must not call the store.
+// Locations are immutable: replacing pointers leaves earlier snapshots safe
+// for concurrent readers. Nil results retain the corresponding old location.
+func (s *Store) UpdateLocations(resolve func(spot.Report) (*geo.Location, *geo.Location)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.reports {
+		r := &s.reports[i]
+		dx, spotter := resolve(r.Report)
+		changed := false
+		if dx != nil && dx != r.DXLocation && geo.ValidCoordinates(dx.Latitude, dx.Longitude) {
+			r.DXLocation = dx
+			changed = true
+		}
+		if spotter != nil && spotter != r.SpotterLocation && geo.ValidCoordinates(spotter.Latitude, spotter.Longitude) {
+			r.SpotterLocation = spotter
+			changed = true
+		}
+		if changed {
+			s.revision++
+			r.revision = s.revision
+		}
+	}
 }
 
 // Len reports how many reports are currently retained.

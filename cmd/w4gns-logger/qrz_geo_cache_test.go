@@ -81,3 +81,18 @@ func TestQRZGeoCacheCapacityCapsNewEntries(t *testing.T) {
 		t.Fatal("store() at capacity for a never-tracked call should not add it")
 	}
 }
+
+func TestGeoCacheReclaimsExpiredKeysWithoutEvictingPendingLookups(t *testing.T) {
+	c := newGeoCache(2, time.Hour)
+	c.entries["OLD"] = geoCacheEntry{fetchedAt: time.Now().Add(-2 * time.Hour)}
+	if !c.startIfNeeded("PENDING") || !c.startIfNeeded("NEW") {
+		t.Fatal("expired cache entry prevented admission")
+	}
+	if !c.isPending("PENDING") || !c.isPending("NEW") || c.startIfNeeded("OVERFLOW") {
+		t.Fatal("pending reservations were lost or capacity exceeded")
+	}
+	c.store("NEW", nil)
+	if !c.isPending("PENDING") || c.isPending("NEW") {
+		t.Fatal("completion released the wrong reservation")
+	}
+}

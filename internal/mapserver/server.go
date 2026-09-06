@@ -152,34 +152,26 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 	controller := http.NewResponseController(w)
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
-	var cursor int64
+	var cursor uint64
 	var filterKey string
 	first := true
 	for {
 		now := time.Now().UTC()
 		s.store.Expire(now.Add(-time.Hour))
-		reports := s.store.Snapshot()
 		s.mu.Lock()
 		state := s.state
 		s.mu.Unlock()
 		reset := first || state.FilterKey != filterKey
-		oldest := int64(0)
-		if len(reports) > 0 {
-			oldest = reports[0].EventID
-			if cursor > 0 && oldest > cursor+1 {
-				reset = true
-			}
+		if reset {
+			cursor = 0
 		}
-		p := packet{Reset: reset, Session: s.store.SessionID(), Now: now, OldestID: oldest, AtCapacity: len(reports) >= 20000, State: state, Reports: []report{}}
-		for _, v := range reports {
-			if reset || v.EventID > cursor {
-				allowed := state.Allows == nil || state.Allows(v)
-				p.Reports = append(p.Reports, report{v, allowed})
-			}
+		changes := s.store.ChangesSince(cursor)
+		p := packet{Reset: reset, Session: s.store.SessionID(), Now: now, OldestID: changes.OldestID, AtCapacity: changes.AtCapacity, State: state, Reports: []report{}}
+		for _, v := range changes.Reports {
+			allowed := state.Allows == nil || state.Allows(v)
+			p.Reports = append(p.Reports, report{v, allowed})
 		}
-		if len(reports) > 0 {
-			cursor = reports[len(reports)-1].EventID
-		}
+		cursor = changes.Revision
 		data, err := json.Marshal(p)
 		if err != nil {
 			return

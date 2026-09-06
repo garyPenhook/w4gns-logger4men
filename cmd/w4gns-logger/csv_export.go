@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"unicode/utf8"
 )
 
 // csvField makes a value safe for one comma-separated column: control
@@ -20,6 +21,14 @@ func csvField(value string) string {
 		}
 	}
 	cleaned := b.String()
+	// CSV quoting does not prevent spreadsheet formula evaluation. Prefix
+	// formula-like text (including after whitespace) with a literal apostrophe.
+	// Numeric dates/times/frequencies and ordinary exchanges remain unchanged.
+	first, _ := utf8.DecodeRuneInString(strings.TrimSpace(cleaned))
+	if strings.ContainsRune("=+-@＝＋－＠", first) {
+		cleaned = "'" + cleaned
+		return `"` + strings.ReplaceAll(cleaned, `"`, `""`) + `"`
+	}
 	if !strings.ContainsAny(cleaned, ",\"") {
 		return cleaned
 	}

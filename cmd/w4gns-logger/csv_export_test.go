@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/csv"
 	"strings"
 	"testing"
 )
@@ -20,6 +21,18 @@ func TestCSVFieldQuotesCommaAndQuoteAndStripsControlChars(t *testing.T) {
 	for _, tc := range cases {
 		if got := csvField(tc.in); got != tc.want {
 			t.Errorf("csvField(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestCSVFormulaPrefixesAreExportedAsText(t *testing.T) {
+	for _, value := range []string{"=1+1", "+SUM(1,2)", "-1+1", "@SUM(1)", "  =1+1", "\t=1+1", "\r\n=1+1", "＝1+1", "＋1", "－1", "＠SUM(1)", `=HYPERLINK("https://example.invalid","x")`} {
+		row, err := csv.NewReader(strings.NewReader(csvRow(value, "14.025", "599", "001"))).Read()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasPrefix(row[0], "'") || row[1] != "14.025" || row[2] != "599" || row[3] != "001" {
+			t.Fatalf("unsafe or corrupted CSV for %q: %q", value, row)
 		}
 	}
 }
