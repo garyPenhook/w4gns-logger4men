@@ -1495,6 +1495,13 @@ func TestScreenHotkeysSwitchBetweenQSOEntryAndStationSetup(t *testing.T) {
 // and several screens (e.g. station setup) don't bind F6 at all, so the
 // footer must not promise a keystroke that does something else or nothing.
 func TestScreenHotkeysF6LabelMatchesActualBinding(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+	m := initialModel(st)
+
 	cases := []struct {
 		screen screen
 		want   string
@@ -1505,7 +1512,8 @@ func TestScreenHotkeysF6LabelMatchesActualBinding(t *testing.T) {
 		{stationSetupScreen, "F6:", true},
 	}
 	for _, c := range cases {
-		got := screenHotkeys(c.screen)
+		m.screen = c.screen
+		got := screenHotkeys(m)
 		if c.absent {
 			if strings.Contains(got, c.want) {
 				t.Errorf("screen %v: footer unexpectedly mentions %q:\n%s", c.screen, c.want, got)
@@ -1523,15 +1531,46 @@ func TestScreenHotkeysF6LabelMatchesActualBinding(t *testing.T) {
 // second line ran to 231 characters, wrapping or truncating mid-label
 // (visibly breaking the F6 caption) at typical terminal widths.
 func TestScreenHotkeysLinesAreReasonablyNarrow(t *testing.T) {
-	got := screenHotkeys(qsoEntryScreen)
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+	m := initialModel(st)
+	m.screen = qsoEntryScreen
+
+	got := screenHotkeys(m)
 	lines := strings.Split(got, "\n")
-	if len(lines) != 3 {
-		t.Fatalf("screenHotkeys produced %d lines, want 3:\n%s", len(lines), got)
+	if len(lines) != 4 {
+		t.Fatalf("screenHotkeys produced %d lines, want 4:\n%s", len(lines), got)
 	}
 	for i, line := range lines {
 		if len(line) > 160 {
 			t.Errorf("line %d is %d chars, want <=160:\n%s", i, len(line), line)
 		}
+	}
+}
+
+// TestScreenHotkeysShowsActiveEventOrGeneralLogging guards the "which
+// contest am I in" indicator: it must read "General logging" with no
+// contest selected, and the selected event's name once one is active, on
+// every screen (screenHotkeys is shared by all of them).
+func TestScreenHotkeysShowsActiveEventOrGeneralLogging(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+	m := initialModel(st)
+
+	if got := screenHotkeys(m); !strings.Contains(got, "General logging") {
+		t.Fatalf("screenHotkeys with no contest selected = %q, want it to mention General logging", got)
+	}
+
+	cwOpen := m.events[eventIndex(t, m.events, "CW-OPEN")]
+	m.selectEvent(cwOpen, cwOpen.Sessions[0])
+	if got := screenHotkeys(m); !strings.Contains(got, "Contest: "+cwOpen.Name) {
+		t.Fatalf("screenHotkeys with CW-OPEN selected = %q, want it to mention %q", got, "Contest: "+cwOpen.Name)
 	}
 }
 

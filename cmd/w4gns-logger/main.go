@@ -3297,7 +3297,7 @@ func (m model) updateContinentPanel(msg tea.Msg) (tea.Model, tea.Cmd) {
 // nothing to index, matching the other contest-scoped screens.
 func (m model) continentPanelView() string {
 	var b strings.Builder
-	b.WriteString(screenHotkeys(continentScreen))
+	b.WriteString(screenHotkeys(m))
 	b.WriteString("\n")
 	b.WriteString(headerStyle.Render("Continents Worked"))
 	b.WriteString("\n\n")
@@ -3385,7 +3385,7 @@ func (m model) updateHelpPanel(msg tea.Msg) (tea.Model, tea.Cmd) {
 // tools, so the operator doesn't need docs/ROADMAP.md open to find a command.
 func (m model) helpPanelView() string {
 	var b strings.Builder
-	b.WriteString(screenHotkeys(helpScreen))
+	b.WriteString(screenHotkeys(m))
 	b.WriteString("\n")
 	b.WriteString(headerStyle.Render("Help — Commands & Keys"))
 	b.WriteString("\n\n")
@@ -3704,7 +3704,7 @@ func (m model) View() string {
 		return m.helpPanelView()
 	}
 	var b strings.Builder
-	b.WriteString(screenHotkeys(qsoEntryScreen))
+	b.WriteString(screenHotkeys(m))
 	b.WriteString("\n")
 
 	now := time.Now()
@@ -3838,7 +3838,7 @@ func (m model) View() string {
 
 func (m model) stationSetupView() string {
 	var b strings.Builder
-	b.WriteString(screenHotkeys(stationSetupScreen))
+	b.WriteString(screenHotkeys(m))
 	b.WriteString("\n")
 	b.WriteString(headerStyle.Render("W4GNS Logger 4 Men  |  Station Setup"))
 	b.WriteString("\n\n")
@@ -3931,7 +3931,7 @@ func truncateToWidth(s string, width int) string {
 
 func (m model) clusterView() string {
 	var b strings.Builder
-	b.WriteString(screenHotkeys(clusterScreen))
+	b.WriteString(screenHotkeys(m))
 	b.WriteString("\n")
 	b.WriteString(headerStyle.Render("W4GNS Logger 4 Men  |  DX Cluster  |  " + k3lrClusterName))
 	b.WriteString("\n\n")
@@ -3951,7 +3951,7 @@ func (m model) clusterView() string {
 
 func (m model) clusterFiltersView() string {
 	var b strings.Builder
-	b.WriteString(screenHotkeys(clusterFiltersScreen))
+	b.WriteString(screenHotkeys(m))
 	b.WriteString("\n")
 	b.WriteString(headerStyle.Render("W4GNS Logger 4 Men  |  Cluster Filters  |  CW only"))
 	b.WriteString("\n\n")
@@ -3980,7 +3980,7 @@ func (m model) clusterFiltersView() string {
 
 func (m model) adifImportView() string {
 	var b strings.Builder
-	b.WriteString(screenHotkeys(adifImportScreen))
+	b.WriteString(screenHotkeys(m))
 	b.WriteString("\n")
 	b.WriteString(headerStyle.Render("W4GNS Logger 4 Men  |  Import ADIF"))
 	b.WriteString("\n\n")
@@ -4022,7 +4022,7 @@ func (m model) qsoContestView() string {
 
 func (m model) eventCatalogView() string {
 	var b strings.Builder
-	b.WriteString(screenHotkeys(eventCatalogScreen))
+	b.WriteString(screenHotkeys(m))
 	b.WriteString("\n")
 	b.WriteString(headerStyle.Render(fmt.Sprintf("W4GNS Logger 4 Men  |  Events & Contests (%d)", len(m.events))))
 	b.WriteString("\n\n")
@@ -4121,7 +4121,7 @@ func renderFieldGrid(labels []string, fields []textinput.Model, focus int) strin
 
 func (m model) qsoPageView(title string, labels []string, fields []textinput.Model, focus int, help string) string {
 	var b strings.Builder
-	b.WriteString(screenHotkeys(m.screen))
+	b.WriteString(screenHotkeys(m))
 	b.WriteString("\n")
 	b.WriteString(headerStyle.Render("W4GNS Logger 4 Men  |  " + title))
 	b.WriteString("\n\n")
@@ -4133,7 +4133,20 @@ func (m model) qsoPageView(title string, labels []string, fields []textinput.Mod
 	return b.String()
 }
 
-func screenHotkeys(current screen) string {
+// activeEventLabel reports which contest the app is currently logging QSOs
+// under, or that it's in general logging — shown on every screen (via
+// screenHotkeys) so an operator never has to open Events (F7) just to check,
+// and never mistakes leftover contest state (see clearContestSelection) for
+// still being in general logging or vice versa.
+func (m model) activeEventLabel() string {
+	if event, ok := m.eventForContestID(); ok {
+		return "Contest: " + event.Name
+	}
+	return "General logging"
+}
+
+func screenHotkeys(m model) string {
+	current := m.screen
 	escape := "Esc: Quit"
 	if current == stationSetupScreen {
 		escape = "Esc: Cancel Setup"
@@ -4173,7 +4186,7 @@ func screenHotkeys(current screen) string {
 	line1 := "W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  " + strings.TrimSuffix(f5Label, "  •  ")
 	line2 := f6Label + "F7: Contest/Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo"
 	line3 := "Ctrl+L: World Map  •  Ctrl+R: Export CSV  •  Ctrl+W: Continents Worked  •  Ctrl+P: POST mode  •  Ctrl+G: Help  •  " + escape
-	return hotkeyStyle.Render(line1) + "\n" + hotkeyStyle.Render(line2) + "\n" + hotkeyStyle.Render(line3)
+	return statusBarStyle.Render(m.activeEventLabel()) + "\n" + hotkeyStyle.Render(line1) + "\n" + hotkeyStyle.Render(line2) + "\n" + hotkeyStyle.Render(line3)
 }
 
 func main() {
