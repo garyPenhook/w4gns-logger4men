@@ -27,8 +27,9 @@ function draw(){const [w,h]=size();ctx.clearRect(0,0,w,h);ctx.fillStyle='#0b1724
   ctx.fillStyle='#20394a';ctx.strokeStyle='#3b5667';ctx.lineWidth=.55;
   for(const polygon of world){ctx.beginPath();for(const ring of polygon){ring.forEach(([lon,lat],i)=>{const [x,y]=project(lon,lat,w,h);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});ctx.closePath();}ctx.fill('evenodd');ctx.stroke();}
   // US state outlines: cartographic context only, drawn under everything
-  // else (paths/markers), thin/dim enough not to compete with them.
-  ctx.strokeStyle='#2c4356';ctx.lineWidth=.4;
+  // else (paths/markers) — darker than the land fill so they read as a
+  // visible seam rather than blending into it.
+  ctx.strokeStyle='#0a141d';ctx.lineWidth=.6;
   for(const polygon of usStates)for(const ring of polygon){ctx.beginPath();ring.forEach(([lon,lat],i)=>{const [x,y]=project(lon,lat,w,h);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});ctx.closePath();ctx.stroke();}
   const pathMode=$('paths').value;let pathCount=0;const seenPaths=new Set();
   for(const r of visible){if(pathMode==='off'||(pathMode==='selected'&&key(r)!==selected)||!r.DXLocation||!r.SpotterLocation)continue;const k=key(r)+' '+r.SpotterCall;if(seenPaths.has(k))continue;seenPaths.add(k);if(pathCount++>=500)break;drawPath(r.SpotterLocation,r.DXLocation,w,h,colors[r.Band]+'88');const [x,y]=project(r.SpotterLocation.Longitude,r.SpotterLocation.Latitude,w,h);ctx.strokeStyle=colors[r.Band];ctx.strokeRect(x-3,y-3,6,6);}

@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.40.0
+
+- Darken the World Map's US state outlines for better contrast against the land fill.
+
 ### v1.39.0
 
 - Draw US state outlines on the World Map (bundled Natural Earth admin-1 boundaries, 50 states + DC), as cartographic context under the country borders/markers/paths.
