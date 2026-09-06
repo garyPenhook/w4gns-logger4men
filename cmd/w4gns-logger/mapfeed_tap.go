@@ -150,3 +150,19 @@ func countryReferenceLocation(call string) *geo.Location {
 		ResolvedAt: time.Now().UTC(),
 	}
 }
+
+// pendingPOTASpot is a map-eligible cluster spot held back because its
+// comment names a POTA reference not yet in potaGeoCache — see
+// model.pendingPOTASpots.
+type pendingPOTASpot struct {
+	cspot   clusterSpot
+	band    string
+	freqMHz float64
+}
+
+// potaPendingSpotCap bounds how many spots can queue behind a single
+// unresolved POTA reference before the map feed gives up waiting and adds
+// them with whatever fallback location resolveDXLocation finds instead —
+// protects against unbounded growth if a park lookup hangs near its
+// potaParkLookupTimeout during a busy pileup on one activation.
+const potaPendingSpotCap = 25

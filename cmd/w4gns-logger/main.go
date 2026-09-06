@@ -48,7 +48,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.41.0"
+const appVersion = "1.42.0"
 
 type screen int
 
@@ -361,7 +361,19 @@ type model struct {
 	// potaGeoCache caches POTA park locations by reference, used for a
 	// spot's DX/activator location when its comment names one (see
 	// resolveDXLocation) — no credential gate, POTA's park API is public.
-	potaGeoCache      *geoCache
+	potaGeoCache *geoCache
+	// pendingPOTASpots holds map reports whose comment names a POTA
+	// reference not yet in potaGeoCache, keyed by that (uppercased)
+	// reference. Added immediately, they'd resolve to the coarser DXCC
+	// country reference (potaGeoCache.lookup misses before the async park
+	// lookup completes) and never get upgraded once it does — buildMapReport
+	// only resolves a location at Add time, and the map store has no update
+	// path. Holding them until potaGeoMsg arrives (see its handler) means
+	// the first sighting of a park gets the precise coordinate too, at the
+	// cost of a short delay (typically well under a second) before it first
+	// appears. potaPendingSpotCap bounds it against an unbounded pileup if a
+	// lookup is unusually slow.
+	pendingPOTASpots  map[string][]pendingPOTASpot
 	clusterStatus     string
 	clusterConnecting bool
 	clusterGeneration uint64
@@ -1939,6 +1951,37 @@ func (m *model) startPOTAGeoLookupIfNeeded(reference string) tea.Cmd {
 	return potaGeoLookupCmd(reference)
 }
 
+// queuePendingPOTASpot holds cspot back from the map feed until reference's
+// park lookup resolves (see pendingPOTASpot), unless potaPendingSpotCap is
+// already reached for it, in which case it's added immediately with
+// whatever fallback resolveDXLocation currently finds rather than waiting
+// indefinitely.
+func (m *model) queuePendingPOTASpot(reference string, cspot clusterSpot, band string, freqMHz float64) {
+	if m.pendingPOTASpots == nil {
+		m.pendingPOTASpots = make(map[string][]pendingPOTASpot)
+	}
+	if len(m.pendingPOTASpots[reference]) >= potaPendingSpotCap {
+		m.mapReports.Add(buildMapReport(cspot, band, freqMHz, m.qrzGeoCache, m.potaGeoCache))
+		return
+	}
+	m.pendingPOTASpots[reference] = append(m.pendingPOTASpots[reference], pendingPOTASpot{cspot: cspot, band: band, freqMHz: freqMHz})
+}
+
+// flushPendingPOTASpots adds every spot queued behind reference (see
+// queuePendingPOTASpot) now that its park lookup has resolved — one way or
+// the other, resolveDXLocation picks up whatever potaGeoCache now holds for
+// it, precise coordinate or cached miss alike.
+func (m *model) flushPendingPOTASpots(reference string) {
+	pending := m.pendingPOTASpots[reference]
+	if len(pending) == 0 {
+		return
+	}
+	delete(m.pendingPOTASpots, reference)
+	for _, p := range pending {
+		m.mapReports.Add(buildMapReport(p.cspot, p.band, p.freqMHz, m.qrzGeoCache, m.potaGeoCache))
+	}
+}
+
 func (m *model) autoFillFromQRZ() tea.Cmd {
 	call := normalizeCall(m.fields[fieldCall].Value())
 	if call == "" || m.qrzXMLCreds.empty() {
@@ -2643,6 +2686,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.potaGeoCache.store(message.reference, loc)
 		}
+		m.flushPendingPOTASpots(message.reference)
 		return m, nil
 	}
 	if message, ok := msg.(qrzCallsignLookupMsg); ok {
@@ -2893,9 +2937,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// second spotter reporting the same DX still reaches the map,
 			// even when the terminal itself won't show it again.
 			if band, freqMHz, ok := isBaselineCWEligible(cspot, mapFeedBands); ok {
-				m.mapReports.Add(buildMapReport(cspot, band, freqMHz, m.qrzGeoCache, m.potaGeoCache))
+				reference, hasReference := potaReferenceFromComment(cspot.Comment)
+				resolved := true
+				if hasReference && m.potaGeoCache != nil {
+					_, resolved = m.potaGeoCache.lookup(reference)
+				}
+				if hasReference && m.potaGeoCache != nil && !resolved {
+					// Hold this spot back rather than adding it now with the
+					// coarser DXCC fallback — see queuePendingPOTASpot.
+					m.queuePendingPOTASpot(reference, cspot, band, freqMHz)
+				} else {
+					m.mapReports.Add(buildMapReport(cspot, band, freqMHz, m.qrzGeoCache, m.potaGeoCache))
+				}
 				geoLookups = append(geoLookups, m.startQRZGeoLookupIfNeeded(cspot.Callsign), m.startQRZGeoLookupIfNeeded(cspot.Spotter))
-				if reference, ok := potaReferenceFromComment(cspot.Comment); ok {
+				if hasReference {
 					geoLookups = append(geoLookups, m.startPOTAGeoLookupIfNeeded(reference))
 				}
 			}

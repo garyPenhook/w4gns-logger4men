@@ -1,12 +1,18 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const colors={'160M':'#b69cff','80M':'#aebcff','60M':'#df9dd2','40M':'#eead79','30M':'#e7cd75','20M':'#70dfc4','17M':'#73cce5','15M':'#7eafff','12M':'#c4df7e','10M':'#f192a4','6M':'#dfbcfa'};
+// geo.SourcePOTAPark (internal/geo/location.go) — a marker drawn in this
+// color is a POTA park's coordinate, not the DX station's own location.
+const potaColor='#ff3b3b', potaSource=5;
 let reports=new Map(), state={}, world=[], usStates=[], visible=[], selected='', inspectorPoint='', page=0, hits=[], scale=1, pan=[0,0], drag=null, online=false, lastPacket=0;
 const canvas=$('map'), ctx=canvas.getContext('2d');
 const key=r=>r.DXCall+' / '+r.Band;
 for(const [band,color] of Object.entries(colors)) {
   const option=document.createElement('option'); option.value=band; option.textContent=band; $('band').append(option);
   const item=document.createElement('span'), dot=document.createElement('span'); dot.className='swatch'; dot.style.backgroundColor=color; item.append(dot,band); $('legend').append(item);
+}
+{
+  const item=document.createElement('span'), dot=document.createElement('span'); dot.className='swatch'; dot.style.backgroundColor=potaColor; item.append(dot,'POTA park'); $('legend').append(item);
 }
 // Preferences contain only display controls, never cluster reports or credentials.
 const viewControls=['band','age','filters','paths','origin'];
@@ -46,7 +52,7 @@ function draw(){const [w,h]=size();ctx.clearRect(0,0,w,h);ctx.fillStyle='#0b1724
   const pathMode=$('paths').value;let pathCount=0;const seenPaths=new Set();
   for(const r of visible){if(pathMode==='off'||(pathMode==='selected'&&key(r)!==selected)||!r.DXLocation||!r.SpotterLocation)continue;const k=key(r)+' '+r.SpotterCall;if(seenPaths.has(k))continue;seenPaths.add(k);if(pathCount++>=500)break;drawPath(r.SpotterLocation,r.DXLocation,w,h,colors[r.Band]+'88');const [x,y]=project(r.SpotterLocation.Longitude,r.SpotterLocation.Latitude,w,h);ctx.strokeStyle=colors[r.Band];ctx.strokeRect(x-3,y-3,6,6);}
   const groups=new Map();for(const r of visible){if(!r.DXLocation)continue;const loc=r.DXLocation,k=loc.Longitude+','+loc.Latitude;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r);}
-  hits=[];for(const group of groups.values()){const r=group[0],loc=r.DXLocation,[x,y]=project(loc.Longitude,loc.Latitude,w,h);if(x<0||x>w||y<0||y>h)continue;const calls=new Set(group.map(key)),spotters=new Set(group.map(v=>v.SpotterCall)),radius=Math.min(11,4+Math.log2(spotters.size+1)),active=group.some(v=>key(v)===selected);ctx.globalAlpha=Math.max(.3,1-(Date.now()-Date.parse(r.ReceivedAtUTC))/(Number($('age').value)*60000)*.6);ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.fillStyle=colors[r.Band]||'#fff';ctx.fill();ctx.globalAlpha=1;ctx.strokeStyle=active?'#ffffff':'#0b1724';ctx.lineWidth=active?2:1;ctx.stroke();if(calls.size>1){ctx.font='bold 9px system-ui';ctx.fillStyle='#0b1724';ctx.textAlign='center';ctx.fillText(calls.size,x,y+3);}if(active){ctx.fillStyle='#e5edf5';ctx.textAlign='left';ctx.font='12px system-ui';ctx.fillText(selected,x+radius+5,y-8);}hits.push({x,y,radius,group});}
+  hits=[];for(const group of groups.values()){const r=group[0],loc=r.DXLocation,[x,y]=project(loc.Longitude,loc.Latitude,w,h);if(x<0||x>w||y<0||y>h)continue;const calls=new Set(group.map(key)),spotters=new Set(group.map(v=>v.SpotterCall)),radius=Math.min(11,4+Math.log2(spotters.size+1)),active=group.some(v=>key(v)===selected);ctx.globalAlpha=Math.max(.3,1-(Date.now()-Date.parse(r.ReceivedAtUTC))/(Number($('age').value)*60000)*.6);ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.fillStyle=loc.Source===potaSource?potaColor:(colors[r.Band]||'#fff');ctx.fill();ctx.globalAlpha=1;ctx.strokeStyle=active?'#ffffff':'#0b1724';ctx.lineWidth=active?2:1;ctx.stroke();if(calls.size>1){ctx.font='bold 9px system-ui';ctx.fillStyle='#0b1724';ctx.textAlign='center';ctx.fillText(calls.size,x,y+3);}if(active){ctx.fillStyle='#e5edf5';ctx.textAlign='left';ctx.font='12px system-ui';ctx.fillText(selected,x+radius+5,y-8);}hits.push({x,y,radius,group});}
   if(state.Home){const [x,y]=project(state.Home.Longitude,state.Home.Latitude,w,h);ctx.font='23px system-ui';ctx.textAlign='center';ctx.fillStyle='#fff';ctx.fillText('★',x,y+7);ctx.font='11px system-ui';ctx.fillText(state.Callsign||'Home',x,y-13);}
   $('mapnotice').textContent=!world.length?'World geography unavailable':pathCount>500?'Showing the first 500 paths; select a station to focus':!visible.length?'No reports match this view':'';
 }

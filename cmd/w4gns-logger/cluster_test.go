@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -186,5 +187,70 @@ func TestMapFeedTapUsesCachedPOTALocationOverQRZ(t *testing.T) {
 	loc := snap[0].DXLocation
 	if loc == nil || loc.Source != geo.SourcePOTAPark || loc.Latitude != 35.9307 || loc.Longitude != -85.9401 {
 		t.Fatalf("DXLocation = %+v, want the cached POTA location (source POTAPark, lat 35.9307/lon -85.9401)", loc)
+	}
+}
+
+// TestMapFeedTapHoldsFirstSpotUntilPOTALookupResolves covers the case
+// TestMapFeedTapUsesCachedPOTALocationOverQRZ doesn't: a spot naming a POTA
+// reference that has never been looked up yet. Adding it immediately would
+// permanently strand it at the coarser DXCC country reference, since the
+// map store has no way to revisit an already-added report once the async
+// lookup completes. It must instead be held back and only added once
+// potaGeoMsg arrives, carrying the precise park location.
+func TestMapFeedTapHoldsFirstSpotUntilPOTALookupResolves(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+	m := initialModel(st)
+
+	updated, _ := m.Update(clusterLineMsg{line: "DX de K3LR-1:  14025.0 W4GNS QRP FROM K-1234 2000Z"})
+	m = updated.(model)
+
+	if got := m.mapReports.Len(); got != 0 {
+		t.Fatalf("mapReports.Len() = %d before the POTA lookup resolves, want 0 (spot must be held, not stranded at the country reference)", got)
+	}
+
+	updated, _ = m.Update(potaGeoMsg{
+		reference: "K-1234",
+		record:    potaParkRecord{Latitude: 35.9307, Longitude: -85.9401, EntityName: "United States of America"},
+	})
+	m = updated.(model)
+
+	snap := m.mapReports.Snapshot()
+	if len(snap) != 1 {
+		t.Fatalf("mapReports.Len() = %d after the POTA lookup resolves, want 1", len(snap))
+	}
+	loc := snap[0].DXLocation
+	if loc == nil || loc.Source != geo.SourcePOTAPark || loc.Latitude != 35.9307 || loc.Longitude != -85.9401 {
+		t.Fatalf("DXLocation = %+v, want the freshly resolved POTA location (source POTAPark, lat 35.9307/lon -85.9401)", loc)
+	}
+}
+
+// TestMapFeedTapAddsHeldSpotWithFallbackWhenPOTALookupFails covers the
+// negative path: a held spot whose POTA lookup fails (or the reference
+// turns out to have no coordinate) must still be added — with whatever
+// fallback location resolveDXLocation finds — rather than being silently
+// dropped forever.
+func TestMapFeedTapAddsHeldSpotWithFallbackWhenPOTALookupFails(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+	m := initialModel(st)
+
+	updated, _ := m.Update(clusterLineMsg{line: "DX de K3LR-1:  14025.0 W4GNS QRP FROM K-9999 2000Z"})
+	m = updated.(model)
+	if got := m.mapReports.Len(); got != 0 {
+		t.Fatalf("mapReports.Len() = %d before the POTA lookup resolves, want 0", got)
+	}
+
+	updated, _ = m.Update(potaGeoMsg{reference: "K-9999", err: errors.New("lookup failed")})
+	m = updated.(model)
+
+	if got := m.mapReports.Len(); got != 1 {
+		t.Fatalf("mapReports.Len() = %d after a failed POTA lookup, want 1 (held spot must still be added)", got)
 	}
 }

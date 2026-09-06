@@ -1,5 +1,10 @@
 # Changelog
 
+### v1.42.0
+
+- Fix World Map POTA locations: a spot naming a POTA park reference not yet resolved is now held until the park lookup completes instead of being permanently stranded at the coarser DXCC country reference.
+- Draw POTA-resolved World Map markers in red to distinguish a park's location from a station's own location.
+
 ### v1.41.0
 
 - Add a spotter call-area filter (checkboxes 0-9) to the World Map toolbar, so spots reported by stations in a given US call area (e.g. area 6 covers California) can be excluded from view.
