@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.39.0
+
+- Draw US state outlines on the World Map (bundled Natural Earth admin-1 boundaries, 50 states + DC), as cartographic context under the country borders/markers/paths.
+
 ### v1.38.0
 
 - Resolve POTA activation locations on the World Map from POTA's public API (api.pota.app), taking priority over both the QRZ profile and DXCC country reference when a spot's comment names a park reference.
