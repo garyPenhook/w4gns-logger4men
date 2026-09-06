@@ -1020,7 +1020,7 @@ func TestDeleteRequiresSecondDConfirmation(t *testing.T) {
 	m = updated.(model)
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("d")})
 	m = updated.(model)
-	if !m.deleteArmed {
+	if m.deleteArmedID == 0 {
 		t.Fatal("first d press did not arm delete")
 	}
 	if count, _ := st.count(m.activeStation.ID); count != 1 {
@@ -1030,7 +1030,7 @@ func TestDeleteRequiresSecondDConfirmation(t *testing.T) {
 	// Any other key cancels the armed delete.
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
 	m = updated.(model)
-	if m.deleteArmed {
+	if m.deleteArmedID != 0 {
 		t.Fatal("a non-d key did not cancel the armed delete")
 	}
 	if count, _ := st.count(m.activeStation.ID); count != 1 {

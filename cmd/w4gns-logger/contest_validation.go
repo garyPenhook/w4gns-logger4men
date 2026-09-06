@@ -22,6 +22,13 @@ func positiveSerial(s string) bool {
 // Incomplete contacts may be retained locally; submission must not silently
 // turn them into a purportedly checked exchange.
 func validateContestSubmission(q qso, event eventDefinition, profile stationProfile) error {
+	// Applies to every contest submission, not just QSO parties: an imported
+	// contact bypasses the interactive entry screen's band restriction, so
+	// this is the only place left to enforce the event's catalog band list
+	// before the contact is exported and scored.
+	if len(event.Bands) > 0 && !bandAllowed(event.Bands, q.band) {
+		return fmt.Errorf("band %q is not allowed", q.band)
+	}
 	if event.QSOParty != nil {
 		_, err := event.partyCredits(q)
 		if err != nil {
@@ -29,9 +36,6 @@ func validateContestSubmission(q qso, event eventDefinition, profile stationProf
 		}
 		if !event.partyInPeriod(q.time) {
 			return fmt.Errorf("QSO is outside this event's verified operating periods")
-		}
-		if !bandAllowed(event.Bands, q.band) {
-			return fmt.Errorf("band %q is not allowed", q.band)
 		}
 		if q.mode != "" && !strings.EqualFold(q.mode, "CW") {
 			return fmt.Errorf("QSO party export supports CW only")

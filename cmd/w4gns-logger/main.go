@@ -44,7 +44,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.32.1"
+const appVersion = "1.32.2"
 
 type screen int
 
@@ -221,7 +221,12 @@ type model struct {
 	table        table.Model
 	recentQSOs   []qso // in the same order as table's rows; index maps a selected row back to a qso.id
 	tableFocused bool
-	deleteArmed  bool
+	// deleteArmedID is the QSO ID awaiting a confirming second "d" press, or
+	// 0 when no delete is armed. Storing the ID (not just a bool) means a
+	// selection change — including one caused by an async table refresh
+	// racing the two keypresses — invalidates the armed state instead of
+	// deleting whatever row now occupies the old cursor position.
+	deleteArmedID int64
 
 	// termWidth/termHeight track the most recent tea.WindowSizeMsg so the
 	// terminal size in effect at exit can be remembered for next launch
@@ -244,10 +249,17 @@ type model struct {
 	// so the operator's active contest session survives editing a QSO from a
 	// different one — otherwise every QSO logged after the edit would be
 	// silently mis-tagged with the edited row's contest instead of the active
-	// one.
+	// one. preEditNextSerial additionally guards against selectEvent being
+	// called mid-edit (e.g. the operator opens the Event Catalog while
+	// editing and picks a different serial-based session): selectEvent
+	// overwrites m.nextSerial for that other contest, and without restoring
+	// it here the active contest would resume logging at serial 001 instead
+	// of its own running count.
 	preEditContestName         string
 	preEditContestSerialSent   string
 	preEditContestExchangeSent string
+	preEditNextSerial          int
+	preEditNextSerialSet       bool
 
 	// dupeBaselineAfter is the SETDUPE command's effect: zero means no
 	// baseline (the normal dupe-scope rules apply unbounded in time), a
@@ -841,21 +853,11 @@ func (m model) cabrilloExportCmd(contestID string) tea.Cmd {
 	st := m.store
 	profile := m.activeStation
 	event, ok := m.eventForContestID()
-	wg := m.bgTasks
 	bgCtx := m.bgCtx
 	if bgCtx == nil {
 		bgCtx = context.Background()
 	}
-	// Register synchronously (this runs inside Update, before the returned
-	// closure's goroutine starts) so shutdown's bgTasks.Wait() drains this
-	// export before the store is closed and can't miss it.
-	if wg != nil {
-		wg.Add(1)
-	}
-	return func() tea.Msg {
-		if wg != nil {
-			defer wg.Done()
-		}
+	return runBgCmd(m.bgTasks, func() tea.Msg {
 		if !ok {
 			return cabrilloExportedMsg{err: fmt.Errorf("no matching event/contest found for %q — select one on the Events (F7) screen first", contestID)}
 		}
@@ -882,7 +884,9 @@ func (m model) cabrilloExportCmd(contestID string) tea.Cmd {
 			return cabrilloExportedMsg{err: err}
 		}
 		return cabrilloExportedMsg{path: path, count: count, score: score}
-	}
+	}, func(r any) tea.Msg {
+		return cabrilloExportedMsg{err: fmt.Errorf("panic during Cabrillo export: %v", r)}
+	})
 }
 
 type csvExportedMsg struct {
@@ -899,18 +903,11 @@ func (m model) csvExportCmd(contestID string) tea.Cmd {
 	st := m.store
 	profile := m.activeStation
 	_, ok := m.eventForContestID()
-	wg := m.bgTasks
 	bgCtx := m.bgCtx
 	if bgCtx == nil {
 		bgCtx = context.Background()
 	}
-	if wg != nil {
-		wg.Add(1)
-	}
-	return func() tea.Msg {
-		if wg != nil {
-			defer wg.Done()
-		}
+	return runBgCmd(m.bgTasks, func() tea.Msg {
 		if !ok {
 			return csvExportedMsg{err: fmt.Errorf("no matching event/contest found for %q — select one on the Events (F7) screen first", contestID)}
 		}
@@ -934,7 +931,9 @@ func (m model) csvExportCmd(contestID string) tea.Cmd {
 			return csvExportedMsg{err: err}
 		}
 		return csvExportedMsg{path: path, count: count}
-	}
+	}, func(r any) tea.Msg {
+		return csvExportedMsg{err: fmt.Errorf("panic during CSV export: %v", r)}
+	})
 }
 
 type adifExportedMsg struct {
@@ -950,21 +949,11 @@ type adifExportedMsg struct {
 func (m model) adifExportCmd() tea.Cmd {
 	st := m.store
 	profile := m.activeStation
-	wg := m.bgTasks
 	bgCtx := m.bgCtx
 	if bgCtx == nil {
 		bgCtx = context.Background()
 	}
-	// Register synchronously (this runs inside Update, before the returned
-	// closure's goroutine starts) so shutdown's bgTasks.Wait() drains this
-	// export before the store is closed and can't miss it.
-	if wg != nil {
-		wg.Add(1)
-	}
-	return func() tea.Msg {
-		if wg != nil {
-			defer wg.Done()
-		}
+	return runBgCmd(m.bgTasks, func() tea.Msg {
 		downloads, err := defaultDownloadsDir()
 		if err != nil {
 			return adifExportedMsg{err: err}
@@ -990,7 +979,9 @@ func (m model) adifExportCmd() tea.Cmd {
 			return adifExportedMsg{err: err}
 		}
 		return adifExportedMsg{path: path, count: count}
-	}
+	}, func(r any) tea.Msg {
+		return adifExportedMsg{err: fmt.Errorf("panic during ADIF export: %v", r)}
+	})
 }
 
 func (m *model) openADIFImport() {
@@ -1007,16 +998,9 @@ func (m model) importADIFFile(path string) tea.Cmd {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	wg := m.bgTasks
 	st := m.store
 	profileID := m.activeStation.ID
-	return func() tea.Msg {
-		// The matching bgTasks.Add(1) runs on the update loop before this
-		// goroutine starts (see updateADIFImport), so shutdown's Wait() sees
-		// this job; release it here whichever way the import ends.
-		if wg != nil {
-			defer wg.Done()
-		}
+	return runBgCmd(m.bgTasks, func() tea.Msg {
 		file, err := openADIFInput(strings.TrimSpace(path))
 		if err != nil {
 			return adifImportedMsg{err: fmt.Errorf("open ADIF file: %w", err)}
@@ -1024,7 +1008,9 @@ func (m model) importADIFFile(path string) tea.Cmd {
 		defer file.Close()
 		result, err := importADIF(ctx, file, profileID, st)
 		return adifImportedMsg{result: result, err: err}
-	}
+	}, func(r any) tea.Msg {
+		return adifImportedMsg{err: fmt.Errorf("panic during ADIF import: %v", r)}
+	})
 }
 
 func (m *model) disconnectCluster() {
@@ -1151,7 +1137,7 @@ func (m model) Init() tea.Cmd {
 // actually a selection.
 func (m *model) setTableFocused(focused bool) {
 	m.tableFocused = focused
-	m.deleteArmed = false
+	m.deleteArmedID = 0
 	if focused {
 		m.table.Focus()
 		m.table.SetStyles(tableStylesFocused)
@@ -1172,6 +1158,10 @@ func (m *model) refreshTableRows() {
 	// header keeps labeling the default list as a call's prior contacts (e.g.
 	// after deleting a row while the F9 worked-call view was up).
 	m.workedCall = ""
+	// Any pending delete confirmation refers to a row position, not a QSO
+	// identity; a refresh (e.g. triggered by a concurrent import) can shift
+	// which QSO occupies that position, so the armed state must not survive it.
+	m.deleteArmedID = 0
 	rows := make([]table.Row, 0, len(recent))
 	for _, q := range recent {
 		rows = append(rows, table.Row{
@@ -1227,6 +1217,8 @@ func (m *model) beginEditQSO(q qso) {
 		m.preEditContestName = m.contestFields[contestName].Value()
 		m.preEditContestSerialSent = m.contestFields[contestSerialSent].Value()
 		m.preEditContestExchangeSent = m.contestFields[contestExchangeSent].Value()
+		m.preEditNextSerial = m.nextSerial
+		m.preEditNextSerialSet = true
 	}
 	m.editingQSOID = full.id
 	m.editingOriginal = full
@@ -1296,10 +1288,19 @@ func (m *model) cancelEditQSO() {
 func (m *model) restorePreEditContestSelection() {
 	m.contestFields[contestName].SetValue(m.preEditContestName)
 	m.contestFields[contestExchangeSent].SetValue(m.preEditContestExchangeSent)
-	if m.nextSerial == 0 {
-		m.contestFields[contestSerialSent].SetValue(m.preEditContestSerialSent)
+	// Restore the exact Sent Serial text captured before the edit, not
+	// formatSerial(nextSerial): the field can legitimately diverge from the
+	// running counter when the operator has typed a manual serial override
+	// they haven't logged yet, and reformatting from nextSerial here would
+	// silently drop that override across an edit detour. In the normal case
+	// the captured text already equals formatSerial(preEditNextSerial), so
+	// this also restores the counter's display correctly.
+	m.contestFields[contestSerialSent].SetValue(m.preEditContestSerialSent)
+	if m.preEditNextSerialSet {
+		m.nextSerial = m.preEditNextSerial
 	}
 	m.preEditContestName, m.preEditContestSerialSent, m.preEditContestExchangeSent = "", "", ""
+	m.preEditNextSerial, m.preEditNextSerialSet = 0, false
 }
 
 // handleCallFieldCommand recognizes SD-style commands typed into the Call
@@ -1989,12 +1990,12 @@ func (m model) updateRecentQSOsTable(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if !ok {
 			return m, nil
 		}
-		if !m.deleteArmed {
-			m.deleteArmed = true
+		if m.deleteArmedID != q.id {
+			m.deleteArmedID = q.id
 			m.statusMsg = fmt.Sprintf("press d again to permanently delete %s, any other key cancels", q.call)
 			return m, nil
 		}
-		m.deleteArmed = false
+		m.deleteArmedID = 0
 		if err := m.store.deleteQSO(m.activeStation.ID, q.id); err != nil {
 			m.statusMsg = fmt.Sprintf("db error: %v", err)
 			return m, nil
@@ -2006,8 +2007,8 @@ func (m model) updateRecentQSOsTable(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.rebuildContestIndex()
 		return m, nil
 	default:
-		if m.deleteArmed {
-			m.deleteArmed = false
+		if m.deleteArmedID != 0 {
+			m.deleteArmedID = 0
 			m.statusMsg = "delete cancelled"
 			return m, nil
 		}
@@ -2051,12 +2052,7 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		if !postTime.IsZero() {
 			at = postTime
 		}
-		id := raw
-		if strings.Contains(raw, "@") {
-			id = contestOccurrenceID(raw, event, at)
-		} else if raw == event.ID || raw == event.ADIFContestID {
-			id = importedContestID(raw, at)
-		}
+		id := resolveOccurrenceForNow(raw, event, at)
 		if id != raw {
 			m.contestFields[contestName].SetValue(id)
 			if event.SentSerial && m.contestFields[contestSerialSent].Value() == formatSerial(m.nextSerial) {
@@ -2080,7 +2076,20 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 	// editingQSOID excludes the record itself from the check when editing.
 	contestID, eventID, dupeScope := m.dupeCheckScope()
 	dupeAt := time.Now()
-	if !postTime.IsZero() {
+	switch {
+	case m.editingQSOID != 0 && !m.editingOriginal.time.IsZero():
+		// The default dupeScope window looks backward from dupeAt, so using
+		// the real current time here would compare an old QSO's edit against
+		// today's contacts — e.g. correcting yesterday's W1AW notes gets
+		// rejected as a dupe of a W1AW contact worked minutes ago today. Use
+		// the record's own original time so an edit is judged against
+		// contacts near when it actually happened. Checked ahead of postTime:
+		// editing never rewrites the record's timestamp from postFields (see
+		// the postMode branch below, reached only when editingQSOID == 0), so
+		// a postTime left over from POST mode being on before the edit began
+		// must not override this.
+		dupeAt = m.editingOriginal.time
+	case !postTime.IsZero():
 		dupeAt = postTime
 	}
 	dupe, err := m.entryDupe(call, contestID, eventID, dupeScope, dupeAt)
@@ -2342,6 +2351,42 @@ func (m *model) drainOutbox() []tea.Cmd {
 	return cmds
 }
 
+// runBgCmd runs fn in a goroutine started immediately — synchronously, right
+// here, not deferred until Bubble Tea's runtime gets around to dispatching
+// the returned Cmd. Every Cmd Update returns (batched or not) travels through
+// Bubble Tea's own cmds channel before the goroutine that actually calls it
+// is spawned (tea.go's handleCommands); if the operator quits in the gap
+// between Update returning and that dispatch, the queued Cmd is dropped and
+// never runs. Pairing wg.Add(1) with a Cmd body that might never execute left
+// bgTasks.Wait() blocked forever on shutdown. Starting fn here guarantees
+// wg.Done() always follows wg.Add(1), regardless of whether Bubble Tea ever
+// dispatches the returned Cmd.
+//
+// Bubble Tea's own Cmd dispatch recovers panics inside the closure it runs,
+// so a bug there can't take down the whole program; running fn as a bare
+// goroutine outside that machinery would lose that protection, so this
+// recovers too and reports it through onPanic.
+func runBgCmd(wg *sync.WaitGroup, fn func() tea.Msg, onPanic func(recovered any) tea.Msg) tea.Cmd {
+	resultCh := make(chan tea.Msg, 1)
+	if wg != nil {
+		wg.Add(1)
+	}
+	go func() {
+		if wg != nil {
+			defer wg.Done()
+		}
+		defer func() {
+			if r := recover(); r != nil {
+				resultCh <- onPanic(r)
+			}
+		}()
+		resultCh <- fn()
+	}()
+	return func() tea.Msg {
+		return <-resultCh
+	}
+}
+
 // qrzOutboxUploadCmd persists the outcome before returning its Tea message.
 // Bubble Tea intentionally does not wait for commands when the UI exits; if a
 // service accepted a request but only Update removed the outbox row, quitting
@@ -2355,15 +2400,8 @@ func (m model) qrzOutboxUploadCmd(q qso) tea.Cmd {
 	if parent == nil {
 		parent = context.Background()
 	}
-	wg := m.bgTasks
-	if wg != nil {
-		wg.Add(1)
-	}
 	st, apiKey := m.store, m.qrzAPIKey
-	return func() tea.Msg {
-		if wg != nil {
-			defer wg.Done()
-		}
+	return runBgCmd(m.bgTasks, func() tea.Msg {
 		ctx, cancel := context.WithTimeout(parent, qrzUploadTimeout)
 		defer cancel()
 		logID, err := uploadQSOToQRZ(ctx, apiKey, q)
@@ -2373,7 +2411,9 @@ func (m model) qrzOutboxUploadCmd(q qso) tea.Cmd {
 		}
 		queueErr := st.markUploadDone(q.id, uploadDestQRZ)
 		return qrzUploadMsg{qsoID: q.id, call: q.call, logID: logID, deliveryPersisted: queueErr == nil, queueErr: queueErr}
-	}
+	}, func(r any) tea.Msg {
+		return qrzUploadMsg{qsoID: q.id, call: q.call, err: fmt.Errorf("panic during QRZ upload: %v", r)}
+	})
 }
 
 func (m model) wrlOutboxUploadCmd(q qso) tea.Cmd {
@@ -2384,15 +2424,8 @@ func (m model) wrlOutboxUploadCmd(q qso) tea.Cmd {
 	if parent == nil {
 		parent = context.Background()
 	}
-	wg := m.bgTasks
-	if wg != nil {
-		wg.Add(1)
-	}
 	st, apiKey, logbookID := m.store, m.wrlAPIKey, m.wrlLogbookID
-	return func() tea.Msg {
-		if wg != nil {
-			defer wg.Done()
-		}
+	return runBgCmd(m.bgTasks, func() tea.Msg {
 		ctx, cancel := context.WithTimeout(parent, wrlUploadTimeout)
 		defer cancel()
 		err := uploadQSOToWRL(ctx, apiKey, logbookID, q)
@@ -2402,7 +2435,9 @@ func (m model) wrlOutboxUploadCmd(q qso) tea.Cmd {
 		}
 		queueErr := st.markUploadDone(q.id, uploadDestWRL)
 		return wrlUploadMsg{qsoID: q.id, call: q.call, deliveryPersisted: queueErr == nil, queueErr: queueErr}
-	}
+	}, func(r any) tea.Msg {
+		return wrlUploadMsg{qsoID: q.id, call: q.call, err: fmt.Errorf("panic during WRL upload: %v", r)}
+	})
 }
 
 // clearQSOForm resets the fields that should go blank between QSOs. Band,
@@ -3473,10 +3508,9 @@ func (m model) updateADIFImport(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.importInProgress = true
 			m.statusMsg = "Importing ADIF…"
-			// Register the job synchronously on the update loop (before the
-			// async command's goroutine starts) so main()'s bgTasks.Wait() on
-			// shutdown can never miss it.
-			m.bgTasks.Add(1)
+			// importADIFFile (via runBgCmd) registers with bgTasks and starts
+			// its goroutine synchronously, before returning — no separate
+			// wg.Add(1) needed here.
 			return m, m.importADIFFile(path)
 		}
 	}
@@ -3541,6 +3575,32 @@ func (m model) renderSlot(pos int, s entrySlot) string {
 	}
 	content := labelStyle.Render(s.label) + input.View()
 	return box.Render(content)
+}
+
+// packFieldRows groups the rendered QSO Entry field boxes into as many rows as
+// needed so no row exceeds maxWidth, then stacks the rows vertically. This
+// keeps the entry form from stretching every field onto one very wide line
+// (which set the whole left column's width and overflowed narrower terminals).
+// A single box wider than maxWidth still occupies its own row rather than being
+// dropped, so an unusually wide field never disappears.
+func packFieldRows(boxes []string, maxWidth int) string {
+	if len(boxes) == 0 {
+		return ""
+	}
+	var rows []string
+	var current []string
+	currentWidth := 0
+	for _, box := range boxes {
+		w := lipgloss.Width(box)
+		if len(current) > 0 && currentWidth+w > maxWidth {
+			rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, current...))
+			current, currentWidth = nil, 0
+		}
+		current = append(current, box)
+		currentWidth += w
+	}
+	rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, current...))
+	return lipgloss.JoinVertical(lipgloss.Left, rows...)
 }
 
 func (m model) View() string {
@@ -3622,7 +3682,23 @@ func (m model) View() string {
 	for i, s := range slots {
 		fieldViews[i] = m.renderSlot(i, s)
 	}
-	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, fieldViews...))
+	// Reserve the analysis panel's minimum footprint (only when a callsign is
+	// typed, so it would actually render) before packing the entry fields, then
+	// wrap the field boxes into as many rows as fit within that budget instead
+	// of stretching them all onto one very wide line that overflows the
+	// terminal and inflates the whole left column's width.
+	const analysisPanelGap = 4
+	analysisReserve := 0
+	if normalizeCall(m.fields[fieldCall].Value()) != "" {
+		analysisReserve = analysisPanelMinWidth + analysisPanelGap
+	}
+	fieldsBudget := m.termWidth - analysisReserve
+	if m.termWidth <= 0 {
+		// No tea.WindowSizeMsg yet: fall back to a conventional 80-column
+		// budget so the form still wraps rather than rendering one wide line.
+		fieldsBudget = 80
+	}
+	b.WriteString(packFieldRows(fieldViews, fieldsBudget))
 	b.WriteString("\n")
 
 	switch {
@@ -3649,7 +3725,11 @@ func (m model) View() string {
 	// terminals; on narrow ones dxSpotsPanel returns "" and this just
 	// renders recentBlock alone, unchanged from before this panel existed.
 	const spotsPanelGap = 4
-	spotsPanel := m.dxSpotsPanel(m.termWidth - lipgloss.Width(recentBlock) - spotsPanelGap)
+	// analysisReserve (computed above with the entry-field packing) also keeps a
+	// wide DX Spots panel — e.g. one whose line grew because a spot got a long
+	// comment — from consuming all remaining width and starving the analysis
+	// panel down to nothing, even on an unchanged terminal size.
+	spotsPanel := m.dxSpotsPanel(m.termWidth - lipgloss.Width(recentBlock) - spotsPanelGap - analysisReserve)
 	if spotsPanel == "" {
 		b.WriteString(recentBlock)
 	} else {
@@ -3677,7 +3757,6 @@ func (m model) View() string {
 	// Analysis panel spans the whole right-hand column alongside QSO Entry
 	// (fields + Recent QSOs/DX Spots), not just one row of it — same
 	// width-gating idiom as dxSpotsPanel, applied one level up.
-	const analysisPanelGap = 4
 	panel := m.analysisPanel(m.termWidth - lipgloss.Width(left) - analysisPanelGap)
 	if panel == "" {
 		return left

@@ -1,5 +1,19 @@
 # Changelog
 
+### v1.32.2
+
+- Wrap the QSO Entry fields onto multiple rows sized to the terminal width instead of stretching every field (Call, RST, Band, Freq, POTA/IOTA Ref, plus contest and POST slots) onto one line that could reach ~246 columns and overflow the display.
+- Preserve a manually typed, not-yet-logged Sent Serial override across an edit detour: cancelling or saving an edit no longer reformats the field from the running counter and silently drops the operator's typed serial.
+- Include `iota_ref`/`my_iota_ref` in the contest QSO SELECT/scan so IOTA multipliers survive an export or multiplier-index rebuild instead of reading back blank.
+- Map the unresolved-session occurrence form (`EVENTID@stamp`) to the catalog's ADIF contest ID on export, matching the bare and `EVENTID-session` forms.
+- Enforce each event's catalog band list for every contest submission (not just QSO parties) so an imported contact on an excluded band is rejected before it is exported and scored.
+- Resolve portable calls symmetrically: the operating location now wins for both `F/W4GNS` and `W4GNS/F`, instead of the suffix form falling back to the home-call prefix.
+- Skip IOTA island-group references (e.g. `EU-005`) when auto-filling POTA references from DX-cluster comments, and find a genuine POTA reference later in a comment that also carries an IOTA token.
+- Track the pending delete confirmation by QSO identity, so an async table refresh between the two `d` presses can no longer delete whichever row now occupies the cursor.
+- Start background export/import/upload work synchronously and recover panics in it, so quitting in the gap before Bubble Tea dispatches a batched command can no longer leave shutdown's task drain blocked or crash the program.
+- Anchor an edited contact's duplicate re-check on its own original time, so correcting an old QSO is no longer rejected as a duplicate of a same-call contact worked today.
+- Reserve the analysis panel's minimum width up front so a wide DX Spots line can no longer starve it to nothing on an unchanged terminal size.
+
 ### v1.32.1
 
 - Fix two tests (`TestSaveStationSetupRetriesClusterConnectionWhenCallsignAdded`, `TestSaveStationSetupRotatesClusterAndContestStateOnIdentityChange`) that called `saveStationSetup()` without isolating `XDG_CONFIG_HOME`, silently overwriting a developer's real `~/.config/w4gns-logger/qrz.comXMLlogin` with blank QRZ XML credentials on every `go test` run. No app runtime behavior changed.

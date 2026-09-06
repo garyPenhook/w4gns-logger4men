@@ -61,8 +61,13 @@ func configuredADIFContestIDMappings() []adifContestIDMapping {
 // when the event catalog provides one, leaving session/serial tracking in the
 // database untouched.
 func adifContestID(internal string) string {
+	// Strip the "@occurrence" stamp before matching: an ambiguous-session
+	// import (see importedContestID) leaves the ID as "EVENTID@stamp" with
+	// no "-session" suffix, which otherwise matches neither the bare event
+	// ID nor the "EVENTID-" session-prefixed form below.
+	base, _, _ := strings.Cut(internal, "@")
 	for _, mapping := range configuredADIFContestIDMappings() {
-		if internal == mapping.eventID || strings.HasPrefix(internal, mapping.eventID+"-") {
+		if base == mapping.eventID || strings.HasPrefix(base, mapping.eventID+"-") {
 			return mapping.adifID
 		}
 	}

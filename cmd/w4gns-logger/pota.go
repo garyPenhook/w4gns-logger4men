@@ -148,9 +148,24 @@ func recentClusterPOTAReference(spots []clusterSpot, call string, now time.Time)
 		if !strings.EqualFold(spot.Callsign, call) || spot.Received.Before(cutoff) {
 			continue
 		}
-		if reference := potaReferencePattern.FindString(spot.Comment); reference != "" {
-			return strings.ToUpper(reference), true
+		// potaReferencePattern's 1-2-letter-prefix/3+-digit shape also
+		// matches IOTA island-group references (e.g. "EU-005"), so a comment
+		// carrying both ("EU-005 also POTA K-1234") would otherwise skip the
+		// whole spot on FindString's leftmost-only match instead of finding
+		// the genuine POTA reference later in the same comment. Scan every
+		// match in this comment and take the first one that isn't
+		// IOTA-shaped before moving on to an older spot.
+		reference := ""
+		for _, candidate := range potaReferencePattern.FindAllString(spot.Comment, -1) {
+			if !iotaReferencePattern.MatchString(candidate) {
+				reference = candidate
+				break
+			}
 		}
+		if reference == "" {
+			continue
+		}
+		return strings.ToUpper(reference), true
 	}
 	return "", false
 }

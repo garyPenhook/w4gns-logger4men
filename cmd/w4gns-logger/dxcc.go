@@ -293,6 +293,7 @@ func (t *dxccTable) lookup(call string) (dxccEntity, bool) {
 	}
 	var best dxccEntity
 	bestLen := -1
+	bestCandidateLen := 0
 	for _, candidate := range candidates {
 		if candidate == "" || portableCallSuffixes[candidate] {
 			continue
@@ -301,9 +302,20 @@ func (t *dxccTable) lookup(call string) (dxccEntity, bool) {
 			return entity, true
 		}
 		for _, alias := range t.prefixByFirst[candidate[0]] {
-			if strings.HasPrefix(candidate, alias.prefix) && len(alias.prefix) > bestLen {
-				bestLen = len(alias.prefix)
-				best = alias.entity
+			if !strings.HasPrefix(candidate, alias.prefix) {
+				continue
+			}
+			// On an equal-length prefix match, prefer the shorter candidate:
+			// for a portable call like "F/W4GNS" or "W4GNS/F" the operating
+			// location is the short side, and it must win over the home
+			// call's own prefix regardless of which side of the slash (or
+			// the unsplit call, tried first above) happens to produce the
+			// tying match first.
+			switch {
+			case len(alias.prefix) > bestLen:
+				bestLen, best, bestCandidateLen = len(alias.prefix), alias.entity, len(candidate)
+			case len(alias.prefix) == bestLen && len(candidate) < bestCandidateLen:
+				best, bestCandidateLen = alias.entity, len(candidate)
 			}
 		}
 	}

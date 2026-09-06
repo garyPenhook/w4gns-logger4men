@@ -52,6 +52,9 @@ func TestCheckedCatalogSubmissionExchanges(t *testing.T) {
 			profile.Callsign = "W4GNS"
 			q := validTestQSO()
 			q.profileID, q.contestID = profile.ID, event.ID
+			if len(event.Bands) > 0 && !bandAllowed(event.Bands, q.band) {
+				q.band = event.Bands[0]
+			}
 			if event.QSOParty != nil {
 				q.time = event.QSOParty.Periods[0].Start
 				q.timeOff = q.time

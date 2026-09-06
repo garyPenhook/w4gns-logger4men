@@ -2,14 +2,18 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime/pprof"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 // waitForBgTasksOrDumpLeaks waits for wg with a bounded timeout instead of
@@ -114,8 +118,7 @@ func TestShutdownDrainLeavesNoLeakedGoroutines(t *testing.T) {
 	if err := os.WriteFile(adiPath, []byte(adi), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	m.bgTasks.Add(1) // mirrors updateADIFImport registering the job before dispatch
-	importCmd := m.importADIFFile(adiPath)
+	importCmd := m.importADIFFile(adiPath) // registers with bgTasks itself, via runBgCmd
 
 	// Dispatch every command the same way Bubble Tea does: each runs in its
 	// own goroutine, and Bubble Tea does not wait for them before returning
@@ -129,4 +132,87 @@ func TestShutdownDrainLeavesNoLeakedGoroutines(t *testing.T) {
 	waitForBgTasksOrDumpLeaks(t, m.bgTasks, 5*time.Second)
 
 	assertNoGoroutineLeaks(t)
+}
+
+// TestOutboxUploadCmdDoneEvenIfCmdNeverInvoked reproduces the shutdown hang:
+// tea.Batch only actually invokes an inner Cmd once Bubble Tea's main loop
+// gets around to dispatching the BatchMsg the outer batch cmd produced. If
+// the operator quits in the gap between Update returning the batch and that
+// dispatch, the inner Cmd this test deliberately never calls is exactly what
+// gets dropped. qrzOutboxUploadCmd/wrlOutboxUploadCmd must still call
+// wg.Done() in that case — they now start their upload goroutine
+// synchronously, before returning the Cmd, instead of doing the work (and the
+// wg.Add/Done pairing) inside the Cmd itself.
+func TestOutboxUploadCmdDoneEvenIfCmdNeverInvoked(t *testing.T) {
+	qrzSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("RESULT=OK&LOGID=1&COUNT=1"))
+	}))
+	defer qrzSrv.Close()
+	oldQRZAPI := qrzLogbookAPI
+	qrzLogbookAPI = qrzSrv.URL
+	t.Cleanup(func() { qrzLogbookAPI = oldQRZAPI })
+
+	wrlSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer wrlSrv.Close()
+	oldWRLAPI := wrlContactsAPI
+	wrlContactsAPI = wrlSrv.URL
+	t.Cleanup(func() { wrlContactsAPI = oldWRLAPI })
+
+	st := openTestStore(t)
+	profile, err := st.activeStationProfile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := validTestQSO()
+	q.profileID = profile.ID
+	id, err := st.insertQSO(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q.id = id
+
+	m := initialModel(st)
+	m.qrzAPIKey = "test-key"
+	m.wrlAPIKey = "test-key"
+	m.wrlLogbookID = "test-logbook"
+
+	if cmd := m.qrzOutboxUploadCmd(q); cmd == nil {
+		t.Fatal("qrzOutboxUploadCmd returned nil with a configured API key")
+	}
+	if cmd := m.wrlOutboxUploadCmd(q); cmd == nil {
+		t.Fatal("wrlOutboxUploadCmd returned nil with a configured API key")
+	}
+	// Neither returned Cmd is ever called here — mirroring Bubble Tea
+	// dropping a batched Cmd on quit before dispatching it.
+
+	waitForBgTasksOrDumpLeaks(t, m.bgTasks, 5*time.Second)
+	assertNoGoroutineLeaks(t)
+}
+
+// TestRunBgCmdRecoversPanicAndStillReleasesWaitGroup covers the tradeoff
+// runBgCmd's synchronous goroutine start introduces: Bubble Tea's own Cmd
+// dispatch (tea.go's handleCommands) recovers panics inside the closure it
+// runs, so running fn as a bare goroutine outside that machinery would
+// otherwise crash the whole program instead of just failing this one job.
+// runBgCmd must recover the same way, still call wg.Done(), and deliver
+// onPanic's message rather than losing the panic silently or hanging.
+func TestRunBgCmdRecoversPanicAndStillReleasesWaitGroup(t *testing.T) {
+	var wg sync.WaitGroup
+	cmd := runBgCmd(&wg, func() tea.Msg {
+		panic("boom")
+	}, func(r any) tea.Msg {
+		return csvExportedMsg{err: fmt.Errorf("recovered: %v", r)}
+	})
+
+	waitForBgTasksOrDumpLeaks(t, &wg, 5*time.Second)
+
+	msg, ok := cmd().(csvExportedMsg)
+	if !ok {
+		t.Fatalf("cmd() result = %T, want csvExportedMsg", msg)
+	}
+	if msg.err == nil || !strings.Contains(msg.err.Error(), "boom") {
+		t.Fatalf("recovered message err = %v, want it to mention the panic value", msg.err)
+	}
 }

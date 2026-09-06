@@ -417,7 +417,8 @@ func (s *store) forEachQSOForContest(ctx context.Context, profileID int64, conte
 		COALESCE(freq, ''), mode, COALESCE(rst_sent, ''), COALESCE(rst_rcvd, ''),
 		COALESCE(stx, ''), COALESCE(stx_string, ''), COALESCE(srx, ''), COALESCE(srx_string, ''),
 		COALESCE(station_callsign, ''), unscored, COALESCE(country, ''),
-		COALESCE(CAST(dxcc AS TEXT), ''), COALESCE(CAST(cqz AS TEXT), ''), COALESCE(CAST(ituz AS TEXT), ''), COALESCE(my_gridsquare, ''), id
+		COALESCE(CAST(dxcc AS TEXT), ''), COALESCE(CAST(cqz AS TEXT), ''), COALESCE(CAST(ituz AS TEXT), ''), COALESCE(my_gridsquare, ''),
+		COALESCE(iota_ref, ''), COALESCE(my_iota_ref, ''), id
 		FROM qso WHERE profile_id = ? AND contest_id = ? ORDER BY qso_date, time_on, id`, profileID, contestID)
 	if err != nil {
 		return fmt.Errorf("query QSOs for Cabrillo export: %w", err)
@@ -428,7 +429,8 @@ func (s *store) forEachQSOForContest(ctx context.Context, profileID int64, conte
 		var date, timeOn, dateOff, timeOff string
 		if err := rows.Scan(&q.call, &date, &timeOn, &dateOff, &timeOff, &q.band, &q.frequency, &q.mode, &q.rstSent, &q.rstRcvd,
 			&q.stx, &q.stxString, &q.srx, &q.srxString, &q.stationCallsign, &q.unscored,
-			&q.country, &q.dxccNumber, &q.cqZone, &q.ituZone, &q.myGridSquare, &q.id); err != nil {
+			&q.country, &q.dxccNumber, &q.cqZone, &q.ituZone, &q.myGridSquare,
+			&q.iotaRef, &q.myIotaRef, &q.id); err != nil {
 			return fmt.Errorf("scan QSO for Cabrillo export: %w", err)
 		}
 		q.time, _ = time.Parse("20060102150405", date+timeOn)

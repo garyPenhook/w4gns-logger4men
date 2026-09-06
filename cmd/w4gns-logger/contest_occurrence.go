@@ -22,6 +22,23 @@ func contestOccurrenceID(base string, event eventDefinition, at time.Time) strin
 	return base + "@" + stamp
 }
 
+// resolveOccurrenceForNow re-resolves a contest_id (freshly typed, restored
+// from a previous session, or otherwise not necessarily current) against the
+// occurrence it belongs to as of at. A weekly/monthly/annual session
+// template rolls forward to today's stamp; an unresolved imported ID gets
+// one assigned. Returns raw unchanged when it already names a fixed contest
+// occurrence that doesn't need resolving.
+func resolveOccurrenceForNow(raw string, event eventDefinition, at time.Time) string {
+	switch {
+	case strings.Contains(raw, "@"):
+		return contestOccurrenceID(raw, event, at)
+	case raw == event.ID || raw == event.ADIFContestID:
+		return importedContestID(raw, at)
+	default:
+		return raw
+	}
+}
+
 var importedCatalogOnce sync.Once
 var importedCatalog []eventDefinition
 
@@ -169,12 +186,21 @@ func (m *model) restoreContestSelection() {
 	}
 	m.contestFields[contestName].SetValue(id)
 	m.contestFields[contestExchangeSent].SetValue(exchange)
-	if event, ok := m.eventForContestID(); ok && event.SentSerial {
-		if n, err := m.store.resumeSerial(m.activeStation.ID, id); err == nil {
-			m.nextSerial = n
-			m.contestFields[contestSerialSent].SetValue(formatSerial(n))
-		} else {
-			m.serialResumeError = "cannot resume serial: " + err.Error()
+	if event, ok := m.eventForContestID(); ok {
+		// The persisted id may be a stale occurrence from a previous
+		// session (e.g. yesterday's weekly session date stamp). Roll it
+		// forward to today's occurrence now, before the resumed serial is
+		// ever shown to the operator — resolving it lazily at save time
+		// would silently swap out a serial the operator already sent.
+		id = resolveOccurrenceForNow(id, event, time.Now().UTC())
+		m.contestFields[contestName].SetValue(id)
+		if event.SentSerial {
+			if n, err := m.store.resumeSerial(m.activeStation.ID, id); err == nil {
+				m.nextSerial = n
+				m.contestFields[contestSerialSent].SetValue(formatSerial(n))
+			} else {
+				m.serialResumeError = "cannot resume serial: " + err.Error()
+			}
 		}
 	}
 	m.rebuildContestIndex()
