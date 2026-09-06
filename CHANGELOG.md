@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.45.0
+
+- Block logging a US state QSO party contact with no sent exchange set (Contest Entry's Exchange Sent field): a blank value used to save silently and only surface as a Cabrillo export failure, potentially after an entire session's worth of QSOs.
+
 ### v1.44.0
 
 - Record every QRZ/WRL upload's terminal outcome (sent/failed, QRZ's LOGID, and any error) in a persistent upload log, and show the most recent delivery in the footer status line, so an operator can confirm after the fact whether a QSO actually reached a destination.

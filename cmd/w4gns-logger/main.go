@@ -48,7 +48,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.44.0"
+const appVersion = "1.45.0"
 
 type screen int
 
@@ -2280,6 +2280,17 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 		stxString:  strings.TrimSpace(m.contestFields[contestExchangeSent].Value()),
 		srx:        strings.TrimSpace(m.contestFields[contestSerialRcvd].Value()),
 		srxString:  strings.TrimSpace(m.contestFields[contestExchangeRcvd].Value()),
+	}
+
+	// A QSO party's sent exchange is set once on the Contest Entry (F7)
+	// screen and silently carried forward QSO to QSO (see clearQSOForm) —
+	// nothing else ever populates it. Catching a blank value only at
+	// Cabrillo export time let an entire session get logged with an empty
+	// stx_string before the operator noticed. Block it here instead, at the
+	// one point before it's ever persisted.
+	if event, ok := m.eventForContestID(); ok && event.QSOParty != nil && edited.stxString == "" {
+		m.statusMsg = "no sent exchange set — press F7 and fill in Exchange Sent before logging"
+		return m, nil
 	}
 
 	if m.editingQSOID != 0 {
