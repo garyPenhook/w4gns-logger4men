@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"w4gns-logger/internal/geo"
 )
 
 func TestAddClusterSpotSuppressesSameBandDupeWithinWindow(t *testing.T) {
@@ -115,5 +117,37 @@ func TestMapFeedTapSurvivesTerminalDedup(t *testing.T) {
 	}
 	if !spotters["K3LR-1"] || !spotters["W1AW"] {
 		t.Errorf("mapReports spotters = %v, want both K3LR-1 and W1AW", spotters)
+	}
+}
+
+// TestMapFeedTapUsesCachedQRZLocationOverCountryReference covers the QRZ
+// map-location feature end to end through Update: once qrzGeoCache has a
+// QRZ-derived location cached for a call (as qrzMapGeoMsg populates it), a
+// later spot for that call must use it instead of the coarser country/
+// prefix reference, even though the call also resolves there.
+func TestMapFeedTapUsesCachedQRZLocationOverCountryReference(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+	m := initialModel(st)
+
+	updated, _ := m.Update(qrzMapGeoMsg{
+		call:   "JA1ABC",
+		record: qrzCallsignRecord{hasLatLon: true, latitude: 35.6, longitude: 139.7, country: "Japan"},
+	})
+	m = updated.(model)
+
+	updated, _ = m.Update(clusterLineMsg{line: "DX de K3LR-1:  14025.0 JA1ABC CQ CQ 2000Z"})
+	m = updated.(model)
+
+	snap := m.mapReports.Snapshot()
+	if len(snap) != 1 {
+		t.Fatalf("mapReports.Len() = %d, want 1", len(snap))
+	}
+	loc := snap[0].DXLocation
+	if loc == nil || loc.Source != geo.SourceQRZProfile || loc.Latitude != 35.6 || loc.Longitude != 139.7 {
+		t.Fatalf("DXLocation = %+v, want the cached QRZ location (source QRZProfile, lat 35.6/lon 139.7)", loc)
 	}
 }

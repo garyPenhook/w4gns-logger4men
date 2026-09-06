@@ -20,6 +20,10 @@ const (
 	// SourceCountryReference is the bundled callsign-prefix country/DXCC
 	// entity reference coordinate — an approximation, not a station location.
 	SourceCountryReference
+	// SourceQRZProfile is the station's QRZ.com XML profile coordinate — a
+	// self-reported address, more precise than a country reference but not
+	// an operator-confirmed override or a spot-attributed locator.
+	SourceQRZProfile
 )
 
 // Precision categorizes how tightly a Location bounds the true station
@@ -37,6 +41,9 @@ const (
 	// PrecisionCountryReference is a country/prefix reference point, far
 	// coarser than the operator's actual location.
 	PrecisionCountryReference
+	// PrecisionQRZProfile is a QRZ.com profile's self-reported address
+	// coordinate — station/address-level, but not verified.
+	PrecisionQRZProfile
 )
 
 // Location is a resolved endpoint coordinate with its provenance attached.

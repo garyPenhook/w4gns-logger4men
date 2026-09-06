@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -110,6 +111,71 @@ func qrzXMLCallsignResponseWithCountyEmail(fname, name, city, state, grid, count
 	return fmt.Sprintf(`<?xml version="1.0"?><QRZDatabase><Session><Key>somekey</Key></Session>`+
 		`<Callsign><fname>%s</fname><name>%s</name><addr2>%s</addr2><state>%s</state><grid>%s</grid><county>%s</county><email>%s</email></Callsign></QRZDatabase>`,
 		fname, name, city, state, grid, county, email)
+}
+
+func qrzXMLCallsignResponseWithLatLon(fname, name, lat, lon, country string) string {
+	return fmt.Sprintf(`<?xml version="1.0"?><QRZDatabase><Session><Key>somekey</Key></Session>`+
+		`<Callsign><fname>%s</fname><name>%s</name><lat>%s</lat><lon>%s</lon><country>%s</country></Callsign></QRZDatabase>`,
+		fname, name, lat, lon, country)
+}
+
+// TestQRZXMLLookupCallsignParsesLatLon covers the map feature's dependency
+// on QRZ's coordinate fields: both must be present and numeric for
+// hasLatLon to be set, and the standard north/east-positive sign convention
+// (no cty.dat-style west-positive negation) is preserved as-is.
+func TestQRZXMLLookupCallsignParsesLatLon(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(qrzXMLCallsignResponseWithLatLon("Fred", "Lloyd", "35.931347", "-85.925827", "United States")))
+	}))
+	defer srv.Close()
+
+	old := qrzXMLAPI
+	qrzXMLAPI = srv.URL
+	defer func() { qrzXMLAPI = old }()
+
+	record, err := qrzXMLLookupCallsign(context.Background(), "somekey", "AA7BQ")
+	if err != nil {
+		t.Fatalf("qrzXMLLookupCallsign returned error: %v", err)
+	}
+	if !record.hasLatLon {
+		t.Fatal("hasLatLon = false, want true")
+	}
+	if record.latitude != 35.931347 || record.longitude != -85.925827 {
+		t.Fatalf("lat,lon = %v,%v, want 35.931347,-85.925827", record.latitude, record.longitude)
+	}
+	if record.country != "United States" {
+		t.Fatalf("country = %q, want %q", record.country, "United States")
+	}
+}
+
+// TestParseQRZLatLon covers the numeric parsing/absence rules
+// qrzXMLLookupCallsign relies on: both fields must be present and valid, or
+// neither is used (a single usable coordinate can't locate a station).
+func TestParseQRZLatLon(t *testing.T) {
+	cases := []struct {
+		name     string
+		lat, lon string
+		wantOK   bool
+		wantLat  float64
+		wantLon  float64
+	}{
+		{"both present", "35.931347", "-85.925827", true, 35.931347, -85.925827},
+		{"blank lat", "", "-85.925827", false, 0, 0},
+		{"blank lon", "35.931347", "", false, 0, 0},
+		{"malformed lat", "not-a-number", "-85.925827", false, 0, 0},
+		{"both blank", "", "", false, 0, 0},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			lat, lon, ok := parseQRZLatLon(c.lat, c.lon)
+			if ok != c.wantOK {
+				t.Fatalf("ok = %v, want %v", ok, c.wantOK)
+			}
+			if ok && (lat != c.wantLat || lon != c.wantLon) {
+				t.Fatalf("lat,lon = %v,%v, want %v,%v", lat, lon, c.wantLat, c.wantLon)
+			}
+		})
+	}
 }
 
 // TestLookupQRZCallsignCmdReturnsResultMessage covers the happy path end to

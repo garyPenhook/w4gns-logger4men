@@ -19,6 +19,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"w4gns-logger/internal/geo"
 	"w4gns-logger/internal/mapfeed"
 	"w4gns-logger/internal/mapserver"
 )
@@ -351,8 +352,12 @@ type model struct {
 	// mapReports retains cluster spots for the companion world map, tapped
 	// before the terminal's display filters and dedup (see addClusterSpot)
 	// discard duplicates the map still needs to plot every reporting spotter.
-	mapReports        *mapfeed.Store
-	mapServer         *mapserver.Server
+	mapReports *mapfeed.Store
+	mapServer  *mapserver.Server
+	// qrzGeoCache caches QRZ profile locations for cluster-spotted callsigns
+	// (see resolveMapLocation), independent of qrzLookups/qrzActiveLookup's
+	// single active QSO Entry auto-fill lookup.
+	qrzGeoCache       *qrzGeoCache
 	clusterStatus     string
 	clusterConnecting bool
 	clusterGeneration uint64
@@ -574,6 +579,7 @@ func initialModel(st *store) model {
 		table:          t,
 		clusterFilters: defaultClusterFilters(),
 		mapReports:     mapfeed.NewStore(mapReportsCapacity),
+		qrzGeoCache:    newQRZGeoCache(),
 		bgCtx:          bgCtx,
 		bgCancel:       bgCancel,
 		bgTasks:        &sync.WaitGroup{},
@@ -1897,6 +1903,21 @@ func (m *model) autoFillPOTAReference() tea.Cmd {
 	return func() tea.Msg { msg := cmd().(potaLookupMsg); msg.requestID = requestID; return msg }
 }
 
+// startQRZGeoLookupIfNeeded returns a command to look up call's QRZ profile
+// for the map's location cache, or nil when no lookup is needed: call is
+// blank, QRZ XML credentials aren't configured, or qrzGeoCache already has a
+// fresh entry (or an in-flight lookup) for it.
+func (m *model) startQRZGeoLookupIfNeeded(call string) tea.Cmd {
+	call = normalizeCall(call)
+	if call == "" || m.qrzXMLCreds.empty() || m.qrzGeoCache == nil {
+		return nil
+	}
+	if !m.qrzGeoCache.startIfNeeded(call) {
+		return nil
+	}
+	return qrzMapGeoLookupCmd(m.qrzXMLCreds, m.qrzXMLSessionKey, call)
+}
+
 func (m *model) autoFillFromQRZ() tea.Cmd {
 	call := normalizeCall(m.fields[fieldCall].Value())
 	if call == "" || m.qrzXMLCreds.empty() {
@@ -2580,6 +2601,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	if message, ok := msg.(qrzMapGeoMsg); ok {
+		if message.sessionKey != "" {
+			m.qrzXMLSessionKey = message.sessionKey
+		}
+		if m.qrzGeoCache != nil {
+			var loc *geo.Location
+			if message.err == nil {
+				loc = qrzRecordLocation(message.record)
+			}
+			m.qrzGeoCache.store(message.call, loc)
+		}
+		return m, nil
+	}
 	if message, ok := msg.(qrzCallsignLookupMsg); ok {
 		// Only the compatibility/test path uses uncorrelated messages.
 		if message.requestID == 0 && message.sessionKey != "" {
@@ -2822,21 +2856,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.clusterStatus = fmt.Sprintf("cluster connection ended: %v", message.err)
 			return m, nil
 		}
+		var geoLookups []tea.Cmd
 		if cspot, ok := parseClusterSpot(message.line, time.Now()); ok {
 			// Tapped before the terminal's display filters and dedup so a
 			// second spotter reporting the same DX still reaches the map,
 			// even when the terminal itself won't show it again.
 			if band, freqMHz, ok := isBaselineCWEligible(cspot, mapFeedBands); ok {
-				m.mapReports.Add(buildMapReport(cspot, band, freqMHz))
+				m.mapReports.Add(buildMapReport(cspot, band, freqMHz, m.qrzGeoCache))
+				geoLookups = append(geoLookups, m.startQRZGeoLookupIfNeeded(cspot.Callsign), m.startQRZGeoLookupIfNeeded(cspot.Spotter))
 			}
 			if m.clusterFilters.allowsSpot(cspot) {
 				m.addClusterSpot(cspot)
 			}
 		}
 		if m.clusterClient != nil {
-			return m, m.clusterClient.readNext()
+			return m, tea.Batch(append(geoLookups, m.clusterClient.readNext())...)
 		}
-		return m, nil
+		return m, tea.Batch(geoLookups...)
 	}
 	// Handled globally, not only within updateADIFImport: the import runs
 	// as an async tea.Cmd, so pressing Esc to leave the Import ADIF screen

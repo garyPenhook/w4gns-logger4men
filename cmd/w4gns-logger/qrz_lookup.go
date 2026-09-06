@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -85,12 +86,20 @@ func saveQRZXMLCredentials(creds qrzXMLCreds) error {
 // qrzCallsignRecord holds the fields this app auto-fills from a QRZ XML
 // callsign lookup.
 type qrzCallsignRecord struct {
-	name   string
-	qth    string
-	grid   string
-	state  string
-	county string
-	email  string
+	name    string
+	qth     string
+	grid    string
+	state   string
+	county  string
+	email   string
+	country string
+	// hasLatLon is false when QRZ's record carried no lat/lon (or it failed
+	// to parse as a number) — latitude/longitude are meaningless zero values
+	// in that case, not "0,0", the same explicit-absence convention dxccEntity
+	// uses (see dxccEntity.HasCoordinates).
+	hasLatLon bool
+	latitude  float64
+	longitude float64
 }
 
 type qrzCallsignLookupMsg struct {
@@ -174,6 +183,13 @@ type qrzXMLResponse struct {
 		Grid      string `xml:"grid"`
 		County    string `xml:"county"`
 		Email     string `xml:"email"`
+		Country   string `xml:"country"`
+		// Lat/Lon are kept as strings (QRZ sends plain decimal degrees,
+		// north/east positive) rather than float64 so a blank or malformed
+		// value degrades to "no coordinate" instead of failing the whole
+		// XML unmarshal.
+		Lat string `xml:"lat"`
+		Lon string `xml:"lon"`
 	} `xml:"Callsign"`
 }
 
@@ -202,14 +218,36 @@ func qrzXMLLookupCallsign(ctx context.Context, sessionKey, call string) (qrzCall
 		return qrzCallsignRecord{}, fmt.Errorf("QRZ XML lookup: %s", response.Session.Error)
 	}
 	name := strings.TrimSpace(strings.TrimSpace(response.Callsign.FirstName) + " " + strings.TrimSpace(response.Callsign.LastName))
-	return qrzCallsignRecord{
-		name:   name,
-		qth:    strings.TrimSpace(response.Callsign.City),
-		grid:   strings.TrimSpace(response.Callsign.Grid),
-		state:  strings.TrimSpace(response.Callsign.State),
-		county: strings.TrimSpace(response.Callsign.County),
-		email:  strings.TrimSpace(response.Callsign.Email),
-	}, nil
+	record := qrzCallsignRecord{
+		name:    name,
+		qth:     strings.TrimSpace(response.Callsign.City),
+		grid:    strings.TrimSpace(response.Callsign.Grid),
+		state:   strings.TrimSpace(response.Callsign.State),
+		county:  strings.TrimSpace(response.Callsign.County),
+		email:   strings.TrimSpace(response.Callsign.Email),
+		country: strings.TrimSpace(response.Callsign.Country),
+	}
+	if lat, lon, ok := parseQRZLatLon(response.Callsign.Lat, response.Callsign.Lon); ok {
+		record.hasLatLon, record.latitude, record.longitude = true, lat, lon
+	}
+	return record, nil
+}
+
+// parseQRZLatLon parses QRZ's lat/lon fields, requiring both to be present
+// and numeric — a partial pair (e.g. lat present, lon blank) is treated the
+// same as neither being present, since one coordinate alone can't locate a
+// station.
+func parseQRZLatLon(latText, lonText string) (lat, lon float64, ok bool) {
+	latText, lonText = strings.TrimSpace(latText), strings.TrimSpace(lonText)
+	if latText == "" || lonText == "" {
+		return 0, 0, false
+	}
+	lat, latErr := strconv.ParseFloat(latText, 64)
+	lon, lonErr := strconv.ParseFloat(lonText, 64)
+	if latErr != nil || lonErr != nil {
+		return 0, 0, false
+	}
+	return lat, lon, true
 }
 
 // redactQRZURLError strips the request URL out of a *url.Error before it can

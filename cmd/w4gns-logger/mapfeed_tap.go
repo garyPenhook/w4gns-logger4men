@@ -15,11 +15,11 @@ import (
 var mapFeedBands = defaultClusterFilters().Bands
 
 // buildMapReport converts an already-baseline-eligible cluster spot into a
-// spot.Report, resolving both endpoints' locations via the bundled DXCC
-// country/prefix reference table. A callsign that doesn't resolve, or
-// resolves to an entity with no reference coordinate (see
-// dxccEntity.HasCoordinates), gets a nil Location rather than a guessed one.
-func buildMapReport(cspot clusterSpot, band string, freqMHz float64) spot.Report {
+// spot.Report, resolving both endpoints' locations via resolveMapLocation —
+// a cached QRZ profile coordinate when one is available (see qrzGeoCache),
+// otherwise the bundled DXCC country/prefix reference table. A callsign
+// that resolves via neither gets a nil Location rather than a guessed one.
+func buildMapReport(cspot clusterSpot, band string, freqMHz float64, qrzCache *qrzGeoCache) spot.Report {
 	return spot.Report{
 		ReceivedAtUTC:   cspot.Received.UTC(),
 		DXCall:          cspot.Callsign,
@@ -27,8 +27,39 @@ func buildMapReport(cspot clusterSpot, band string, freqMHz float64) spot.Report
 		FrequencyHz:     spot.FrequencyHzFromMHz(freqMHz),
 		Band:            band,
 		Comment:         cspot.Comment,
-		DXLocation:      countryReferenceLocation(cspot.Callsign),
-		SpotterLocation: countryReferenceLocation(cspot.Spotter),
+		DXLocation:      resolveMapLocation(cspot.Callsign, qrzCache),
+		SpotterLocation: resolveMapLocation(cspot.Spotter, qrzCache),
+	}
+}
+
+// resolveMapLocation prefers a fresh, cached QRZ profile coordinate for call
+// (see qrzGeoCache) — more precise than the country reference — falling
+// back to the country/prefix reference table when the cache has no entry or
+// a cached miss (QRZ reached but had no usable coordinate).
+func resolveMapLocation(call string, qrzCache *qrzGeoCache) *geo.Location {
+	if qrzCache != nil {
+		if loc, ok := qrzCache.lookup(normalizeCall(call)); ok && loc != nil {
+			return loc
+		}
+	}
+	return countryReferenceLocation(call)
+}
+
+// qrzRecordLocation converts a QRZ XML lookup result into a map Location,
+// or nil when the record carried no usable coordinate (see
+// qrzCallsignRecord.hasLatLon) — QRZ already uses the standard north/east-
+// positive convention, so no sign conversion is needed here.
+func qrzRecordLocation(record qrzCallsignRecord) *geo.Location {
+	if !record.hasLatLon {
+		return nil
+	}
+	return &geo.Location{
+		Country:    record.country,
+		Latitude:   record.latitude,
+		Longitude:  record.longitude,
+		Source:     geo.SourceQRZProfile,
+		Precision:  geo.PrecisionQRZProfile,
+		ResolvedAt: time.Now().UTC(),
 	}
 }
 
