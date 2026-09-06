@@ -1,6 +1,7 @@
 package main
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -76,5 +77,43 @@ func TestK3LRDefaultEndpoint(t *testing.T) {
 func TestParseClusterSpotRejectsNonSpot(t *testing.T) {
 	if _, ok := parseClusterSpot("Welcome to the K3LR DX Cluster", time.Now()); ok {
 		t.Fatal("parseClusterSpot accepted a banner line")
+	}
+}
+
+// TestMapFeedTapSurvivesTerminalDedup is the Phase 1 completion gate from
+// docs/World_Map_Design_Plan.md: two distinct spotters reporting the same DX
+// call on the same band within the terminal's 3-minute dupe window must both
+// reach the map feed, even though the terminal's own DX Spots panel
+// (m.clusterSpots) suppresses the second as a duplicate.
+func TestMapFeedTapSurvivesTerminalDedup(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+	m := initialModel(st)
+
+	updated, _ := m.Update(clusterLineMsg{line: "DX de K3LR-1:  14025.0 JA1ABC CQ CQ 2000Z"})
+	m = updated.(model)
+	updated, _ = m.Update(clusterLineMsg{line: "DX de W1AW:    14025.0 JA1ABC CQ CQ 2001Z"})
+	m = updated.(model)
+
+	if got := m.mapReports.Len(); got != 2 {
+		t.Fatalf("mapReports.Len() = %d, want 2 (both spotters retained)", got)
+	}
+	if len(m.clusterSpots) != 1 {
+		t.Fatalf("clusterSpots = %d entries, want 1 (terminal dedup unaffected)", len(m.clusterSpots))
+	}
+
+	snap := m.mapReports.Snapshot()
+	spotters := map[string]bool{}
+	for _, r := range snap {
+		if r.DXCall != "JA1ABC" {
+			t.Errorf("report DXCall = %q, want JA1ABC", r.DXCall)
+		}
+		spotters[r.SpotterCall] = true
+	}
+	if !spotters["K3LR-1"] || !spotters["W1AW"] {
+		t.Errorf("mapReports spotters = %v, want both K3LR-1 and W1AW", spotters)
 	}
 }

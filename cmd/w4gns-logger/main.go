@@ -18,6 +18,9 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"w4gns-logger/internal/mapfeed"
+	"w4gns-logger/internal/mapserver"
 )
 
 const (
@@ -44,7 +47,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.32.3"
+const appVersion = "1.33.0"
 
 type screen int
 
@@ -345,9 +348,14 @@ type model struct {
 	clusterClient      *clusterClient
 	clusterSpots       []clusterSpot
 	clusterSpotsScroll int
-	clusterStatus      string
-	clusterConnecting  bool
-	clusterGeneration  uint64
+	// mapReports retains cluster spots for the companion world map, tapped
+	// before the terminal's display filters and dedup (see addClusterSpot)
+	// discard duplicates the map still needs to plot every reporting spotter.
+	mapReports        *mapfeed.Store
+	mapServer         *mapserver.Server
+	clusterStatus     string
+	clusterConnecting bool
+	clusterGeneration uint64
 	// clusterReconnect is true while the operator wants the feed up, so a
 	// dropped connection auto-reconnects; a manual disconnect clears it.
 	// clusterReconnectDelay is the current exponential backoff.
@@ -565,6 +573,7 @@ func initialModel(st *store) model {
 		store:          st,
 		table:          t,
 		clusterFilters: defaultClusterFilters(),
+		mapReports:     mapfeed.NewStore(mapReportsCapacity),
 		bgCtx:          bgCtx,
 		bgCancel:       bgCancel,
 		bgTasks:        &sync.WaitGroup{},
@@ -1062,6 +1071,10 @@ func (m *model) scheduleClusterReconnect(cause error) tea.Cmd {
 // after being shown once, so the same spot relayed by several cluster nodes
 // doesn't flood the list.
 const clusterDupeWindow = 3 * time.Minute
+
+// mapReportsCapacity bounds the companion map's report store (see
+// docs/World_Map_Design_Plan.md); tune once a high-volume fixture exists.
+const mapReportsCapacity = 20000
 
 func (m *model) addClusterSpot(spot clusterSpot) {
 	if m.isDuplicateClusterSpot(spot) {
@@ -2497,6 +2510,19 @@ func (m *model) clearQSOForm() {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	defer func() { m.publishMapState() }()
+	if message, ok := msg.(mapOpenedMsg); ok {
+		m.statusMsg = string(message)
+		return m, nil
+	}
+	// Some terminal emulators consume F10 for their menu before we see it.
+	if key, ok := msg.(tea.KeyMsg); ok && (key.String() == "ctrl+l" || key.String() == "f10") {
+		if m.mapServer == nil {
+			m.statusMsg = "World map unavailable"
+			return m, nil
+		}
+		return m, openMapCmd(m.mapServer)
+	}
 	if message, ok := msg.(potaLookupMsg); ok {
 		if message.requestID != 0 {
 			pending, known := m.potaLookups[message.requestID]
@@ -2792,8 +2818,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.clusterStatus = fmt.Sprintf("cluster connection ended: %v", message.err)
 			return m, nil
 		}
-		if spot, ok := parseClusterSpot(message.line, time.Now()); ok && m.clusterFilters.allowsSpot(spot) {
-			m.addClusterSpot(spot)
+		if cspot, ok := parseClusterSpot(message.line, time.Now()); ok {
+			// Tapped before the terminal's display filters and dedup so a
+			// second spotter reporting the same DX still reaches the map,
+			// even when the terminal itself won't show it again.
+			if band, freqMHz, ok := isBaselineCWEligible(cspot, mapFeedBands); ok {
+				m.mapReports.Add(buildMapReport(cspot, band, freqMHz))
+			}
+			if m.clusterFilters.allowsSpot(cspot) {
+				m.addClusterSpot(cspot)
+			}
 		}
 		if m.clusterClient != nil {
 			return m, m.clusterClient.readNext()
@@ -3368,6 +3402,7 @@ func (m model) helpPanelView() string {
 		"F7  Events (contest catalog)",
 		"F8  Backup to Google Drive",
 		"F9  Browse/Edit Recent QSOs (↑/↓ select, Enter view/edit, d delete, Esc/F9 done)",
+		"Ctrl+L  Open the companion World Map in your browser (F10 also works when the terminal passes it through)",
 		"Ctrl+W  Continents Worked",
 		"Ctrl+P  Toggle POST (after-contest) entry mode",
 		"Ctrl+G  This help screen",
@@ -4130,7 +4165,7 @@ func screenHotkeys(current screen) string {
 	// broken/inconsistent). Balanced by rendered length, not item count.
 	line1 := "W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  " + strings.TrimSuffix(f5Label, "  •  ")
 	line2 := f6Label + "F7: Contest/Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo"
-	line3 := "Ctrl+R: Export CSV  •  Ctrl+W: Continents Worked  •  Ctrl+P: POST mode  •  Ctrl+G: Help  •  " + escape
+	line3 := "Ctrl+L: World Map  •  Ctrl+R: Export CSV  •  Ctrl+W: Continents Worked  •  Ctrl+P: POST mode  •  Ctrl+G: Help  •  " + escape
 	return hotkeyStyle.Render(line1) + "\n" + hotkeyStyle.Render(line2) + "\n" + hotkeyStyle.Render(line3)
 }
 
@@ -4180,6 +4215,8 @@ func main() {
 	defer st.Close()
 
 	m := initialModel(st)
+	m.mapServer = mapserver.New(m.mapReports)
+	defer m.mapServer.Close()
 	m.qrzAPIKey = loadQRZAPIKey()
 	m.wrlAPIKey = loadWRLAPIKey()
 	m.wrlLogbookID = loadWRLLogbookID()

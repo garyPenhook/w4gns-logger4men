@@ -45,6 +45,15 @@ type dxccAlias struct {
 	entity dxccEntity
 }
 
+// HasCoordinates reports whether e carries a usable reference coordinate.
+// cty.dat entries with no lat/lon override parse to the zero value, which
+// this method treats as "no coordinate data" rather than the Gulf of Guinea
+// (0,0) — callers building a map location from e must check this before
+// trusting Latitude/Longitude.
+func (e dxccEntity) HasCoordinates() bool {
+	return e.Latitude != 0 || e.Longitude != 0
+}
+
 // dxccTable resolves a callsign to a dxccEntity by longest-prefix match
 // against the aliases parsed from cty.dat, honoring per-alias CQ/ITU zone
 // overrides and "=CALL" exact-match exception entries. Prefix aliases are

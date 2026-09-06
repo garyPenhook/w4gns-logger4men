@@ -57,15 +57,22 @@ func defaultClusterFilters() clusterFilters {
 // not applied. When a filter field is set but the corresponding callsign
 // can't be resolved against the DXCC table, the spot is rejected rather than
 // let through unfiltered.
-func (f clusterFilters) allowsSpot(spot clusterSpot) bool {
-	band, freqMHz, ok := bandForFrequency(spot.Frequency)
-	if !ok || !f.Bands[band] {
-		return false
+// isBaselineCWEligible reports whether spot is on an enabled band and looks
+// like CW, independent of the DXCC/zone/continent/call-area display filters
+// in clusterFilters. It is the baseline eligibility shared by the terminal's
+// allowsSpot and the map feed tap (which applies its own, possibly broader,
+// band selection instead of the terminal's display filters). band and
+// freqMHz are returned for callers that need them without re-parsing
+// spot.Frequency.
+func isBaselineCWEligible(spot clusterSpot, bands map[string]bool) (band string, freqMHz float64, ok bool) {
+	band, freqMHz, ok = bandForFrequency(spot.Frequency)
+	if !ok || !bands[band] {
+		return "", 0, false
 	}
 	// This is a CW-only logger, so spots inside the conventional phone/digital
 	// portion of the band are not relevant even if the band itself is enabled.
 	if !isLikelyCWFrequency(band, freqMHz) {
-		return false
+		return "", 0, false
 	}
 	// isLikelyCWFrequency alone can't separate CW from other digital modes
 	// (RTTY, PSK, FT8, etc.) on the bands where they share the same
@@ -73,6 +80,13 @@ func (f clusterFilters) allowsSpot(spot clusterSpot) bool {
 	// frequency range doesn't distinguish them, so a spotter's comment
 	// naming a non-CW mode is the only signal available.
 	if commentIndicatesNonCWMode(spot.Comment) {
+		return "", 0, false
+	}
+	return band, freqMHz, true
+}
+
+func (f clusterFilters) allowsSpot(spot clusterSpot) bool {
+	if _, _, ok := isBaselineCWEligible(spot, f.Bands); !ok {
 		return false
 	}
 	if !f.matchesEntityFilters(spot.Callsign, f.DXCC, f.DXITUZone, f.DXCQZone, f.DXContinent) {

@@ -49,6 +49,7 @@ Your log is stored locally. If a `w4gns.db` already exists in the directory you 
 | `F7` | Events & Contests |
 | `F8` | Back up now to Google Drive |
 | `F9` | Browse/edit/delete Recent QSOs (see [Browse, edit, and delete QSOs](#browse-edit-and-delete-qsos)) |
+| `Ctrl+L` (or `F10`) | Open the companion World Map in your browser |
 | `Ctrl+O` | Export the full log as ADIF to your Downloads folder (see [Export ADIF](#export-adif)) |
 | `Ctrl+X` | Export a Cabrillo submission for the loaded contest (see [Cabrillo export](#cabrillo-export)) |
 | `Ctrl+U` | Retry failed/paused uploads for the active profile using the **current credentials and destination logbook** |
@@ -83,6 +84,20 @@ The space to the right of Recent QSOs shows live CW spots across all bands — n
 Each line shows time, frequency, and callsign; wider terminals (45+ columns of panel space) also show the spot's comment. Before any spots have arrived, the panel shows the connection status instead (e.g. `connecting to dx.k3lr.com:23…`, or a prompt to set your callsign in Station Setup if none is configured).
 
 The panel only shows 10 spots at a time, but up to 100 are buffered. When there are more spots than fit, the title grows a `(PgUp/PgDn)` hint — press `PgUp`/`PgDn`, or scroll the mouse wheel over the window, to page back through older spots and forward again, without leaving the entry fields or the DX Cluster (`F3`) screen. The status bar shows the visible range while scrolling (e.g. `DX Spots 11-20 of 37`). If `PgUp`/`PgDn` doesn't seem to do anything, it's likely being captured by your terminal emulator, tmux/screen, or window manager before it reaches the app — the mouse wheel bypasses that.
+
+## World Map
+
+Press **Ctrl+L** to open a live, flat world map in your default browser. F10 is also supported, but some consoles intercept it to open their menu. Move that window to a second monitor or use its Full screen button. The map shares the logger's cluster connection and shows CW reports collected during this logger session. Ctrl+L reopens the map; closing the browser leaves the logger running. If the browser does not open automatically, copy the local launch URL from the logger status line. Each launch URL is usable once; Ctrl+L supplies another.
+
+Markers are colored by band and fade with report age. Select a marker or a callsign in Recent reports to inspect the station, its reporting operators, and approximate spotter-to-DX paths. Calls at the same reference point open a station chooser. The star marks the active station's grid center; selecting a located DX station also shows distance and bearing from your station.
+
+Use band, age, and callsign search to narrow the display. **Follow logger** applies F4 filters; **Independent · all CW** shows the retained CW feed with the map's own band/age/search controls. Map controls do not change F4. Zoom with the buttons or mouse wheel, drag to pan, and use Reset to return to the world view. The recent-report table is paged in groups of 50, and All visible paths is limited to 500 distinct DX/band/spotter paths to keep the display usable.
+
+Locations come from the bundled country/prefix reference table and are explicitly approximate. An unresolved station stays in the report list. A cluster report does not establish reception at your station, and this display is not a propagation forecast. Each spotter's report is retained even when the terminal suppresses repeated DX calls. The map groups markers and counts distinct spotters; its report list retains individual received reports, including relays.
+
+The map keeps up to one hour or 20,000 reports in memory and shows a notice when capacity is reached. Age is measured from the logger's local UTC receipt time. Browser reconnects replace the snapshot and resume updates; expired spots disappear even after reception stops. Quitting the logger disconnects the map. Geography and UI assets are embedded, with no online map-tile dependency; receiving new spots still needs the cluster connection. View controls are remembered in that browser origin; because the local port can change after a logger restart, preferences may reset between logger sessions.
+
+The browser endpoint binds only to localhost and uses a per-run authenticated cookie. No logbook database or service credentials are exposed. This release uses the logger as the feed host; a standalone executable, manual location overrides, and day/night overlays remain planned extensions. See the [design and implementation notes](docs/World_Map_Design_Plan.md).
 
 ## Browse, edit, and delete QSOs
 

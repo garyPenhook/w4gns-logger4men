@@ -14,6 +14,38 @@ func TestClusterFiltersDefaultToCWBands160Through6Metres(t *testing.T) {
 	}
 }
 
+// TestIsBaselineCWEligibleIgnoresDisplayFilters guards the map-feed tap's
+// dependency on isBaselineCWEligible: it must apply only the band/CW-mode
+// check (via the bands map passed in), never the DXCC/zone/continent/
+// call-area display filters that clusterFilters.allowsSpot layers on top.
+func TestIsBaselineCWEligibleIgnoresDisplayFilters(t *testing.T) {
+	bands := defaultClusterFilters().Bands
+	spot := clusterSpot{Frequency: "14025.0", Callsign: "JA1ABC", Spotter: "W4GNS"}
+
+	band, freqMHz, ok := isBaselineCWEligible(spot, bands)
+	if !ok {
+		t.Fatal("isBaselineCWEligible rejected a plain CW-band spot")
+	}
+	if band != "20M" || freqMHz != 14.025 {
+		t.Errorf("isBaselineCWEligible = (%q, %v), want (\"20M\", 14.025)", band, freqMHz)
+	}
+
+	// A full clusterFilters with a DXCC filter set would reject this same
+	// spot (JA1ABC isn't in the US) — isBaselineCWEligible must not.
+	restrictive := defaultClusterFilters()
+	restrictive.DXCC = "United States"
+	if restrictive.allowsSpot(spot) {
+		t.Fatal("test setup: expected the restrictive DXCC filter to reject this spot")
+	}
+	if _, _, ok := isBaselineCWEligible(spot, restrictive.Bands); !ok {
+		t.Fatal("isBaselineCWEligible must ignore DXCC/zone/continent/call-area filters")
+	}
+
+	if _, _, ok := isBaselineCWEligible(clusterSpot{Frequency: "14250.0"}, bands); ok {
+		t.Error("isBaselineCWEligible allowed a phone-segment spot")
+	}
+}
+
 func TestClusterFiltersAllowOnlySelectedAmateurBands(t *testing.T) {
 	filters := defaultClusterFilters()
 	filters.Bands["20M"] = false

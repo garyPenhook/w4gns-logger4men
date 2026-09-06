@@ -1,5 +1,13 @@
 # Changelog
 
+### v1.33.0
+
+- Add Ctrl+L as the primary World Map shortcut because some consoles intercept F10 for their menu; retain F10 as an alias.
+
+- Add F10 World Map: a local browser companion sharing the logger's CW cluster feed, with bundled world geography, band/age/search controls, logger-filter following, selected spotter paths, home-grid bearings, and approximate location labels.
+- Preserve distinct spotter reports before terminal deduplication in a bounded map feed. Stream snapshots and deltas with reconnect resets, expiry, and authenticated loopback-only access.
+- Add map server, feed integration, and opt-in real-browser fixture tests. Existing terminal cluster filtering and duplicate suppression remain in place.
+
 ### v1.32.3
 
 - Refuse to overwrite the live SQLite database or its `-wal`/`-shm` sidecars from every atomic exporter (ADIF, CSV, Cabrillo), checking SQLite's actual open filename; the CLI export guard now also resolves URI escaping and driver options instead of comparing the raw DSN.

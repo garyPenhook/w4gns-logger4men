@@ -123,3 +123,18 @@ func TestLoadARRLDXCCNumbersCoversMostCurrentEntities(t *testing.T) {
 		t.Fatalf("loadARRLDXCCNumbers() returned %d entries, want at least 300", len(numbers))
 	}
 }
+
+// TestDXCCEntityHasCoordinates guards the explicit missing-coordinate
+// boundary: a genuine (0,0) coordinate must never be reported as "has
+// coordinates" wrong side either way.
+func TestDXCCEntityHasCoordinates(t *testing.T) {
+	if (dxccEntity{}).HasCoordinates() {
+		t.Error("zero-value dxccEntity.HasCoordinates() = true, want false")
+	}
+	if !(dxccEntity{Latitude: 38.0}).HasCoordinates() {
+		t.Error("dxccEntity with only Latitude set: HasCoordinates() = false, want true")
+	}
+	if !(dxccEntity{Longitude: -77.0}).HasCoordinates() {
+		t.Error("dxccEntity with only Longitude set: HasCoordinates() = false, want true")
+	}
+}
