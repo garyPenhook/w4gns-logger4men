@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.36.0
+
+- Use QRZ profile lat/lon for World Map DX/spotter locations when available, falling back to the DXCC country/prefix reference otherwise. Requires QRZ XML credentials; looks up each newly seen callsign once (cached, rate-limited).
+
 ### v1.35.0
 
 - Add a "General logging" indicator/status line, shown on every screen, reporting the active contest by name or that no contest is selected.
