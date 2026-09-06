@@ -290,41 +290,58 @@ var portableCallSuffixes = map[string]bool{
 // matching prefix. This is a practical approximation, not a full
 // implementation of ARRL/WPX prefix-parsing rules for edge cases such as
 // numeral-suffix portable operation.
+//
+// For a slash call, the shorter side is tried first and wins outright if it
+// resolves at all: in portable notation (e.g. "F/VE3ABC" or "VE3ABC/F") the
+// short side names the operating location, and it must win over the home
+// call's own prefix even when that prefix happens to match a longer table
+// entry — comparing alias-prefix match lengths instead (as an earlier
+// version of this function did) let a home call like "VE3ABC" (matching the
+// 3-character "VE3" prefix) beat a genuine one-character location prefix
+// like "F", silently discarding the operating location.
 func (t *dxccTable) lookup(call string) (dxccEntity, bool) {
 	call = normalizeCall(call)
 	if call == "" || t == nil {
 		return dxccEntity{}, false
 	}
-	candidates := []string{call}
-	if idx := strings.Index(call, "/"); idx >= 0 {
-		candidates = append(candidates, call[:idx], call[idx+1:])
+	if entity, ok := t.exactAliases[call]; ok {
+		return entity, true
+	}
+	idx := strings.Index(call, "/")
+	if idx < 0 {
+		return t.lookupCandidate(call)
+	}
+	short, long := call[:idx], call[idx+1:]
+	if len(long) < len(short) {
+		short, long = long, short
+	}
+	if !portableCallSuffixes[short] {
+		if entity, ok := t.lookupCandidate(short); ok {
+			return entity, true
+		}
+	}
+	if !portableCallSuffixes[long] {
+		if entity, ok := t.lookupCandidate(long); ok {
+			return entity, true
+		}
+	}
+	return dxccEntity{}, false
+}
+
+// lookupCandidate resolves a single, unsplit candidate against the exact-
+// match exceptions and, failing that, the longest matching alias prefix.
+func (t *dxccTable) lookupCandidate(candidate string) (dxccEntity, bool) {
+	if candidate == "" {
+		return dxccEntity{}, false
+	}
+	if entity, ok := t.exactAliases[candidate]; ok {
+		return entity, true
 	}
 	var best dxccEntity
 	bestLen := -1
-	bestCandidateLen := 0
-	for _, candidate := range candidates {
-		if candidate == "" || portableCallSuffixes[candidate] {
-			continue
-		}
-		if entity, ok := t.exactAliases[candidate]; ok {
-			return entity, true
-		}
-		for _, alias := range t.prefixByFirst[candidate[0]] {
-			if !strings.HasPrefix(candidate, alias.prefix) {
-				continue
-			}
-			// On an equal-length prefix match, prefer the shorter candidate:
-			// for a portable call like "F/W4GNS" or "W4GNS/F" the operating
-			// location is the short side, and it must win over the home
-			// call's own prefix regardless of which side of the slash (or
-			// the unsplit call, tried first above) happens to produce the
-			// tying match first.
-			switch {
-			case len(alias.prefix) > bestLen:
-				bestLen, best, bestCandidateLen = len(alias.prefix), alias.entity, len(candidate)
-			case len(alias.prefix) == bestLen && len(candidate) < bestCandidateLen:
-				best, bestCandidateLen = alias.entity, len(candidate)
-			}
+	for _, alias := range t.prefixByFirst[candidate[0]] {
+		if strings.HasPrefix(candidate, alias.prefix) && len(alias.prefix) > bestLen {
+			bestLen, best = len(alias.prefix), alias.entity
 		}
 	}
 	return best, bestLen >= 0

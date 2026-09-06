@@ -527,3 +527,26 @@ func TestReviewNativeSmoke(t *testing.T) {
 		}
 	}
 }
+
+// TestReviewQRZXMLEnvCredentialsSurviveStationSetupSave reproduces a bug
+// where saving Station Setup adopted the just-typed form values into
+// m.qrzXMLCreds directly, even when W4GNS_QRZ_XML_USER/PASS were set.
+// loadQRZXMLCredentials treats the environment as authoritative over the
+// on-disk file, so the running session must keep honoring that after a save
+// too, not just on the next restart.
+func TestReviewQRZXMLEnvCredentialsSurviveStationSetupSave(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("W4GNS_QRZ_XML_USER", "env-user")
+	t.Setenv("W4GNS_QRZ_XML_PASS", "env-pass")
+	m := reviewModel(t)
+	m.qrzXMLCreds = loadQRZXMLCredentials()
+
+	m.openStationSetup()
+	m.stationFields[stationQRZXMLUserField].SetValue("typed-user")
+	m.stationFields[stationQRZXMLPassField].SetValue("typed-pass")
+	m.saveStationSetup()
+
+	if m.qrzXMLCreds.username != "env-user" || m.qrzXMLCreds.password != "env-pass" {
+		t.Fatalf("qrzXMLCreds = %+v, want the env-sourced credentials to survive the save", m.qrzXMLCreds)
+	}
+}

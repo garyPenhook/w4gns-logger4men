@@ -23,14 +23,37 @@ func TestDXCCLookupResolvesKnownCallsigns(t *testing.T) {
 		t.Errorf("lookup(\"W4GNS\").DXCCNumber = %d, want 291 (per the ARRL DXCC List)", entity.DXCCNumber)
 	}
 
-	// Portable call: neither side of the slash alone should be treated as
-	// authoritative over the other; the longest matching prefix wins.
+	// Portable call: the shorter side (the operating-location prefix) is
+	// tried first and wins if it resolves at all.
 	if _, ok := table.lookup("PJ4/W4GNS"); !ok {
 		t.Error("lookup(\"PJ4/W4GNS\") = not found, want a match on one side of the slash")
 	}
 
 	if _, ok := table.lookup(""); ok {
 		t.Error("lookup(\"\") = found, want no match for an empty call")
+	}
+}
+
+// TestDXCCLookupPortableShortPrefixWinsOverLongerHomePrefix guards a real
+// bug: comparing which side of the slash matched the *longer* table prefix
+// (rather than which side is the shorter candidate string) let a home call
+// with a multi-character prefix — "VE3" (Canada), "KH6" (Hawaii) — beat a
+// genuine one-character operating-location prefix like "F" (France), so
+// "F/VE3ABC" resolved to Canada instead of France.
+func TestDXCCLookupPortableShortPrefixWinsOverLongerHomePrefix(t *testing.T) {
+	table, err := loadDXCCTable()
+	if err != nil {
+		t.Fatalf("loadDXCCTable returned error: %v", err)
+	}
+	for _, call := range []string{"F/VE3ABC", "VE3ABC/F", "F/KH6ABC"} {
+		entity, ok := table.lookup(call)
+		if !ok {
+			t.Errorf("lookup(%q) = not found, want France", call)
+			continue
+		}
+		if entity.Country != "France" {
+			t.Errorf("lookup(%q).Country = %q, want %q", call, entity.Country, "France")
+		}
 	}
 }
 

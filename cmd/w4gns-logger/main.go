@@ -715,10 +715,14 @@ func (m *model) saveStationSetup() tea.Cmd {
 		m.statusMsg = fmt.Sprintf("station profile %q saved, but QRZ XML credentials failed to save: %v", saved.Name, err)
 		return m.connectClusterIfNeeded()
 	}
+	// Reload rather than adopt the just-saved form values directly: when
+	// W4GNS_QRZ_XML_USER/PASS are set, they must keep overriding the file for
+	// the running session too, not just on the next restart (loadQRZXMLCredentials
+	// is the single source of truth for that precedence).
+	m.qrzXMLCreds = loadQRZXMLCredentials()
 	// Credentials may have changed (or been cleared), so the cached session
 	// key — tied to whichever account last logged in — is no longer valid
 	// for the next lookup.
-	m.qrzXMLCreds = creds
 	m.qrzXMLSessionKey = ""
 	m.qrzLookups = nil
 	m.qrzActiveLookup = 0
