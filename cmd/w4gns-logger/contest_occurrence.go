@@ -179,6 +179,31 @@ func (m *model) saveContestSelection() {
 	}
 }
 
+// clearContestSelection returns to general logging: no active contest, no
+// resumed serial, and the cleared selection is persisted immediately so a
+// later restart honors it too — restoreContestSelection would otherwise
+// resurrect the just-ended contest from contest_selection on the next
+// startup, which is the "stuck in that event" bug this fixes.
+func (m *model) clearContestSelection() {
+	for index := range m.contestFields {
+		m.contestFields[index].SetValue("")
+	}
+	m.contestFields[contestSerialSent].Placeholder = "001"
+	m.contestFields[contestExchangeSent].Placeholder = "Sent exchange"
+	m.contestFields[contestSerialRcvd].Placeholder = "001"
+	m.contestFields[contestExchangeRcvd].Placeholder = "Received exchange"
+	m.nextSerial = 0
+	m.serialResumeError = ""
+	m.contestExchangeRcvdEdited = false
+	m.dupeBaselineAfter = time.Time{}
+	m.exchangeChoiceFocus = -1
+	m.statusMsg = "General logging — no contest selected"
+	m.screen = qsoEntryScreen
+	m.focusField(fieldCall)
+	m.checkDupe()
+	m.saveContestSelection()
+}
+
 func (m *model) restoreContestSelection() {
 	var id, exchange string
 	if err := m.store.db.QueryRow(`SELECT contest_id,sent_exchange FROM contest_selection WHERE profile_id=?`, m.activeStation.ID).Scan(&id, &exchange); err != nil {

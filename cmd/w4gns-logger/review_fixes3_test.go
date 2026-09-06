@@ -105,6 +105,48 @@ func TestRestoreContestSelectionRollsOverStaleOccurrence(t *testing.T) {
 	}
 }
 
+// TestClearContestSelectionReturnsToGeneralLoggingAcrossRestart reproduces
+// the "stuck in that contest" bug: selecting an event persists it to
+// contest_selection so restoreContestSelection resumes it on every future
+// startup, but there was no way to tell the app the contest was over — the
+// operator was stuck in it indefinitely, across restarts, once one had been
+// selected. The 'c' key on the Event Catalog (F7) screen must clear it and
+// persist that so a later restart (simulated here by calling
+// restoreContestSelection again, exactly as initialModel does) stays in
+// general logging instead of resurrecting the ended contest.
+func TestClearContestSelectionReturnsToGeneralLoggingAcrossRestart(t *testing.T) {
+	m := reviewModel(t)
+	cwOpen := m.events[eventIndex(t, m.events, "CW-OPEN")]
+	m.selectEvent(cwOpen, cwOpen.Sessions[0])
+	if _, ok := m.eventForContestID(); !ok {
+		t.Fatal("test setup: expected an active contest after selectEvent")
+	}
+
+	m.openEventCatalog()
+	updated, _ := m.updateEventCatalog(keyRune("c"))
+	m = updated.(model)
+
+	if got := m.contestFields[contestName].Value(); got != "" {
+		t.Fatalf("contestName after clear = %q, want blank (general logging)", got)
+	}
+	if _, ok := m.eventForContestID(); ok {
+		t.Fatal("eventForContestID still resolves an event after clearing")
+	}
+	if m.screen != qsoEntryScreen {
+		t.Fatalf("screen after clear = %v, want qsoEntryScreen", m.screen)
+	}
+
+	// Simulate a restart: a fresh model loading the persisted selection must
+	// come back blank, not resurrect CW-OPEN.
+	m.restoreContestSelection()
+	if got := m.contestFields[contestName].Value(); got != "" {
+		t.Fatalf("contestName after restoreContestSelection (simulated restart) = %q, want blank", got)
+	}
+	if _, ok := m.eventForContestID(); ok {
+		t.Fatal("restart still resumed the cleared contest")
+	}
+}
+
 // TestDXCCPortableLocationWinsOverHomeCallPrefix reproduces the asymmetric
 // portable-call resolution bug: "F/W4GNS" (location prefix first) correctly
 // resolved to France, but "W4GNS/F" (location suffix last) resolved to the

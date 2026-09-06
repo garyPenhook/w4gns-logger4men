@@ -3232,6 +3232,9 @@ func (m model) updateEventCatalog(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "f6":
 			m.openQSODetails()
 			return m, nil
+		case "c":
+			m.clearContestSelection()
+			return m, nil
 		case "up", "k":
 			m.eventFocus = (m.eventFocus - 1 + len(m.events)) % len(m.events)
 			m.eventSessionFocus = 0
@@ -4058,7 +4061,7 @@ func (m model) eventCatalogView() string {
 		}
 	}
 	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("Up/Down: event  •  Left/Right: session  •  Enter: use session  •  F1/Esc: QSO Entry"))
+	b.WriteString(helpStyle.Render("Up/Down: event  •  Left/Right: session  •  Enter: use session  •  c: General logging (clear contest)  •  F1/Esc: QSO Entry"))
 	return b.String()
 }
 
