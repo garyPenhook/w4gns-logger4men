@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.38.0
+
+- Resolve POTA activation locations on the World Map from POTA's public API (api.pota.app), taking priority over both the QRZ profile and DXCC country reference when a spot's comment names a park reference.
+
 ### v1.37.0
 
 - Show which band is currently most active on the World Map, live off the current report set and labeled as subject to change.
