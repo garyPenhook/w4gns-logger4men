@@ -380,6 +380,9 @@ func exportCabrillo(ctx context.Context, writer io.Writer, profile stationProfil
 // unexportable QSO, the process being killed — would destroy the previous,
 // valid submission and leave nothing usable behind. Mirrors writeADIFAtomic.
 func writeCabrilloAtomic(ctx context.Context, dir, path string, profile stationProfile, event eventDefinition, contestID string, st *store) (int, contestScore, error) {
+	if err := st.validateExportPath(ctx, path); err != nil {
+		return 0, contestScore{}, err
+	}
 	tempFile, err := os.CreateTemp(dir, ".w4gns-cabrillo-*.cbr.tmp")
 	if err != nil {
 		return 0, contestScore{}, fmt.Errorf("create temporary Cabrillo file: %w", err)

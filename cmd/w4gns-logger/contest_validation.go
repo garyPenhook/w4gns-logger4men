@@ -196,7 +196,7 @@ func validateLocationSubmission(eventID, call, token string) error {
 	fields := strings.Fields(token)
 	if eventID == "NA-SPRINT-CW" {
 		if len(fields) == 0 || !positiveSerial(fields[0]) {
-			return fmt.Errorf("Sprint exchange needs a positive serial, name and location")
+			return fmt.Errorf("sprint exchange needs a positive serial, name and location")
 		}
 		fields = fields[1:]
 	}
@@ -285,7 +285,7 @@ func validateRegionalExchange(eventID, call, serial, text string) error {
 	case "HELVETIA":
 		if entity.Country == "Switzerland" {
 			if cantonCode(token) == "" {
-				return fmt.Errorf("Swiss exchange must be one valid canton code")
+				return fmt.Errorf("exchange for Switzerland must be one valid canton code")
 			}
 			return nil
 		}
@@ -295,14 +295,14 @@ func validateRegionalExchange(eventID, call, serial, text string) error {
 		russian = russian || (entity.Country == "Antarctica" && strings.HasPrefix(normalizeCall(call), "RI1AN"))
 		if russian {
 			if rdxcOblastCode(token) == "" {
-				return fmt.Errorf("Russian exchange must be one valid oblast code")
+				return fmt.Errorf("exchange for Russia must be one valid oblast code")
 			}
 			return nil
 		}
 	case "WAG":
 		if entity.Country == "Fed. Rep. of Germany" {
 			if !validWAGDOK(token) {
-				return fmt.Errorf("German exchange must be NM or one alphanumeric DOK")
+				return fmt.Errorf("exchange for Germany must be NM or one alphanumeric DOK")
 			}
 			return nil
 		}
@@ -311,7 +311,7 @@ func validateRegionalExchange(eventID, call, serial, text string) error {
 		return fmt.Errorf("exchange must be a positive decimal serial")
 	}
 	if eventID == "HELVETIA" && len(token) < 3 {
-		return fmt.Errorf("Helvetia serial must contain at least three digits")
+		return fmt.Errorf("serial for Helvetia must contain at least three digits")
 	}
 	return nil
 }
@@ -340,7 +340,7 @@ func sweepstakesExchange(serial, text, call string) (string, error) {
 		fields = append(fields[:1], fields[2:]...)
 	}
 	if !positiveSerial(serial) || len(serial) > 4 || len(fields) != 3 {
-		return "", fmt.Errorf("Sweepstakes needs serial, precedence, check and section")
+		return "", fmt.Errorf("exchange for Sweepstakes needs serial, precedence, check and section")
 	}
 	if len(fields[0]) != 1 || !strings.Contains("QABUMS", fields[0]) || len(fields[1]) != 2 || !isAllDigits(fields[1]) || arrlSectionCode(fields[2]) == "" {
 		return "", fmt.Errorf("invalid Sweepstakes precedence/check/section")

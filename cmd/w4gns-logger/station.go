@@ -114,6 +114,7 @@ func (s *store) saveStationProfile(profile stationProfile) (stationProfile, erro
 		profile.PowerWatts = strconv.FormatFloat(value, 'f', -1, 64)
 	}
 	var latitude, longitude any
+	profile.Latitude, profile.Longitude = nil, nil
 	if profile.MyGridSquare != "" {
 		grid, err := ParseGridSquare(profile.MyGridSquare)
 		if err != nil {
@@ -130,11 +131,17 @@ func (s *store) saveStationProfile(profile stationProfile) (stationProfile, erro
 		return stationProfile{}, fmt.Errorf("station profile is missing an identifier")
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
-	if _, err := s.db.Exec(`UPDATE station_profile SET name=?, callsign=?, operator_name=?, my_gridsquare=?, latitude=?, longitude=?, timezone=?, club=?, rig=?, antenna=?, power_watts=?, category_operator=?, category_assisted=?, category_power=?, address=?, category_station=?, my_iota_ref=?, updated_at=? WHERE id=?`,
+	res, err := s.db.Exec(`UPDATE station_profile SET name=?, callsign=?, operator_name=?, my_gridsquare=?, latitude=?, longitude=?, timezone=?, club=?, rig=?, antenna=?, power_watts=?, category_operator=?, category_assisted=?, category_power=?, address=?, category_station=?, my_iota_ref=?, updated_at=? WHERE id=?`,
 		profile.Name, profile.Callsign, profile.OperatorName, profile.MyGridSquare, latitude, longitude, profile.Timezone, profile.Club, profile.Rig, profile.Antenna, powerWatts,
 		profile.CategoryOperator, profile.CategoryAssisted, profile.CategoryPower, profile.Address, profile.CategoryStation, profile.MyIOTARef, now, profile.ID,
-	); err != nil {
+	)
+	if err != nil {
 		return stationProfile{}, fmt.Errorf("save station profile: %w", err)
+	}
+	if n, err := res.RowsAffected(); err != nil {
+		return stationProfile{}, fmt.Errorf("save station profile: %w", err)
+	} else if n == 0 {
+		return stationProfile{}, fmt.Errorf("save station profile: no matching row")
 	}
 	return profile, nil
 }

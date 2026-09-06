@@ -41,6 +41,7 @@ func importADIF(ctx context.Context, reader io.Reader, profileID int64, st *stor
 		if err == nil {
 			result.Skipped += len(batch) - n
 		}
+		clear(batch)
 		batch = batch[:0]
 		batchBytes = 0
 		return err
@@ -184,10 +185,10 @@ func qsoApproxBytes(q qso) int {
 	return len(q.call) + len(q.band) + len(q.mode) + len(q.rstSent) + len(q.rstRcvd) +
 		len(q.frequency) + len(q.name) + len(q.qth) + len(q.grid) + len(q.state) +
 		len(q.county) + len(q.email) + len(q.country) + len(q.cqZone) + len(q.ituZone) +
-		len(q.dxccNumber) + len(q.comment) + len(q.potaRef) + len(q.contestID) +
+		len(q.dxccNumber) + len(q.comment) + len(q.potaRef) + len(q.parkName) + len(q.contestID) +
 		len(q.iotaRef) + len(q.islandName) + len(q.myIotaRef) +
 		len(q.stx) + len(q.stxString) + len(q.srx) + len(q.srxString) + len(q.exchange) +
-		len(q.srxString) + len(q.myGridSquare) + len(q.stationCallsign) +
+		len(q.myGridSquare) + len(q.stationCallsign) +
 		len(q.operatorName) + len(q.myRig) + len(q.myAntenna) + len(q.txPower)
 }
 

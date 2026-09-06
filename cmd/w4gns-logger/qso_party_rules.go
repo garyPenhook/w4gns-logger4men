@@ -539,9 +539,7 @@ func partySubmissionHeaders(ctx context.Context, st *store, profile stationProfi
 	if home && away {
 		return nil, fmt.Errorf("in-state and out-of-state contacts require separate submissions")
 	}
-	if strings.HasPrefix(location, "DX:") {
-		location = strings.TrimPrefix(location, "DX:")
-	}
+	location = strings.TrimPrefix(location, "DX:")
 	category := cabrilloOrDefault(profile.CategoryStation, "FIXED")
 	if event.QSOParty.OutsideCategory != "" && !home {
 		category = event.QSOParty.OutsideCategory

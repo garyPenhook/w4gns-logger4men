@@ -1,5 +1,18 @@
 # Changelog
 
+### v1.32.3
+
+- Refuse to overwrite the live SQLite database or its `-wal`/`-shm` sidecars from every atomic exporter (ADIF, CSV, Cabrillo), checking SQLite's actual open filename; the CLI export guard now also resolves URI escaping and driver options instead of comparing the raw DSN.
+- Sanitize external text (remote status/error messages, POTA park names, solar text, imported signal reports, Recent QSOs and call history) before applying terminal styles, so a smuggled ANSI/OSC control sequence can't reposition the cursor, spoof UI text, or trigger a clipboard write. Stored QSO values stay intact.
+- Require a matching QSO deletion before removing its upload-queue rows, within the same transaction, so a wrong-profile delete can no longer strip outbox rows while leaving the contact; QSO and station-profile updates now report a missing/mismatched record instead of falsely succeeding.
+- Resolve the SQLite filesystem path before precreating and permission-checking the database, and use SQLite's authoritative filename after opening, so a named in-memory database no longer creates stray files and URI `mode=ro`/`mode=rw` databases are respected.
+- Coalesce optional reports/exchanges when reading Recent QSOs and call history, so legacy rows with NULL fields load instead of failing.
+- Include park names in the ADIF-import byte estimate and clear completed batches, so a large park name can't bypass the batch limit and batch strings are released promptly.
+- Reset derived station coordinates before resolving a new grid, so clearing the grid no longer retains the previous latitude/longitude.
+- Reject extra operands, repeated actions, an empty export/import filename, and conflicting actions in CLI argument validation; require exactly one unambiguous action.
+- Clamp the haversine intermediate to its mathematical range so near-antipodal coordinate pairs no longer produce NaN distances/bearings.
+- Housekeeping: removed an unused DXCC field, replaced a deprecated lipgloss style-copy call, simplified a redundant prefix check, and corrected six analyzer-reported error strings. Added the new audit regression tests to the native smoke workflow. See `docs/Project_Audit.md`.
+
 ### v1.32.2
 
 - Wrap the QSO Entry fields onto multiple rows sized to the terminal width instead of stretching every field (Call, RST, Band, Freq, POTA/IOTA Ref, plus contest and POST slots) onto one line that could reach ~246 columns and overflow the display.

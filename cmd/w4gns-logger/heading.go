@@ -21,6 +21,9 @@ func GreatCircleBearingDistance(lat1, lon1, lat2, lon2 float64) (bearingDeg, dis
 
 	a := math.Sin(deltaPhi/2)*math.Sin(deltaPhi/2) +
 		math.Cos(phi1)*math.Cos(phi2)*math.Sin(deltaLambda/2)*math.Sin(deltaLambda/2)
+	// Rounding near antipodal points can put a just above 1, making
+	// sqrt(1-a) NaN even for valid coordinates.
+	a = math.Max(0, math.Min(1, a))
 	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 	distanceKm = earthRadiusKm * c
 

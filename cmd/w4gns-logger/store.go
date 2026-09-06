@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -180,8 +181,13 @@ func openStore(path string) (*store, error) {
 		db.Close()
 		return nil, fmt.Errorf("migrate contest occurrences: %w", err)
 	}
-	tightenDBFilePermissions(path)
-	if path != "" && path != ":memory:" && !strings.Contains(path, "mode=memory") && !strings.HasPrefix(path, "file::memory:") {
+	var filename string
+	if err := db.QueryRow(`SELECT file FROM pragma_database_list WHERE name = 'main'`).Scan(&filename); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("resolve database filename: %w", err)
+	}
+	tightenDBFilePermissions(filename)
+	if filename != "" {
 		readDB, err := sql.Open("sqlite", path)
 		if err != nil {
 			db.Close()
@@ -206,13 +212,25 @@ func openStore(path string) (*store, error) {
 const dbFilePermBits = 0o600
 
 // precreateDBFile best-effort creates the database file with owner-only
-// permissions before the SQLite driver opens it, so the file never exists with
-// looser (umask-derived) permissions even briefly. An in-memory or empty path,
-// or an already-existing file, is left untouched. Any error is ignored: the
-// driver and tightenDBFilePermissions handle the file from here.
+// permissions before the SQLite driver opens it, and restricts existing files
+// before schema writes. Memory/temporary DSNs create no file, and URI modes
+// requiring an existing database retain that behavior. Any error is ignored:
+// the driver and tightenDBFilePermissions handle the file from here.
 func precreateDBFile(path string) {
-	if path == "" || path == ":memory:" || strings.HasPrefix(path, "file::memory:") {
+	create := true
+	if strings.HasPrefix(path, "file:") {
+		if u, err := url.Parse(path); err == nil {
+			mode := u.Query().Get("mode")
+			create = mode != "ro" && mode != "rw"
+		}
+	}
+	path = sqliteFilePath(path)
+	if path == "" {
 		return
+	}
+	tightenDBFilePermissions(path)
+	if !create {
+		return // Respect URI modes that require an already-existing database.
 	}
 	if _, err := os.Stat(path); err == nil {
 		return // already exists; don't disturb it
@@ -226,6 +244,9 @@ func precreateDBFile(path string) {
 // SHM sidecars, mirroring tightenKeyFilePermissions in qrz.go. Sidecar
 // files that don't exist (e.g. WAL checkpointed away) are silently skipped.
 func tightenDBFilePermissions(path string) {
+	if path == "" {
+		return
+	}
 	for _, p := range []string{path, path + "-wal", path + "-shm"} {
 		info, err := os.Stat(p)
 		if err != nil {
@@ -730,7 +751,7 @@ func (s *store) isDupe(call, band, contestID, eventID, dupeScope string, profile
 // looked up (for editing or deletion) without a second query.
 func (s *store) recentQSOs(profileID int64, limit int) ([]qso, error) {
 	rows, err := s.db.Query(
-		`SELECT id, call, band, mode, rst_sent, rst_rcvd, srx_string, qso_date, time_on
+		`SELECT id, call, band, COALESCE(mode, 'CW'), COALESCE(rst_sent, ''), COALESCE(rst_rcvd, ''), COALESCE(srx_string, ''), qso_date, time_on
 		 FROM qso WHERE profile_id = ? ORDER BY id DESC LIMIT ?`,
 		profileID, limit,
 	)
@@ -802,7 +823,7 @@ func (s *store) updateQSO(id int64, q qso) error {
 		return fmt.Errorf("validate qso: %w", err)
 	}
 	country, cqZone, ituZone, dxccNumber := resolveDXCC(q)
-	_, err := s.db.Exec(
+	res, err := s.db.Exec(
 		`UPDATE qso SET call = ?, band = ?, freq = NULLIF(?, ''), rst_sent = ?, rst_rcvd = ?, name = ?, qth = ?,
 			gridsquare = ?, state = ?, county = ?, email = ?, country = NULLIF(?, ''), dxcc = ?, cqz = ?, ituz = ?, sig = NULLIF(?, ''),
 			sig_info = NULLIF(?, ''), park_name = ?, iota_ref = ?, island_name = ?, comment = ?, contest_id = ?, stx = ?, stx_string = ?, srx = ?, srx_string = ?
@@ -814,6 +835,11 @@ func (s *store) updateQSO(id int64, q qso) error {
 	)
 	if err != nil {
 		return fmt.Errorf("update qso %d: %w", id, err)
+	}
+	if n, err := res.RowsAffected(); err != nil {
+		return fmt.Errorf("update qso %d: %w", id, err)
+	} else if n == 0 {
+		return fmt.Errorf("update qso %d: %w", id, sql.ErrNoRows)
 	}
 	return nil
 }
@@ -841,8 +867,14 @@ func (s *store) deleteQSO(profileID, id int64) error {
 		return fmt.Errorf("begin delete qso %d: %w", id, err)
 	}
 	defer tx.Rollback()
-	if _, err := tx.Exec(`DELETE FROM qso WHERE id = ? AND profile_id = ?`, id, profileID); err != nil {
+	res, err := tx.Exec(`DELETE FROM qso WHERE id = ? AND profile_id = ?`, id, profileID)
+	if err != nil {
 		return fmt.Errorf("delete qso %d: %w", id, err)
+	}
+	if n, err := res.RowsAffected(); err != nil {
+		return fmt.Errorf("delete qso %d: %w", id, err)
+	} else if n == 0 {
+		return fmt.Errorf("delete qso %d: %w", id, sql.ErrNoRows)
 	}
 	// The upload_outbox has no foreign key onto qso (foreign_keys=ON therefore
 	// can't cascade here), so its pending rows must be removed explicitly in the
@@ -867,7 +899,7 @@ func (s *store) deleteQSO(profileID, id int64) error {
 // the default recent list (see showWorkedCall).
 func (s *store) qsosByCall(profileID int64, call string) ([]qso, error) {
 	rows, err := s.db.Query(
-		`SELECT id, call, band, mode, rst_sent, rst_rcvd, srx_string, qso_date, time_on
+		`SELECT id, call, band, COALESCE(mode, 'CW'), COALESCE(rst_sent, ''), COALESCE(rst_rcvd, ''), COALESCE(srx_string, ''), qso_date, time_on
 		 FROM qso WHERE call = ? AND profile_id = ? ORDER BY qso_date DESC, time_on DESC, id DESC`,
 		call, profileID,
 	)

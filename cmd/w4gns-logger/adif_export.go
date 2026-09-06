@@ -121,6 +121,9 @@ func exportADIF(ctx context.Context, writer io.Writer, profileID int64, st *stor
 // the process being killed) would otherwise destroy it and leave nothing
 // usable behind.
 func writeADIFAtomic(ctx context.Context, dir, path string, profileID int64, st *store) (int, error) {
+	if err := st.validateExportPath(ctx, path); err != nil {
+		return 0, err
+	}
 	tempFile, err := os.CreateTemp(dir, ".w4gns-export-*.adi.tmp")
 	if err != nil {
 		return 0, fmt.Errorf("create temporary export file: %w", err)

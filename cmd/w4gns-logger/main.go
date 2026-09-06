@@ -44,7 +44,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.32.2"
+const appVersion = "1.32.3"
 
 type screen int
 
@@ -277,6 +277,13 @@ type model struct {
 	qrzLookupSequence uint64
 	qrzActiveLookup   uint64
 	qrzLookups        map[uint64]qrzLookupPending
+	// detailsCall is the callsign the QSO Details fields currently belong to.
+	// The details (QRZ-filled or hand-typed) describe one contact, so when the
+	// operator moves to a different callsign on a new-QSO form they are all
+	// cleared (see resetDetailsForCall) rather than carrying over — both to fix
+	// stale data and because the fill-only-when-blank autofill guard would
+	// otherwise keep the previous call's values on screen.
+	detailsCall string
 	potaLookups       map[uint64]qrzLookupPending
 	potaSequence      uint64
 	potaActive        uint64
@@ -430,7 +437,7 @@ var (
 			Padding(0, 1).
 			Margin(0, 1, 1, 0)
 
-	focusedFieldBoxStyle = fieldBoxStyle.Copy().
+	focusedFieldBoxStyle = fieldBoxStyle.
 				BorderForeground(lipgloss.Color("#00ADD8"))
 
 	dupeStyle = lipgloss.NewStyle().
@@ -1166,10 +1173,10 @@ func (m *model) refreshTableRows() {
 	for _, q := range recent {
 		rows = append(rows, table.Row{
 			q.time.Format("15:04:05"),
-			q.call,
-			q.band,
-			q.rstSent,
-			q.rstRcvd,
+			sanitizeClusterText(q.call),
+			sanitizeClusterText(q.band),
+			sanitizeClusterText(q.rstSent),
+			sanitizeClusterText(q.rstRcvd),
 		})
 	}
 	m.table.SetRows(rows)
@@ -1239,6 +1246,9 @@ func (m *model) beginEditQSO(q qso) {
 	m.detailFields[detailParkName].SetValue(full.parkName)
 	m.detailFields[detailIslandName].SetValue(full.islandName)
 	m.detailFields[detailNotes].SetValue(full.comment)
+	// These details belong to the QSO being edited; record its call so tabbing
+	// off the callsign field during the edit doesn't wipe them.
+	m.detailsCall = normalizeCall(full.call)
 	m.contestFields[contestName].SetValue(full.contestID)
 	m.contestFields[contestSerialSent].SetValue(full.stx)
 	m.contestFields[contestExchangeSent].SetValue(full.stxString)
@@ -1541,7 +1551,7 @@ func (m *model) showWorkedCall(call string) {
 	}
 	rows := make([]table.Row, 0, len(contacts))
 	for _, q := range contacts {
-		rows = append(rows, table.Row{q.time.Format("2006-01-02 15:04"), q.call, q.band, q.rstSent, q.rstRcvd})
+		rows = append(rows, table.Row{q.time.Format("2006-01-02 15:04"), sanitizeClusterText(q.call), sanitizeClusterText(q.band), sanitizeClusterText(q.rstSent), sanitizeClusterText(q.rstRcvd)})
 	}
 	m.table.SetRows(rows)
 	// recentQSOs backs whatever the table currently displays, not just the
@@ -1888,6 +1898,23 @@ func (m *model) autoFillFromQRZ() tea.Cmd {
 	m.qrzLookups[requestID] = qrzLookupPending{call: call}
 	m.qrzActiveLookup = requestID
 	return lookupQRZCallsignCmdForRequest(m.qrzXMLCreds, m.qrzXMLSessionKey, call, requestID)
+}
+
+// resetDetailsForCall clears every QSO Details field when the operator moves to
+// a different callsign on a new-QSO form, so details never carry over from the
+// previous contact (whether QRZ-filled or hand-typed). It is a no-op while
+// editing an existing QSO — those details were loaded from the saved record —
+// and when the callsign has not actually changed. Call it when leaving the
+// callsign field, before the QRZ/POTA autofills fire, so their blank-field guard
+// lets the new call's results populate the now-empty fields.
+func (m *model) resetDetailsForCall(call string) {
+	if m.editingQSOID != 0 || call == m.detailsCall {
+		return
+	}
+	m.detailsCall = call
+	for index := range m.detailFields {
+		m.detailFields[index].SetValue("")
+	}
 }
 
 // applyQRZRecordToLoggedQSO patches a QRZ callsign-lookup result into a QSO
@@ -2459,6 +2486,7 @@ func (m *model) clearQSOForm() {
 	for index := range m.detailFields {
 		m.detailFields[index].SetValue("")
 	}
+	m.detailsCall = ""
 	m.contestFields[contestSerialRcvd].SetValue("")
 	m.contestFields[contestExchangeRcvd].SetValue("")
 	m.contestExchangeRcvdEdited = false
@@ -2956,6 +2984,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.resetQSOClockIfReturningToCall(nextFocus)
 			m.focusField(nextFocus)
 			if leavingCall {
+				m.resetDetailsForCall(normalizeCall(m.fields[fieldCall].Value()))
 				return m, tea.Batch(m.autoFillPOTAReference(), m.autoFillFromQRZ())
 			}
 			return m, nil
@@ -3000,6 +3029,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.focusField(nextFocus)
 			if leavingCall {
+				m.resetDetailsForCall(normalizeCall(m.fields[fieldCall].Value()))
 				return m, tea.Batch(m.autoFillPOTAReference(), m.autoFillFromQRZ())
 			}
 			return m, nil
@@ -3670,10 +3700,10 @@ func (m model) View() string {
 		b.WriteString(dupeStyle.Render("POST MODE — logging with typed Date/Time, not the live clock"))
 	}
 	b.WriteString("\n")
-	b.WriteString(solarStyle.Render(m.solarLine()))
+	b.WriteString(solarStyle.Render(sanitizeClusterText(m.solarLine())))
 	b.WriteString("\n\n")
 	if m.contestIndexError != "" {
-		b.WriteString(dupeStyle.Render("CONTEST ANALYSIS STALE — " + m.contestIndexError))
+		b.WriteString(dupeStyle.Render("CONTEST ANALYSIS STALE — " + sanitizeClusterText(m.contestIndexError)))
 		b.WriteString("\n\n")
 	}
 
@@ -3718,7 +3748,7 @@ func (m model) View() string {
 
 	workedLabel := "Recent QSOs (F9: browse/edit)"
 	if m.workedCall != "" {
-		workedLabel = "Stations Worked: " + m.workedCall + " (prior contacts)"
+		workedLabel = "Stations Worked: " + sanitizeClusterText(m.workedCall) + " (prior contacts)"
 	}
 	recentBlock := helpStyle.Render(workedLabel) + "\n" + m.table.View()
 	// Fills the empty space to the right of Recent QSOs on wide enough
@@ -3743,7 +3773,7 @@ func (m model) View() string {
 	}
 
 	status := fmt.Sprintf("Qs: %d   %s", m.qsoCount, m.statusMsg)
-	b.WriteString(statusBarStyle.Render(status))
+	b.WriteString(statusBarStyle.Render(sanitizeClusterText(status)))
 	b.WriteString("\n")
 	if m.uploadQueueStatus != "" {
 		b.WriteString(helpStyle.Render(m.uploadQueueStatus))
@@ -3772,7 +3802,7 @@ func (m model) stationSetupView() string {
 	b.WriteString("\n\n")
 	b.WriteString(renderFieldGrid(stationFieldLabels[:], m.stationFields, m.stationFocusIdx))
 	b.WriteString("\n")
-	b.WriteString(statusBarStyle.Render(m.statusMsg))
+	b.WriteString(statusBarStyle.Render(sanitizeClusterText(m.statusMsg)))
 	b.WriteString("\n")
 	b.WriteString(helpStyle.Render("tab/shift+tab: move fields  •  final enter: save station profile"))
 	return b.String()
@@ -3808,7 +3838,7 @@ func (m model) dxSpotsPanel(width int) string {
 	b.WriteString(helpStyle.Render(truncateToWidth(title, width)))
 	b.WriteString("\n")
 	if len(m.clusterSpots) == 0 {
-		status := m.clusterStatus
+		status := sanitizeClusterText(m.clusterStatus)
 		if status == "" {
 			status = "no spots yet"
 		}
@@ -3863,7 +3893,7 @@ func (m model) clusterView() string {
 	b.WriteString("\n")
 	b.WriteString(headerStyle.Render("W4GNS Logger 4 Men  |  DX Cluster  |  " + k3lrClusterName))
 	b.WriteString("\n\n")
-	b.WriteString(statusBarStyle.Render(m.clusterStatus))
+	b.WriteString(statusBarStyle.Render(sanitizeClusterText(m.clusterStatus)))
 	b.WriteString("\n\n")
 	b.WriteString(helpStyle.Render(" UTC      Spotter       Freq       Call         Comment"))
 	b.WriteString("\n")
@@ -3900,7 +3930,7 @@ func (m model) clusterFiltersView() string {
 		}
 	}
 	b.WriteString("\n\n")
-	b.WriteString(statusBarStyle.Render(m.statusMsg))
+	b.WriteString(statusBarStyle.Render(sanitizeClusterText(m.statusMsg)))
 	b.WriteString("\n")
 	b.WriteString(helpStyle.Render("Tab: DX/DE fields  •  Up/Down: band  •  Space: toggle band  •  Enter: apply  •  Esc: cluster"))
 	return b.String()
@@ -3914,7 +3944,7 @@ func (m model) adifImportView() string {
 	b.WriteString("\n\n")
 	b.WriteString(focusedFieldBoxStyle.Render(labelStyle.Render("ADIF file") + m.adifPathField.View()))
 	b.WriteString("\n\n")
-	b.WriteString(statusBarStyle.Render(m.statusMsg))
+	b.WriteString(statusBarStyle.Render(sanitizeClusterText(m.statusMsg)))
 	b.WriteString("\n")
 	b.WriteString(helpStyle.Render("Enter: import CW QSOs  •  Esc: cancel"))
 	return b.String()
@@ -4055,7 +4085,7 @@ func (m model) qsoPageView(title string, labels []string, fields []textinput.Mod
 	b.WriteString("\n\n")
 	b.WriteString(renderFieldGrid(labels, fields, focus))
 	b.WriteString("\n")
-	b.WriteString(statusBarStyle.Render(m.statusMsg))
+	b.WriteString(statusBarStyle.Render(sanitizeClusterText(m.statusMsg)))
 	b.WriteString("\n")
 	b.WriteString(helpStyle.Render(help))
 	return b.String()
@@ -4238,35 +4268,31 @@ var recognizedArgs = map[string]bool{
 // through to launching the TUI — which would otherwise hide a typo'd flag
 // (e.g. --export-adiff) or an accidentally dropped path argument.
 func validateArgs(args []string) error {
-	sawExport, sawImport := false, false
-	for i, arg := range args {
-		if !strings.HasPrefix(arg, "--") {
-			continue
-		}
+	action := ""
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
 		if !recognizedArgs[arg] {
-			return fmt.Errorf("unrecognized flag %q", arg)
+			return fmt.Errorf("unrecognized argument %q", arg)
 		}
-		if arg == "--export-adif" {
-			sawExport = true
-		}
-		if arg == "--import-adif" {
-			sawImport = true
+		if arg == "--export-adif" || arg == "--import-adif" || arg == "--version" {
+			if action != "" {
+				return fmt.Errorf("only one action is allowed: %s cannot be combined with %s", action, arg)
+			}
+			action = arg
 		}
 		if arg == "--export-adif" || arg == "--import-adif" {
 			// The path operand is required and must be an actual path, not the
 			// next flag: "--export-adif --version" (or "--export-adif
 			// --import-adif x") would otherwise treat "--version" as the export
 			// path and silently do the wrong thing.
-			if i+1 >= len(args) {
+			if i+1 >= len(args) || strings.TrimSpace(args[i+1]) == "" {
 				return fmt.Errorf("%s requires a file path argument", arg)
 			}
-			if recognizedArgs[args[i+1]] {
+			if strings.HasPrefix(args[i+1], "--") {
 				return fmt.Errorf("%s requires a file path argument, not the flag %q", arg, args[i+1])
 			}
+			i++ // Consume the operand so it cannot be parsed as another flag.
 		}
-	}
-	if sawExport && sawImport {
-		return fmt.Errorf("--export-adif and --import-adif cannot be combined")
 	}
 	return nil
 }
@@ -4356,6 +4382,10 @@ func resolvePath(path string) string {
 // SQLite database file or one of its WAL/SHM sidecars. Overwriting any of the
 // three would corrupt the live log, so the CLI export refuses all of them.
 func exportTargetCollidesWithDB(exportPath, dbPath string) bool {
+	dbPath = sqliteFilePath(dbPath)
+	if dbPath == "" {
+		return false
+	}
 	for _, p := range []string{dbPath, dbPath + "-wal", dbPath + "-shm"} {
 		if pathsReferToSameFile(exportPath, p) {
 			return true

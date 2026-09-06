@@ -53,7 +53,6 @@ type dxccAlias struct {
 // thousands of entries, and lookup runs per cluster spot and per imported
 // QSO).
 type dxccTable struct {
-	aliases       []dxccAlias
 	exactAliases  map[string]dxccEntity
 	prefixByFirst map[byte][]dxccAlias
 }

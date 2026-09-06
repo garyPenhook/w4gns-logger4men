@@ -93,6 +93,9 @@ func exportCSV(ctx context.Context, writer io.Writer, profile stationProfile, co
 // fsync, then rename into place, so a mid-export failure never truncates a
 // previous, valid CSV export.
 func writeCSVAtomic(ctx context.Context, dir, path string, profile stationProfile, contestID string, st *store) (int, error) {
+	if err := st.validateExportPath(ctx, path); err != nil {
+		return 0, err
+	}
 	tempFile, err := os.CreateTemp(dir, ".w4gns-csv-*.csv.tmp")
 	if err != nil {
 		return 0, fmt.Errorf("create temporary CSV file: %w", err)

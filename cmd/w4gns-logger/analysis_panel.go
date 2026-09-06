@@ -35,10 +35,10 @@ func (m model) analysisPanel(width int) string {
 		lines = append(lines, helpStyle.Render(truncateToWidth("Analysis", width)))
 	}
 	if m.contestIndexError != "" {
-		lines = append(lines, truncateToWidth(dupeStyle.Render("STALE — "+m.contestIndexError), width))
+		lines = append(lines, truncateToWidth(dupeStyle.Render("STALE — "+sanitizeClusterText(m.contestIndexError)), width))
 	}
 	if strings.EqualFold(m.potaSpottedCall, call) && (m.potaSpottedRef != "" || m.potaSpottedPark != "") {
-		spot := strings.TrimSpace(m.potaSpottedRef + " " + m.potaSpottedPark)
+		spot := sanitizeClusterText(strings.TrimSpace(m.potaSpottedRef + " " + m.potaSpottedPark))
 		lines = append(lines, truncateToWidth(newMultStyle.Render("POTA SPOTTED: "+spot), width))
 	}
 

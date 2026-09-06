@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func reviewModel(t *testing.T) model {
@@ -390,6 +392,69 @@ func TestReviewLookupCorrelation(t *testing.T) {
 	m = updated.(model)
 	if m.detailFields[detailParkName].Value() != "" {
 		t.Fatal("mismatched park name filled")
+	}
+}
+
+// TestReviewDetailsResetOnCallsignChange reproduces the bug where entering a
+// second callsign without logging the first kept showing the first call's QSO
+// Details, and verifies that switching calls now wipes every detail field —
+// QRZ-filled or hand-typed — so the new call's lookup starts from blank.
+func TestReviewDetailsResetOnCallsignChange(t *testing.T) {
+	m := reviewModel(t)
+	m.qrzXMLCreds = qrzXMLCreds{username: "u", password: "p"}
+	m.focusField(fieldCall)
+
+	// First call: fill details and tab off to start its lookup.
+	m.fields[fieldCall].SetValue("W1AW")
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = updated.(model)
+	req := m.qrzActiveLookup
+	if req == 0 {
+		t.Fatal("expected a lookup to start for the first call")
+	}
+	updated, _ = m.Update(qrzCallsignLookupMsg{
+		requestID: req,
+		call:      "W1AW",
+		record:    qrzCallsignRecord{name: "Hiram", qth: "Newington", state: "CT"},
+	})
+	m = updated.(model)
+	if m.detailFields[detailName].Value() != "Hiram" {
+		t.Fatalf("first call details not filled: %q", m.detailFields[detailName].Value())
+	}
+	// Hand-typed detail and a manual note — both belong to W1AW.
+	m.detailFields[detailQTH].SetValue("Manual QTH")
+	m.detailFields[detailNotes].SetValue("chatty ragchew")
+
+	// Switch to a new call and tab off: every detail field must reset.
+	m.focusField(fieldCall)
+	m.fields[fieldCall].SetValue("K1ABC")
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = updated.(model)
+	for _, f := range []struct {
+		idx  int
+		name string
+	}{
+		{detailName, "Name"}, {detailQTH, "QTH"}, {detailState, "State"}, {detailNotes, "Notes"},
+	} {
+		if got := m.detailFields[f.idx].Value(); got != "" {
+			t.Fatalf("stale %s survived callsign change: %q", f.name, got)
+		}
+	}
+
+	// The new call's lookup lands and fills the now-blank fields.
+	req = m.qrzActiveLookup
+	if req == 0 {
+		t.Fatal("expected a lookup to start for the second call")
+	}
+	updated, _ = m.Update(qrzCallsignLookupMsg{
+		requestID: req,
+		call:      "K1ABC",
+		record:    qrzCallsignRecord{name: "Bob", state: "MA"},
+	})
+	m = updated.(model)
+	if m.detailFields[detailName].Value() != "Bob" || m.detailFields[detailState].Value() != "MA" {
+		t.Fatalf("second call details not filled: name=%q state=%q",
+			m.detailFields[detailName].Value(), m.detailFields[detailState].Value())
 	}
 }
 

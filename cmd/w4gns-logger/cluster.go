@@ -141,6 +141,9 @@ func parseClusterSpot(line string, received time.Time) (clusterSpot, bool) {
 // without this, an ANSI escape or OSC sequence smuggled into a callsign or
 // comment could reposition the cursor, spoof UI text, or trigger terminal
 // features such as an OSC 52 clipboard write.
+// The same display boundary applies to imported QSO fields, API status/error
+// messages, and POTA/solar feed text. Sanitize before adding application styles;
+// keep the original stored data intact.
 func sanitizeClusterText(s string) string {
 	return strings.Map(func(r rune) rune {
 		switch {
