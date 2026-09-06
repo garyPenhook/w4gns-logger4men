@@ -1,5 +1,11 @@
 # Changelog
 
+### v1.34.0
+
+- Add a Location filter (DX + USA / DX only / USA only) to the World Map toolbar, so USA-located DX activity can be shown alongside or separated from foreign DX.
+- Fix portable-call DXCC resolution: a callsign like "F/VE3ABC" now resolves to the shorter, operating-location side (France) instead of letting the home call's longer table prefix (Canada) win.
+- Fix Station Setup so an active `W4GNS_QRZ_XML_USER`/`PASS` environment override keeps applying to the running session after a save, instead of being silently overridden by the just-typed form values until the next restart.
+
 ### v1.33.0
 
 - Add Ctrl+L as the primary World Map shortcut because some consoles intercept F10 for their menu; retain F10 as an alias.
