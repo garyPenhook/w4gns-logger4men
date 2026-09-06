@@ -1,5 +1,10 @@
 # Changelog
 
+### v1.35.0
+
+- Add a "General logging" indicator/status line, shown on every screen, reporting the active contest by name or that no contest is selected.
+- Add a 'c' key on the Events (F7) catalog screen to clear the active contest and return to general logging, persisted so a restart doesn't resurrect an ended contest.
+
 ### v1.34.0
 
 - Add a Location filter (DX + USA / DX only / USA only) to the World Map toolbar, so USA-located DX activity can be shown alongside or separated from foreign DX.
