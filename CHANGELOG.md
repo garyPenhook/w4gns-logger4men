@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.37.0
+
+- Show which band is currently most active on the World Map, live off the current report set and labeled as subject to change.
+
 ### v1.36.0
 
 - Use QRZ profile lat/lon for World Map DX/spotter locations when available, falling back to the DXCC country/prefix reference otherwise. Requires QRZ XML credentials; looks up each newly seen callsign once (cached, rate-limited).
