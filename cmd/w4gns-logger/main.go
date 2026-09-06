@@ -283,10 +283,10 @@ type model struct {
 	// cleared (see resetDetailsForCall) rather than carrying over — both to fix
 	// stale data and because the fill-only-when-blank autofill guard would
 	// otherwise keep the previous call's values on screen.
-	detailsCall string
-	potaLookups       map[uint64]qrzLookupPending
-	potaSequence      uint64
-	potaActive        uint64
+	detailsCall  string
+	potaLookups  map[uint64]qrzLookupPending
+	potaSequence uint64
+	potaActive   uint64
 	// potaSpottedCall/Ref/Park hold the most recent successful POTA spot
 	// lookup (api.pota.app, via lookupPOTASpot) for the callsign it was for,
 	// so the analysis panel can show "SPOTTED" persistently rather than only

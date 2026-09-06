@@ -83,7 +83,14 @@ func TestAuditExportCannotReplaceDatabase(t *testing.T) {
 		path := filepath.Join(dir, "log with spaces.db")
 		dsn := path
 		if uri {
-			dsn = (&url.URL{Scheme: "file", Path: filepath.ToSlash(path), RawQuery: "mode=rwc"}).String()
+			// A Windows drive path (C:/...) must gain a leading slash so the
+			// file URI is file:///C:/... — file://C:/... parses C: as a URI
+			// authority, which the SQLite driver rejects.
+			slashPath := filepath.ToSlash(path)
+			if !strings.HasPrefix(slashPath, "/") {
+				slashPath = "/" + slashPath
+			}
+			dsn = (&url.URL{Scheme: "file", Path: slashPath, RawQuery: "mode=rwc"}).String()
 		}
 		st, err := openStore(dsn)
 		if err != nil {
@@ -162,8 +169,11 @@ func TestAuditSQLiteDSNFileHandling(t *testing.T) {
 		}
 		st.Close()
 	}
-	if _, err := os.Stat("plain.db?_pragma=busy_timeout(5000)"); !os.IsNotExist(err) {
-		t.Fatalf("driver options became part of a filename: %v", err)
+	// Only a successful stat proves the options leaked into a real filename.
+	// Windows rejects '?' in a name with ERROR_INVALID_NAME (not ENOENT), so a
+	// mere non-nil error must not fail this check.
+	if _, err := os.Stat("plain.db?_pragma=busy_timeout(5000)"); err == nil {
+		t.Fatal("driver options became part of a filename")
 	}
 }
 
