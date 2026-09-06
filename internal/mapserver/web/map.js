@@ -10,8 +10,20 @@ for(const [band,color] of Object.entries(colors)) {
 }
 // Preferences contain only display controls, never cluster reports or credentials.
 const viewControls=['band','age','filters','paths','origin'];
-try {const prefs=JSON.parse(localStorage.getItem('w4gns-map-view')||'{}'); for(const id of viewControls) if([...$(id).options].some(o=>o.value===prefs[id])) $(id).value=prefs[id];}catch{}
-function remember(){try{localStorage.setItem('w4gns-map-view',JSON.stringify(Object.fromEntries(viewControls.map(id=>[id,$(id).value]))));}catch{}}
+const callAreaIds=[...Array(10).keys()].map(n=>'ca'+n);
+try {const prefs=JSON.parse(localStorage.getItem('w4gns-map-view')||'{}'); for(const id of viewControls) if([...$(id).options].some(o=>o.value===prefs[id])) $(id).value=prefs[id]; if(Array.isArray(prefs.callAreas)) for(const id of callAreaIds) $(id).checked=prefs.callAreas.includes(id.slice(2));}catch{}
+function remember(){try{localStorage.setItem('w4gns-map-view',JSON.stringify({...Object.fromEntries(viewControls.map(id=>[id,$(id).value])),callAreas:callAreaIds.filter(id=>$(id).checked).map(id=>id.slice(2))}));}catch{}}
+// callAreaDigit mirrors cmd/w4gns-logger/cluster_filters.go's Go function of
+// the same name: a numeric portable suffix (e.g. "W1AW/4") overrides the
+// base call's own digit; otherwise it's the first digit in the (longest, if
+// slashed) base callsign. Returns null when no digit is present.
+function callAreaDigit(call){call=(call||'').toUpperCase().trim();if(!call)return null;const parts=call.split('/');for(const part of parts)if(part&&/^[0-9]+$/.test(part))return part[part.length-1];let base=parts[0];for(const part of parts.slice(1))if(part.length>base.length)base=part;for(const ch of base)if(ch>='0'&&ch<='9')return ch;return null;}
+// callAreaAllowed reports whether a spotter callsign's call-area digit is
+// among the checked checkboxes. All ten checked (the default) means no
+// filtering — a callsign with no resolvable digit is still shown. Once any
+// box is unchecked, a callsign whose digit can't be determined is excluded,
+// matching matchesCallArea's stricter behavior in the terminal filter.
+function callAreaAllowed(call){const checked=callAreaIds.filter(id=>$(id).checked);if(checked.length===callAreaIds.length)return true;const digit=callAreaDigit(call);return digit!==null&&checked.includes('ca'+digit);}
 // isUSA reports whether a resolved location's country is the USA, per the
 // bundled DXCC country-reference data (see internal/geo.Location.Country) —
 // used by the Location filter to separate domestic from DX activity.
@@ -49,7 +61,7 @@ function details(group=null){if(group?.length)inspectorPoint=group[0].DXLocation
 // dropdown itself, so busiestBand (which tallies activity per band) reflects
 // what's currently hot regardless of which single band the operator has
 // selected to look at.
-function passesCommonFilters(r,now,age,search,origin){return now-Date.parse(r.ReceivedAtUTC)<=age&&($('filters').value!=='follow'||r.MatchesLogger)&&(origin==='all'||isUSA(r.DXLocation)===(origin==='usa'))&&(!search||r.DXCall.includes(search)||r.SpotterCall.includes(search));}
+function passesCommonFilters(r,now,age,search,origin){return now-Date.parse(r.ReceivedAtUTC)<=age&&($('filters').value!=='follow'||r.MatchesLogger)&&(origin==='all'||isUSA(r.DXLocation)===(origin==='usa'))&&(!search||r.DXCall.includes(search)||r.SpotterCall.includes(search))&&callAreaAllowed(r.SpotterCall);}
 // busiestBand tallies distinct DX-call/band combinations (same uniqueness
 // the station count below uses) across every band passing the common
 // filters, live off the current report set — a snapshot of what's hot right
@@ -60,7 +72,7 @@ function render(){const active=document.activeElement,focusRoot=active?.closest(
  const busiest=busiestBand(now,age,search,origin);$('activeband').textContent=busiest?`Most active now: ${busiest.band} (${busiest.count}) — subject to change`:'';
  const unique=new Set(visible.map(key)),unknown=visible.filter(r=>!r.DXLocation).length;$('count').textContent=unique.size+' stations / bands · '+unknown+' unlocated';page=Math.max(0,Math.min(page,Math.ceil(visible.length/50)-1));const pageRows=visible.slice(page*50,page*50+50),tbody=$('rows');tbody.replaceChildren();for(const r of pageRows){const row=document.createElement('tr');if(key(r)===selected)row.className='selected';for(const [i,value] of [new Date(r.ReceivedAtUTC).toISOString().slice(11,19),r.DXCall,(r.FrequencyHz/1e6).toFixed(4)+' / '+r.Band,r.SpotterCall,locationText(r.DXLocation),r.Comment].entries()){const td=document.createElement('td');if(i===1){const b=document.createElement('button');b.textContent=value;b.onclick=()=>select(key(r));td.append(b);}else td.textContent=value;row.append(td);}tbody.append(row);}
  $('listcount').textContent=visible.length?`${page*50+1}–${page*50+pageRows.length} of ${visible.length}`:'0 reports';$('prev').disabled=page===0;$('next').disabled=(page+1)*50>=visible.length;$('empty').hidden=visible.length>0;details();draw();if(focusRoot&&active.tagName==='BUTTON')[...$(focusRoot).querySelectorAll('button')].find(b=>b.textContent===focusText)?.focus({preventScroll:true});}
-for(const id of ['band','age','filters','paths','origin','search'])$(id).addEventListener('input',()=>{page=0;remember();render();});
+for(const id of ['band','age','filters','paths','origin','search',...callAreaIds])$(id).addEventListener('input',()=>{page=0;remember();render();});
 $('prev').onclick=()=>{page--;render();};$('next').onclick=()=>{page++;render();};
 function zoom(f){scale=Math.max(1,Math.min(8,scale*f));if(scale===1)pan=[0,0];draw();}
 $('zoomIn').onclick=()=>zoom(1.4);$('zoomOut').onclick=()=>zoom(1/1.4);$('reset').onclick=()=>{scale=1;pan=[0,0];draw();};$('fullscreen').onclick=()=>{const p=document.fullscreenElement?document.exitFullscreen():$('viewport').requestFullscreen();p?.catch(()=>{});};

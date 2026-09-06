@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.41.0
+
+- Add a spotter call-area filter (checkboxes 0-9) to the World Map toolbar, so spots reported by stations in a given US call area (e.g. area 6 covers California) can be excluded from view.
+
 ### v1.40.0
 
 - Darken the World Map's US state outlines for better contrast against the land fill.
