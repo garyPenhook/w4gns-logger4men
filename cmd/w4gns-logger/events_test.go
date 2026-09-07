@@ -219,6 +219,7 @@ func TestEventCapabilityValidationAndCatalogStatus(t *testing.T) {
 	for _, tc := range []struct{ id, capability string }{
 		{"SD-GENERAL", catalogCapabilitySelectionOnly},
 		{"TNQP", catalogCapabilityScoringReady},
+		{"TNQP-DX", catalogCapabilityScoringReady},
 		{"CWT", catalogCapabilityScoringReady},
 		{"CW-OPEN", catalogCapabilityScoringReady},
 		{"CQ-WW-CW", catalogCapabilityScoringReady},

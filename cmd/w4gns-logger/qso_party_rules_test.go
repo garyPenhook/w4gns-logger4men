@@ -215,7 +215,7 @@ func TestIowaCountyLineAndBands(t *testing.T) {
 }
 
 func TestPartyExchangeValidation(t *testing.T) {
-	for _, id := range []string{"TNQP", "CA-QSO-PARTY"} {
+	for _, id := range []string{"TNQP", "TNQP-DX", "CA-QSO-PARTY"} {
 		event := partyEvent(t, id)
 		invalid := []string{"", "ZZ!", "UNKNOWN", "SHEL/SHEL", "ALAM/ALAM", "AA/BB", "DL EXTRA", "SHEL\n"}
 		for _, value := range invalid {

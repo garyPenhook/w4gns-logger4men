@@ -5548,58 +5548,6 @@
     "received_exchange_hint": "RST & Serial"
   },
   {
-    "id": "SD-TNQPDX",
-    "capability": "entry-aware",
-    "name": "Tennessee QP - DX Side",
-    "organizer": "",
-    "kind": "contest",
-    "bands": [
-      "160M",
-      "80M",
-      "40M",
-      "20M",
-      "15M",
-      "10M"
-    ],
-    "sent_serial": false,
-    "dupe_scope": "call+band",
-    "sessions": [
-      {
-        "id": "ALL",
-        "label": "Full period"
-      }
-    ],
-    "cabrillo_contest": "TN-QSO-PARTY",
-    "sent_exchange_hint": "State Province DX",
-    "received_exchange_hint": "RST"
-  },
-  {
-    "id": "SD-TNQP",
-    "capability": "entry-aware",
-    "name": "Tennessee QP - Home Side",
-    "organizer": "",
-    "kind": "contest",
-    "bands": [
-      "160M",
-      "80M",
-      "40M",
-      "20M",
-      "15M",
-      "10M"
-    ],
-    "sent_serial": false,
-    "dupe_scope": "call+band",
-    "sessions": [
-      {
-        "id": "ALL",
-        "label": "Full period"
-      }
-    ],
-    "cabrillo_contest": "TN-QSO-PARTY",
-    "sent_exchange_hint": "Own County",
-    "received_exchange_hint": "RST"
-  },
-  {
     "id": "SD-TESLA",
     "capability": "entry-aware",
     "name": "Tesla Memorial",

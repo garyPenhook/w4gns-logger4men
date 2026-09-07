@@ -21,6 +21,100 @@ benchmark. Part 1 is the tracker; the appendices hold the detailed design.
 
 # Part 1 — Tracker
 
+## Catalog-wide exchange verification & Cabrillo validators (2026-09-06, in progress)
+
+Started as three one-off confirmations (SEANET Contest, Colorado QSO Party, NJ
+QSO Party) and expanded into a full pass over `contestcalendar.json`'s 165
+non-`scoring-ready` events, each checked against its own `rules_url` by
+parallel research agents (not answered from memory). Two real defects in the
+app itself surfaced during this and were fixed:
+
+- Tagging `cabrillo_layout` alone is not sufficient for a working export.
+  `validateSubmissionExchange` (`contest_validation.go`) is a second,
+  hardcoded gate — every event needs its own grammar-validator `case`, or
+  `exportCabrillo` fails every QSO with "no checked exchange validator" even
+  though `cabrilloReady()` claims otherwise. `TestCheckedCatalogSubmissionExchanges`
+  catches this (it requires a fixture *and* a working validator for every
+  `cabrillo-ready`/`scoring-ready` event) — trust that test over the
+  `capability` field alone.
+- Confirmed (`qso_validation.go`'s `validateQSO`) that this app enforces
+  `mode == "CW"` for every QSO regardless of contest, so the Cabrillo
+  exporter's hardcoded `"CW"` mode literal is always correct — a contest's
+  own Phone/Digital categories are simply not loggable here, which is fine
+  and matches the app's own "CW only" scope, not a bug to fix.
+
+**Done:** 8 stale/incomplete exchange hints corrected (`HI-QSO-PARTY`,
+`ID-QSO-PARTY`, `ISLAND-QSO-PARTY`, `TR-HF`, `WALK-FOR-THE-BACON-QRP-CONTEST`,
+`QCX-CHALLENGE`, `QRP-ARCI-SPRING-QSO-PARTY`, `NTC-QSO-PARTY`). 78 events
+moved from `entry-aware` to a real, tested `cabrillo-ready` (148 total events in
+`contestcalendar.json` now have a working Cabrillo exchange validator, up
+from 23 `scoring-ready` at the start): plain-serial contests, CQ-zone/grid/
+fixed-token contests, several country-conditional shapes (Belgium/UBA,
+Poland/SPDX, Ukraine, Romania/YO-DX-HF, Portugal, Russia/RDAC, Russian Radio
+Team Championship, RSGB 160m's England/Scotland/Wales/N.Ireland split — all
+country names pulled from this repo's own `cty.dat`, not memory), a lenient
+"county-or-area" shape shared by several state QSO parties with no
+enumerated county roster (`SC-QSO-PARTY`, `SDQSOP`, `TXQP`, `VT-QSO-PARTY`,
+`WA-SALMON-RUN`, `WVQP` — syntax-only check, same "no roster, check syntax
+only" precedent `validWAGDOK` already used), and a shared
+"location [+ name] [+ member no./power]" shape for QRP/sprint contests
+(`ARS-SPARTAN-SPRINT`, `ARS-FLIGHT-OF-THE-BUMBLEBEES`, `MI-QRP-LABOR-DAY-CW-SPRINT`,
+`NAQCC-CW-SPRINT`, `4-STATES-QRP-GROUP-SECOND-SUNDAY`, three `QRP-ARCI-*`
+events, `RUN-FOR-THE-BACON-QRP-CONTEST`, `SKCC-SPRINT`/`-EUROPE`/
+`-WEEKEND-SPRINTATHON`), plus ICWC MST's name-and-running-QSO-number and
+NCCC Sprint's serial-name-QTH exchanges. `go build`, `go vet`, and the full
+test suite pass. ARRL Rookie Roundup's name/year/location exchange is also
+checked, including US/Canada, Mexico XE area, and DX location forms; King of
+Spain validates Spanish province-versus-DX-serial exchanges; All Asian DX
+and European HF Championship validate their two-digit age/license-year
+exchanges. NTC's stale catalog hint was corrected: its exchange includes the
+operator name before the membership number or NM. AGCW's Happy New Year and
+QRP contests now validate their sponsor-specified serial/member forms.
+
+**Remaining — `contestcalendar.json`, 8 events still `entry-aware`:** the
+current raw-file IDs are obtainable reproducibly with
+`jq -r '.[] | select(.capability == "entry-aware") | .id'
+cmd/w4gns-logger/events/contestcalendar.json`. The following constraints
+govern the remaining conversions:
+- Most already have a verified sent/received exchange hint from this pass's
+  research (five parallel agents fetched every `rules_url` in this list); what's
+  missing is only the `validateSubmissionExchange` grammar case + JSON
+  `cabrillo_layout`/`capability` bump + a fixture in
+  `submission_regression_test.go`'s `TestCheckedCatalogSubmissionExchanges`.
+- `QC-QSO-PARTY` needs a Quebec-specific call-area check (VE2/VA2/etc.) —
+  deferred rather than guessed; Canadian call-area-to-province mapping needs
+  its own verification pass, cty.dat only resolves to "Canada" as a whole.
+  Ditto `RSGB-160`'s sibling event (not yet re-checked) and any other
+  call-area-not-country distinction.
+  `LZ-DX`, `ME-QSO-PARTY`, `MO-QSO-PARTY`, `NE-QSO-PARTY`,
+  `NM-QSO-PARTY`, `NY-QSO-PARTY`, `OK-OM-DX`, `OK-QSO-PARTY`, `PA-QSO-PARTY`,
+  `PORTUGUESE-NAVY-DAY-CONTEST-CT1D`, `QRP-ARCI-HOLIDAY-SPIRITS-SPRINT`,
+  `QRP-ARCI-SUMMER-HOMEBREW-SPRINT`, `QRP-ARCI-TOPBAND-SPRINT`,
+  `QRP-TO-THE-FIELD`, `REF-160-METER-CONTEST`, `REF-CW`, `REF-DDFM-6M-CONTEST`,
+  `SACW`, `VENEZUELAN-IND-DAY-CONTEST`, `WIQP`, `WWPDX`, `YUDX`,
+  `EURASIA-CHAMP`, `DIG-QSO-PARTY`, `BEKASI-MERDEKA-CONTEST` — `rules_url`
+  fetch failed or gave ambiguous/unreachable content; need a working source
+  before verifying, not a guess.
+- `AGCW-STRAIGHT-KEY-PARTY`, `EUCW-160M` combine enough free-text fields
+  (name + QTH + equipment model, etc.) that a real exchange will often
+  exceed Cabrillo's 13-character column — `cabrilloQSOLine` already fails
+  per-QSO on overflow rather than truncating silently, so tagging
+  `cw_rst_exchange` is still safe, just expect frequent per-QSO export
+  failures on these until/unless that column-width limit is revisited.
+
+**Not started — `sd_contests.json`, 271 events (261 `entry-aware`, 10
+`selection-only`):** every entry in this file has a blank `rules_url` (it
+reads like an auto-generated contest-calendar import, not hand-curated like
+`contestcalendar.json`). None of these can be verified yet; each needs a web
+search to even find an official rules page before the same
+verify-then-implement workflow can start.
+
+**Not started at all:** adding real `scoring` (points/multiplier rules) to
+any event touched in this pass — this session only pursued `cabrillo-ready`
+(a working, submittable Cabrillo file), not a correct claimed score. Every
+newly `cabrillo-ready` event above still reports the informational `0` score
+Cabrillo export gives an event with no `scoring` block.
+
 ## Shared state QSO party support (2026-09-05)
 
 Design and rollout: [State QSO parties](State_QSO_Parties.md).

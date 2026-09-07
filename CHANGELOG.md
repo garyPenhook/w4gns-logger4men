@@ -1,5 +1,11 @@
 # Changelog
 
+### v1.47.0
+
+- Add Cabrillo exchange validators for 78 more contests (plain-serial, CQ-zone/grid, country-conditional, county-or-area, and QRP/sprint location-based shapes), moving them from `entry-aware` to a tested `cabrillo-ready`/`scoring-ready` capability with fixtures in `TestCheckedCatalogSubmissionExchanges`.
+- Correct 8 stale/incomplete exchange hints in the contest catalog (`HI-QSO-PARTY`, `ID-QSO-PARTY`, `ISLAND-QSO-PARTY`, `TR-HF`, `WALK-FOR-THE-BACON-QRP-CONTEST`, `QCX-CHALLENGE`, `QRP-ARCI-SPRING-QSO-PARTY`, `NTC-QSO-PARTY`).
+- Allow a blank sent/received exchange for the small set of contests (ARRL 160M, DIG QSO Party, German Telegraphy Contest) whose sponsor rules specify an RST-only exchange for some stations, instead of always requiring one.
+
 ### v1.46.0
 
 - Add regression coverage for an out-of-state operator's sent exchange in every US state QSO party (TN, OH, AL, CA, FL, GA, IA, MI): the prior catalog test only exercised an in-state fixture for both sides, missing the exact shape of contact that produced a blank sent exchange in the field.
