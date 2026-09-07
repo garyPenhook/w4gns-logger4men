@@ -107,6 +107,63 @@ func TestCheckedCatalogSubmissionExchanges(t *testing.T) {
 	}
 }
 
+// TestQSOPartyOutOfStateExchange covers the case TestCheckedCatalogSubmissionExchanges
+// misses: every state QSO party's own fixture there is an in-state county used
+// for both sent and received, so an out-of-state operator's sent exchange (a
+// bare state/province code, no county at all) was never exercised end to
+// end. That gap is exactly what let a real TNQP session log three QSOs with
+// an empty sent exchange before Cabrillo export caught it.
+func TestQSOPartyOutOfStateExchange(t *testing.T) {
+	catalog, err := loadEventCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, event := range catalog {
+		if !event.cabrilloReady() || event.QSOParty == nil {
+			continue
+		}
+		t.Run(event.ID, func(t *testing.T) {
+			outOfState := "VA"
+			if event.QSOParty.State == outOfState {
+				outOfState = "NC"
+			}
+			st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer st.Close()
+			profile, err := st.activeStationProfile()
+			if err != nil {
+				t.Fatal(err)
+			}
+			profile.Callsign = "W4GNS"
+			q := validTestQSO()
+			q.profileID, q.contestID = profile.ID, event.ID
+			q.time = event.QSOParty.Periods[0].Start
+			q.timeOff = q.time
+			if len(event.Bands) > 0 && !bandAllowed(event.Bands, q.band) {
+				q.band = event.Bands[0]
+			}
+			q.call, q.stationCallsign = "W1AW", ""
+			q.rstSent, q.rstRcvd = "599", "599"
+			homeCounty := event.CountyOptions[0].Code
+			q.stx, q.srx = "", ""
+			q.stxString, q.srxString = outOfState, homeCounty
+			if event.QSOParty.Exchange == "serial_location" {
+				q.stx, q.srx = "001", "002"
+			}
+			if _, err := st.insertQSO(q); err != nil {
+				t.Fatal(err)
+			}
+			var out bytes.Buffer
+			count, _, err := exportCabrillo(context.Background(), &out, profile, event, event.ID, st)
+			if err != nil || count != 1 || !strings.Contains(out.String(), "END-OF-LOG:") {
+				t.Fatalf("out-of-state sent exchange %q: count=%d err=%v\n%s", outOfState, count, err, out.String())
+			}
+		})
+	}
+}
+
 func TestSubmissionTokenGrammar(t *testing.T) {
 	for _, tt := range []struct {
 		event, call, serial, text string

@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.46.0
+
+- Add regression coverage for an out-of-state operator's sent exchange in every US state QSO party (TN, OH, AL, CA, FL, GA, IA, MI): the prior catalog test only exercised an in-state fixture for both sides, missing the exact shape of contact that produced a blank sent exchange in the field.
+
 ### v1.45.0
 
 - Block logging a US state QSO party contact with no sent exchange set (Contest Entry's Exchange Sent field): a blank value used to save silently and only surface as a Cabrillo export failure, potentially after an entire session's worth of QSOs.
