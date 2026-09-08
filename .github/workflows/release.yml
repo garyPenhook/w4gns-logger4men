@@ -119,7 +119,7 @@ jobs:
       # so one signature authenticates the whole release. Verify with:
       #   cosign verify-blob --certificate SHA256SUMS.pem \
       #     --signature SHA256SUMS.sig \
-      #     --certificate-identity-regexp 'https://github.com/.+/w4gns-logger' \
+      #     --certificate-identity-regexp 'https://github.com/.+/w4gns-logger4men' \
       #     --certificate-oidc-issuer https://token.actions.githubusercontent.com \
       #     SHA256SUMS
       - name: Sign checksums (keyless)

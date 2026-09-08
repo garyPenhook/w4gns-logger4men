@@ -43,7 +43,7 @@ Every tagged release attaches a `SHA256SUMS` manifest plus a Sigstore keyless si
 ```bash
 cosign verify-blob --certificate SHA256SUMS.pem \
   --signature SHA256SUMS.sig \
-  --certificate-identity-regexp 'https://github.com/.+/w4gns-logger' \
+  --certificate-identity-regexp 'https://github.com/.+/w4gns-logger4men' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   SHA256SUMS
 sha256sum --ignore-missing -c SHA256SUMS
