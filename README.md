@@ -36,6 +36,21 @@ The current version is shown on every screen's hotkey line, and `w4gns-logger --
 
 Your log is stored locally. If a `w4gns.db` already exists in the directory you launch from, that file keeps being used (so an existing install that always launches from one directory is unaffected); otherwise the database defaults to a stable, working-directory-independent path under `$XDG_DATA_HOME/w4gns-logger/w4gns.db` (usually `~/.local/share/w4gns-logger/w4gns.db`) — since the installed command is on `PATH` and can be launched from anywhere, a plain relative `./w4gns.db` would otherwise silently start a second, empty log if you ran it from an unfamiliar directory. Set `W4GNS_DB` to use another path explicitly. The database file (and its `-wal`/`-shm` sidecars) are kept at owner-read/write-only (`0600`) permissions, self-healing on every startup if the umask left them more permissive.
 
+## Verifying a release download
+
+Every tagged release attaches a `SHA256SUMS` manifest plus a Sigstore keyless signature (`SHA256SUMS.sig`) and its short-lived signing certificate (`SHA256SUMS.pem`). To confirm a downloaded archive is authentic and unmodified, first verify the signature over the manifest (needs [cosign](https://docs.sigstore.dev/cosign/installation/)), then check your archive against the manifest:
+
+```bash
+cosign verify-blob --certificate SHA256SUMS.pem \
+  --signature SHA256SUMS.sig \
+  --certificate-identity-regexp 'https://github.com/.+/w4gns-logger' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  SHA256SUMS
+sha256sum --ignore-missing -c SHA256SUMS
+```
+
+The certificate identity ties the signature to this repository's release workflow running on GitHub Actions, so a signature minted by any other project or workflow fails verification.
+
 ## Screens and controls
 
 | Key | Action |

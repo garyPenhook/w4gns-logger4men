@@ -105,9 +105,7 @@ func validateSubmissionExchange(eventID, call, serial, text string) error {
 	case "HELVETIA", "RDXC", "WAG", "SPDX", "UKRAINIAN-DX", "YO-DX-HF", "XMAS", "PORTUGAL-DAY", "RDAC", "EA-MAJESTAD-CW", "9A-DX":
 		return validateRegionalExchange(eventID, call, serial, text)
 	case "PRO-CW-CONTEST":
-		if strings.HasSuffix(token, "/M") {
-			token = strings.TrimSuffix(token, "/M")
-		}
+		token = strings.TrimSuffix(token, "/M")
 		if !positiveSerial(token) {
 			return fmt.Errorf(`exchange must be a positive serial, optionally suffixed "/M" for members`)
 		}
@@ -160,7 +158,7 @@ func validateSubmissionExchange(eventID, call, serial, text string) error {
 	case "MCD-QSO-PARTY":
 		if strings.HasPrefix(token, "MC") {
 			if len(token) != 5 || !positiveSerial(token[2:]) {
-				return fmt.Errorf("Marconi Club membership exchange must be MC followed by a three-digit number")
+				return fmt.Errorf("member exchange must be MC followed by a three-digit number")
 			}
 			return nil
 		}
@@ -220,7 +218,7 @@ func validateSubmissionExchange(eventID, call, serial, text string) error {
 		if len(fields) != 4 || len(fields[0]) != 3 || !positiveSerial(fields[0]) ||
 			(fields[1] != "A" && fields[1] != "B" && fields[1] != "C") ||
 			!submissionName(fields[2]) || (fields[3] != "XX" && !isAllDigits(fields[3])) {
-			return fmt.Errorf("Straight Key Party exchange needs a 3-digit serial, A/B/C class, name, and age or XX")
+			return fmt.Errorf("needs a 3-digit serial, A/B/C class, name, and age or XX")
 		}
 	case "AGCW-QRP":
 		fields := strings.Fields(token)
@@ -285,7 +283,7 @@ func validateSubmissionExchange(eventID, call, serial, text string) error {
 	case "AGCW-HAPPY-NEW-YEAR-CONTEST":
 		parts := strings.Split(token, "/")
 		if len(parts) < 1 || len(parts) > 2 || !positiveSerial(parts[0]) || (len(parts) == 2 && !positiveSerial(parts[1])) {
-			return fmt.Errorf("Happy New Year exchange needs a serial, optionally followed by an AGCW member number")
+			return fmt.Errorf("needs a serial, optionally followed by an AGCW member number")
 		}
 	case "AGCW-QRP-CONTEST":
 		fields := strings.Fields(token)
@@ -555,7 +553,7 @@ func validateRookieRoundupExchange(call, token string) error {
 	}
 	fields := strings.Fields(token)
 	if len(fields) != 3 || !submissionName(fields[0]) || len(fields[1]) != 2 || !isAllDigits(fields[1]) {
-		return fmt.Errorf("Rookie Roundup exchange needs name, two-digit first-license year, and location")
+		return fmt.Errorf("needs name, two-digit first-license year, and location")
 	}
 	location := fields[2]
 	if entity.Country == "Mexico" {
@@ -952,7 +950,7 @@ func validateItalianProvinceOrSerialExchange(call, token string) error {
 	}
 	if entity.Country == "Italy" {
 		if len(token) != 2 || !submissionName(token) {
-			return fmt.Errorf("Italian exchange must be a two-letter province abbreviation")
+			return fmt.Errorf("must be a two-letter Italian province abbreviation")
 		}
 		return nil
 	}
@@ -979,7 +977,7 @@ func validateCVAExchange(call, token string) error {
 	}
 	if entity.Country == "Brazil" {
 		if len(token) != 2 || !submissionName(token) {
-			return fmt.Errorf("Brazilian exchange must be a two-letter state abbreviation")
+			return fmt.Errorf("must be a two-letter Brazilian state abbreviation")
 		}
 		return nil
 	}
@@ -1009,7 +1007,7 @@ func validateARSIExchange(call, token string) error {
 	}
 	if entity.Country == "India" {
 		if !arsiStateCodes[token] {
-			return fmt.Errorf("Indian exchange must be a listed state or UT code")
+			return fmt.Errorf("must be a listed Indian state or UT code")
 		}
 		return nil
 	}
@@ -1056,7 +1054,7 @@ func validateQRPFoxHuntExchange(call, token string) error {
 	location := fields[0]
 	if entity.Country == "United States" || entity.Country == "Canada" || entity.Country == "Alaska" || entity.Country == "Hawaii" {
 		if !submissionArea(location, entity.Country, true) {
-			return fmt.Errorf("North American exchange must use a valid state or province")
+			return fmt.Errorf("must use a valid North American state or province")
 		}
 		return nil
 	}
@@ -1460,15 +1458,15 @@ func validateMinnesotaExchange(call, token string) error {
 		if len(fields) == 1 && submissionName(fields[0]) {
 			return nil
 		}
-		return fmt.Errorf("Minnesota QSO Party DX exchange must be one name")
+		return fmt.Errorf("DX exchange must be one name")
 	}
 	if len(fields) != 2 || !submissionName(fields[0]) {
-		return fmt.Errorf("Minnesota QSO Party exchange needs a name and location")
+		return fmt.Errorf("needs a name and location")
 	}
 	if submissionArea(fields[1], entity.Country, true) || looksLikeCountyToken(fields[1]) {
 		return nil
 	}
-	return fmt.Errorf("Minnesota QSO Party location must be a state/province or county code")
+	return fmt.Errorf("location must be a state/province or county code")
 }
 
 func validateKentuckyExchange(call, token string) error {
@@ -1484,13 +1482,13 @@ func validateKentuckyExchange(call, token string) error {
 		return fmt.Errorf("cannot determine exchange country for %q", call)
 	}
 	if entity.Country != "United States" && entity.Country != "Canada" && entity.Country != "Alaska" && entity.Country != "Hawaii" {
-		return fmt.Errorf("Kentucky QSO Party DX exchange must be DX")
+		return fmt.Errorf("DX exchange must be DX")
 	}
 	parts := strings.Split(token, "/")
 	if len(parts) == 2 && looksLikeCountyToken(parts[0]) && looksLikeCountyToken(parts[1]) {
 		return nil
 	}
-	return fmt.Errorf("Kentucky QSO Party exchange must be a county, state/province, DX, or two county codes")
+	return fmt.Errorf("must be a county, state/province, DX, or two county codes")
 }
 
 func validateRACCanadaExchange(call, token string) error {
@@ -1548,7 +1546,7 @@ func validateNewYorkExchange(call, token string) error {
 		if token == "DX" {
 			return nil
 		}
-		return fmt.Errorf("New York QSO Party DX exchange must be DX")
+		return fmt.Errorf("DX exchange must be DX")
 	}
 	if submissionArea(token, entity.Country, true) || (len(token) == 3 && submissionName(token)) || (len(token) == 6 && submissionName(token)) {
 		return nil
@@ -1557,7 +1555,7 @@ func validateNewYorkExchange(call, token string) error {
 	if len(parts) == 2 && len(parts[0]) == 3 && len(parts[1]) == 3 && submissionName(parts[0]) && submissionName(parts[1]) {
 		return nil
 	}
-	return fmt.Errorf("New York QSO Party exchange must be a state/province or one/two three-letter county codes")
+	return fmt.Errorf("must be a state/province or one/two three-letter county codes")
 }
 
 func validateLZDXExchange(call, token string) error {
@@ -1612,7 +1610,7 @@ func quebecCall(call string) bool {
 func validateQuebecExchange(call, token string) error {
 	if quebecCall(call) {
 		if !quebecRegionCodes[token] {
-			return fmt.Errorf("Quebec exchange must be one of the listed administrative-region codes")
+			return fmt.Errorf("must be one of the listed Quebec administrative-region codes")
 		}
 		return nil
 	}
@@ -1648,7 +1646,7 @@ func validateQuebecExchange(call, token string) error {
 func validateAtlanticCanadaExchange(call, token string) error {
 	if province, ok := racProvinceForCall(call); ok && (province == "NS" || province == "NB" || province == "NL" || province == "PE") {
 		if len(token) != 5 || !strings.HasPrefix(token, province) || !submissionName(token[2:]) {
-			return fmt.Errorf("Atlantic Canada exchange must be province plus a three-letter county or division code")
+			return fmt.Errorf("must be an Atlantic Canada province plus a three-letter county or division code")
 		}
 		return nil
 	}
@@ -1680,7 +1678,7 @@ func validateAtlanticCanadaExchange(call, token string) error {
 func validateCPQPExchange(call, token string) error {
 	if province, ok := racProvinceForCall(call); ok && (province == "MB" || province == "SK" || province == "AB") {
 		if len(token) != 3 || !submissionName(token) {
-			return fmt.Errorf("Canadian Prairies exchange must be a three-letter federal district abbreviation")
+			return fmt.Errorf("must be a three-letter Canadian Prairies federal district abbreviation")
 		}
 		return nil
 	}
@@ -1725,10 +1723,10 @@ func validateILQPExchange(call, token string) error {
 		if submissionArea(token, entity.Country, true) {
 			return nil
 		}
-		return fmt.Errorf("Illinois QSO Party exchange must be an Illinois county or state/province abbreviation")
+		return fmt.Errorf("must be an Illinois county or state/province abbreviation")
 	}
 	if token != "DX" {
-		return fmt.Errorf("Illinois QSO Party DX exchange must be DX")
+		return fmt.Errorf("DX exchange must be DX")
 	}
 	return nil
 }
@@ -1752,10 +1750,10 @@ func validateINQPExchange(call, token string) error {
 		if submissionArea(token, entity.Country, true) {
 			return nil
 		}
-		return fmt.Errorf("Indiana QSO Party exchange must be an Indiana county or state/province abbreviation")
+		return fmt.Errorf("must be an Indiana county or state/province abbreviation")
 	}
 	if token != "DX" {
-		return fmt.Errorf("Indiana QSO Party DX exchange must be DX")
+		return fmt.Errorf("DX exchange must be DX")
 	}
 	return nil
 }
@@ -1778,10 +1776,10 @@ func validateNMQPExchange(call, token string) error {
 		if submissionArea(token, entity.Country, true) {
 			return nil
 		}
-		return fmt.Errorf("New Mexico QSO Party exchange must be a New Mexico county or state/province abbreviation")
+		return fmt.Errorf("must be a New Mexico county or state/province abbreviation")
 	}
 	if token != "DX" {
-		return fmt.Errorf("New Mexico QSO Party DX exchange must be DX")
+		return fmt.Errorf("DX exchange must be DX")
 	}
 	return nil
 }
@@ -1852,7 +1850,7 @@ func validateTurkiyeExchange(call, token string) error {
 	}
 	if entity.Country == "European Turkey" || entity.Country == "Asiatic Turkey" {
 		if len(token) != 2 || !isAllDigits(token) || !submissionZone(token, 81) {
-			return fmt.Errorf("Turkiye exchange must be a province code from 01 through 81")
+			return fmt.Errorf("must be a Turkiye province code from 01 through 81")
 		}
 		return nil
 	}
@@ -1874,7 +1872,7 @@ func validateDARC10Exchange(call, token string) error {
 	if entity.Country == "Fed. Rep. of Germany" {
 		fields := strings.Fields(token)
 		if len(fields) != 2 || !positiveSerial(fields[0]) || !validWAGDOK(fields[1]) {
-			return fmt.Errorf("German exchange must be a serial and DOK or NM")
+			return fmt.Errorf("must be a serial and German DOK or NM")
 		}
 		return nil
 	}
@@ -1914,7 +1912,7 @@ func validateREF160Exchange(call, token string) error {
 	}
 	if frenchExchangeEntity(entity.Country) {
 		if !frenchDepartmentCode(token) {
-			return fmt.Errorf("French exchange must be a department code")
+			return fmt.Errorf("must be a French department code")
 		}
 		return nil
 	}
@@ -1942,13 +1940,13 @@ func validateREFCWExchange(call, token string) error {
 	}
 	if prefix, overseas := refOverseasPrefix[entity.Country]; overseas {
 		if token != prefix {
-			return fmt.Errorf("French overseas exchange must be prefix %s", prefix)
+			return fmt.Errorf("must be French overseas prefix %s", prefix)
 		}
 		return nil
 	}
 	if entity.Country == "France" || entity.Country == "Corsica" {
 		if !frenchDepartmentCode(token) {
-			return fmt.Errorf("French exchange must be a department code")
+			return fmt.Errorf("must be a French department code")
 		}
 		return nil
 	}
@@ -2029,7 +2027,7 @@ func validateHolidaySpiritsExchange(call, token string) error {
 	}
 	fields := strings.Fields(token)
 	if len(fields) != 2 || (fields[1] != "NM" && !positiveSerial(fields[1]) && !validSubmissionPower(fields[1])) {
-		return fmt.Errorf("Holiday Spirits exchange needs location and ARCI number or power")
+		return fmt.Errorf("needs location and ARCI number or power")
 	}
 	return nil
 }

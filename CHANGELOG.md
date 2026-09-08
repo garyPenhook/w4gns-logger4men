@@ -1,5 +1,12 @@
 # Changelog
 
+### v1.48.0
+
+- Reword the contest Cabrillo exchange-validation errors so they read correctly where they surface: each is wrapped as `<call> <time>: sent/received exchange: <message>`, so the former proper-noun-leading, self-repeating text (e.g. `Kentucky QSO Party DX exchange must be DX`) now reads `DX exchange must be DX` / `must be a French department code`. No validation behavior changes.
+- Run `staticcheck` in CI (built with the job's Go toolchain so it always matches the go.mod version), and clear its findings.
+- Pin every GitHub Actions dependency to a full commit SHA across all workflows.
+- Sign each release's `SHA256SUMS` manifest with Sigstore keyless (cosign) signing and publish the signature and certificate alongside it; README documents how to verify a download.
+
 ### v1.47.0
 
 - Add Cabrillo exchange validators for 78 more contests (plain-serial, CQ-zone/grid, country-conditional, county-or-area, and QRP/sprint location-based shapes), moving them from `entry-aware` to a tested `cabrillo-ready`/`scoring-ready` capability with fixtures in `TestCheckedCatalogSubmissionExchanges`.

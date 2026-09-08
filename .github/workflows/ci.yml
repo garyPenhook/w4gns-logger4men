@@ -15,8 +15,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
           check-latest: true
@@ -29,6 +29,10 @@ jobs:
             exit 1
           fi
       - run: go vet ./...
+      # staticcheck is built fresh with this job's Go toolchain, so it always
+      # understands the go.mod Go version's export format (a prebuilt binary
+      # lags and fails to load newer std-library packages).
+      - run: go run honnef.co/go/tools/cmd/staticcheck@latest ./...
       - run: go test ./...
       # -short skips the 100k-QSO import benchmark: the plain run above
       # already exercises it at full scale, and re-running the same
