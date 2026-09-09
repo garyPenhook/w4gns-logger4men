@@ -81,6 +81,44 @@ func readLoTWFile(path string) string {
 	return string(contents)
 }
 
+// writeLoTWFile persists value to path with the same owner-only permissions
+// as the QRZ/WRL key files, so credentials typed into Station Setup land on
+// disk the same way loadLoTW* expects to read them back. An empty value still
+// writes an empty file rather than deleting it, matching how saveQRZXMLCredentials
+// treats a blank field as "disable this", not "leave the old value in place".
+func writeLoTWFile(path, value string) error {
+	if err := os.WriteFile(path, []byte(value+"\n"), qrzKeyFilePermBits); err != nil {
+		return fmt.Errorf("write %s: %w", filepath.Base(path), err)
+	}
+	tightenKeyFilePermissions(path)
+	return nil
+}
+
+// saveLoTWStation persists the TQSL station-location name entered in Station
+// Setup. See loadLoTWStation for the env-var override this on-disk value
+// yields to.
+func saveLoTWStation(value string) error {
+	return writeLoTWFile(defaultLoTWStationPath(), strings.TrimSpace(value))
+}
+
+// saveLoTWPass persists the TQSL Callsign Certificate signing passphrase
+// entered in Station Setup. See loadLoTWPass.
+func saveLoTWPass(value string) error {
+	return writeLoTWFile(defaultLoTWPassPath(), strings.TrimSpace(value))
+}
+
+// saveLoTWLogin persists the LoTW website login entered in Station Setup.
+// See loadLoTWLogin.
+func saveLoTWLogin(value string) error {
+	return writeLoTWFile(defaultLoTWLoginPath(), strings.TrimSpace(value))
+}
+
+// saveLoTWWebPass persists the LoTW website password entered in Station
+// Setup. See loadLoTWWebPass.
+func saveLoTWWebPass(value string) error {
+	return writeLoTWFile(defaultLoTWWebPassPath(), strings.TrimSpace(value))
+}
+
 // findTQSL resolves the tqsl binary from PATH. CWLOGGER_TQSL overrides it — the
 // test seam, pointed at a fake script that exits with a chosen code and
 // echoes a "Final Status" line.

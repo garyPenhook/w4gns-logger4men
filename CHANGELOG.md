@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.51.0
+
+- Add LoTW Station, LoTW Cert Pass, LoTW Login, and LoTW Web Pass fields to Station Setup (`F2`), so the TQSL station-location name, certificate passphrase, and LoTW website login/password used for upload and confirmation sync can be entered in-app instead of only via `lotw.station`/`lotw.pass`/`lotw.login`/`lotw.webpass` files or `CWLOGGER_LOTW_*` environment variables. All three configuration methods remain interchangeable and env vars still take precedence.
+
 ### v1.50.1
 
 - Harden database-path resolution against silently starting a second, empty database when the operator's real one can't be found in any of the usual locations (working directory, XDG data dir, pre-rename legacy dir): the path last successfully opened is now remembered and reused if it's still there, or reported as a clear error if it's gone, instead of quietly prompting for a callsign and creating a new log next to the real one.

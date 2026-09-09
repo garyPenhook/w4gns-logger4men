@@ -51,7 +51,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.50.1"
+const appVersion = "1.51.0"
 
 type screen int
 
@@ -123,6 +123,10 @@ const (
 	stationAddressField
 	stationQRZXMLUserField
 	stationQRZXMLPassField
+	stationLoTWStationField
+	stationLoTWPassField
+	stationLoTWLoginField
+	stationLoTWWebPassField
 	stationFieldCount
 )
 
@@ -130,6 +134,7 @@ var stationFieldLabels = [stationFieldCount]string{
 	"Profile", "Callsign", "Operator", "Grid", "My IOTA Ref", "Timezone", "Club", "Rig", "Antenna", "Power (W)",
 	"Cat-Operator", "Cat-Assisted", "Cat-Power", "Cat-Station", "Address",
 	"QRZ XML User", "QRZ XML Pass",
+	"LoTW Station", "LoTW Cert Pass", "LoTW Login", "LoTW Web Pass",
 }
 
 const (
@@ -669,17 +674,22 @@ func (m *model) openStationSetup() {
 		newCabrilloCategoryInput(profile.CategoryStation, "FIXED"),
 		newStationTextInput(profile.Address, 40),
 		newStationTextInput(m.qrzXMLCreds.username, 24),
-		newQRZXMLPasswordInput(m.qrzXMLCreds.password),
+		newStationPasswordInput(m.qrzXMLCreds.password),
+		newStationTextInput(m.lotwStation, 24),
+		newStationPasswordInput(m.lotwPass),
+		newStationTextInput(m.lotwLogin, 24),
+		newStationPasswordInput(m.lotwWebPass),
 	}
 	m.screen = stationSetupScreen
 	m.focusStationField(stationNameField)
 	m.statusMsg = "Station Setup — Enter saves, Esc cancels"
 }
 
-// newQRZXMLPasswordInput masks the QRZ XML password on screen the same way
-// the field's own EchoMode always has, so it doesn't rely on the terminal or
+// newStationPasswordInput masks a Station Setup credential field (QRZ XML
+// password, LoTW certificate passphrase, LoTW web password) on screen via
+// the field's own EchoMode, so it doesn't rely on the terminal or
 // screenshots/screen-sharing not exposing it.
-func newQRZXMLPasswordInput(value string) textinput.Model {
+func newStationPasswordInput(value string) textinput.Model {
 	ti := newStationTextInput(value, 24)
 	ti.EchoMode = textinput.EchoPassword
 	ti.EchoCharacter = '*'
@@ -764,6 +774,37 @@ func (m *model) saveStationSetup() tea.Cmd {
 	m.qrzXMLSessionKey = ""
 	m.qrzLookups = nil
 	m.qrzActiveLookup = 0
+
+	if err := saveLoTWStation(m.stationFields[stationLoTWStationField].Value()); err != nil {
+		m.screen = qsoEntryScreen
+		m.focusField(fieldCall)
+		m.statusMsg = fmt.Sprintf("station profile %q saved, but LoTW station failed to save: %v", saved.Name, err)
+		return m.connectClusterIfNeeded()
+	}
+	if err := saveLoTWPass(m.stationFields[stationLoTWPassField].Value()); err != nil {
+		m.screen = qsoEntryScreen
+		m.focusField(fieldCall)
+		m.statusMsg = fmt.Sprintf("station profile %q saved, but LoTW certificate passphrase failed to save: %v", saved.Name, err)
+		return m.connectClusterIfNeeded()
+	}
+	if err := saveLoTWLogin(m.stationFields[stationLoTWLoginField].Value()); err != nil {
+		m.screen = qsoEntryScreen
+		m.focusField(fieldCall)
+		m.statusMsg = fmt.Sprintf("station profile %q saved, but LoTW login failed to save: %v", saved.Name, err)
+		return m.connectClusterIfNeeded()
+	}
+	if err := saveLoTWWebPass(m.stationFields[stationLoTWWebPassField].Value()); err != nil {
+		m.screen = qsoEntryScreen
+		m.focusField(fieldCall)
+		m.statusMsg = fmt.Sprintf("station profile %q saved, but LoTW web password failed to save: %v", saved.Name, err)
+		return m.connectClusterIfNeeded()
+	}
+	// Reload rather than adopt the just-typed form values directly, for the
+	// same env-var-precedence reason as m.qrzXMLCreds above.
+	m.lotwStation = loadLoTWStation()
+	m.lotwPass = loadLoTWPass()
+	m.lotwLogin = loadLoTWLogin()
+	m.lotwWebPass = loadLoTWWebPass()
 
 	m.screen = qsoEntryScreen
 	m.focusField(fieldCall)
