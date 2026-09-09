@@ -14,8 +14,9 @@ import (
 // former in-memory 60-second timer, whose single tea.Cmd lost the delivery
 // entirely if the app quit (or the upload failed) before it fired.
 const (
-	uploadDestQRZ = "qrz"
-	uploadDestWRL = "wrl"
+	uploadDestQRZ  = "qrz"
+	uploadDestWRL  = "wrl"
+	uploadDestLoTW = "lotw"
 )
 
 // maxUploadAttempts caps automatic retries per (qso, destination). After this

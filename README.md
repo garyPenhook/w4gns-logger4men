@@ -68,6 +68,7 @@ The certificate identity ties the signature to this repository's release workflo
 | `Ctrl+O` | Export the full log as ADIF to your Downloads folder (see [Export ADIF](#export-adif)) |
 | `Ctrl+X` | Export a Cabrillo submission for the loaded contest (see [Cabrillo export](#cabrillo-export)) |
 | `Ctrl+U` | Retry failed/paused uploads for the active profile using the **current credentials and destination logbook** |
+| `Ctrl+Y` | Queue the active profile's entire log for LoTW upload, then drain the queue (see [ARRL LoTW upload](#arrl-lotw-upload)) |
 | `Ctrl+R` | Export a CSV listing of the loaded contest's QSOs (see [CSV export](#csv-export)) |
 | `Tab` / `Shift+Tab` | Move between entry fields |
 | `Enter` | Move to the next field; save a QSO from the final field |
@@ -486,6 +487,20 @@ Every QSO logged from QSO Entry is also forwarded to [World Radio League](https:
 - If neither the key nor the logbook ID is set, WRL forwarding is silently skipped — local logging is unaffected.
 - The upload runs asynchronously and never blocks or delays logging the next QSO.
 - The status bar reports `WRL upload OK for <call>` on success or `WRL upload failed for <call>: ...` on failure. A failed upload never removes the QSO from your local log.
+
+## ARRL LoTW upload
+
+Every QSO logged from QSO Entry is also signed and uploaded to [ARRL Logbook of the World](https://lotw.arrl.org/lotw-help/) in the background, on the same durable outbox as the QRZ Logbook upload above — with one difference: LoTW requires the [TQSL](https://www.arrl.org/tqsl-download) desktop application to sign contacts with your Callsign Certificate, so this logger shells out to your locally installed `tqsl` rather than talking to LoTW directly.
+
+- Install TQSL and set it up the normal way: request/install a Callsign Certificate for your callsign and create at least one station location in TQSL. This app only *selects* an existing station location by name — it never manages certificates or station locations itself.
+- Put the station location's name (as it appears in TQSL) in a file named `lotw.station` (one line, no quotes), or set the `W4GNS_LOTW_STATION` environment variable. It follows the same lookup order (a copy in the launch directory takes priority, otherwise `$XDG_CONFIG_HOME/w4gns-logger/lotw.station`), `.gitignore` handling, and owner-only (`0600`) permission self-heal as `qrz.comAPIkey`.
+- If your Callsign Certificate's private key is passphrase-protected, put the passphrase in `lotw.pass` (or set `W4GNS_LOTW_PASS`) — otherwise `tqsl` would block on a prompt and the upload would hang/fail. Leave it unset for an unprotected key.
+- If `lotw.station` isn't set, or `tqsl` isn't found on `PATH`, LoTW upload is silently skipped — local logging (and QRZ/WRL upload) is unaffected.
+- Unlike QRZ/WRL, LoTW delivery is **batch-oriented**: every LoTW QSO due in one drain cycle is signed and uploaded with a single `tqsl` invocation instead of one process per QSO. A batch's outcome (success, rejection, connection failure, etc.) applies to every QSO in it, but this is safe to retry — TQSL keeps its own upload-tracking database (`~/.tqsl/uploaded.db`) and will never re-submit a QSO LoTW has already accepted.
+- The status bar reports `LoTW upload OK for <N> QSO(s) (<tqsl status>)` on success or `LoTW upload failed for <N> QSO(s) (see upload queue): ...` on failure. A failed upload never removes the QSO from your local log.
+- Changing the configured station location (or losing `tqsl` from `PATH`) pauses in-flight LoTW deliveries the same way a changed QRZ key does, until `Ctrl+U` retries them with the current configuration.
+- `Ctrl+Y` queues the active profile's *entire* log for LoTW upload (not just new QSOs) and immediately drains the queue — use it once after setting up LoTW to backfill your existing log. Re-running it is safe; already-uploaded QSOs are simply skipped by TQSL's tracking database.
+- `w4gns-logger --upload-lotw` does the same backfill from the command line, without starting the TUI — useful for scripting or a cron job. It signs and uploads the whole log in one `tqsl` call and exits.
 
 ## QRZ callsign lookup
 

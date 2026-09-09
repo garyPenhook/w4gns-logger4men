@@ -14,7 +14,25 @@ func uploadBinding(key, logbook string) string {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(key+"\x00"+logbook)))
 }
 func (m model) uploadBindings() map[string]string {
-	return map[string]string{uploadDestQRZ: uploadBinding(m.qrzAPIKey, ""), uploadDestWRL: uploadBinding(m.wrlAPIKey, m.wrlLogbookID)}
+	return map[string]string{uploadDestQRZ: uploadBinding(m.qrzAPIKey, ""), uploadDestWRL: uploadBinding(m.wrlAPIKey, m.wrlLogbookID), uploadDestLoTW: m.lotwBinding()}
+}
+
+// lotwBinding ties an in-flight LoTW outbox row to the station location and
+// resolved tqsl binary used to sign it. Changing either (or losing tqsl from
+// PATH) invalidates in-flight rows the same way a changed QRZ key does — the
+// drain pauses them with a "missing or changed credentials" last_error rather
+// than silently signing under a different location, or failing to find tqsl
+// at all every drain tick.
+func (m model) lotwBinding() string {
+	station := strings.TrimSpace(m.lotwStation)
+	if station == "" {
+		return ""
+	}
+	tqslPath, err := findTQSL()
+	if err != nil {
+		return ""
+	}
+	return uploadBinding(station, tqslPath)
 }
 func (m *model) refreshUploadStatus() {
 	var count, failed, exhausted int
@@ -46,6 +64,8 @@ func (m *model) retryFailedUploads() {
 	m.qrzAPIKey = loadQRZAPIKey()
 	m.wrlAPIKey = loadWRLAPIKey()
 	m.wrlLogbookID = loadWRLLogbookID()
+	m.lotwStation = loadLoTWStation()
+	m.lotwPass = loadLoTWPass()
 	for dest, binding := range m.uploadBindings() {
 		if binding == "" {
 			continue

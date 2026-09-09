@@ -46,6 +46,20 @@ func defaultWRLKeyPath() string {
 	return legacyOrStablePath("worldradioleague.comAPIkey", xdgConfigDir())
 }
 
+// defaultLoTWStationPath resolves the LoTW/TQSL station-location name file
+// path used when W4GNS_LOTW_STATION is unset, with the same legacy-cwd-file
+// preference as defaultQRZKeyPath.
+func defaultLoTWStationPath() string {
+	return legacyOrStablePath("lotw.station", xdgConfigDir())
+}
+
+// defaultLoTWPassPath resolves the LoTW/TQSL signing-passphrase file path
+// used when W4GNS_LOTW_PASS is unset, with the same legacy-cwd-file
+// preference as defaultQRZKeyPath.
+func defaultLoTWPassPath() string {
+	return legacyOrStablePath("lotw.pass", xdgConfigDir())
+}
+
 func legacyOrStablePath(legacyName, stableDir string) string {
 	if _, err := os.Stat(legacyName); err == nil {
 		return legacyName

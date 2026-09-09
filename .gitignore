@@ -16,3 +16,7 @@ qrz.comXMLlogin
 
 # World Radio League API key (secret, never commit)
 worldradioleague.comAPIkey
+
+# LoTW/TQSL station location and signing passphrase (secret, never commit)
+lotw.station
+lotw.pass

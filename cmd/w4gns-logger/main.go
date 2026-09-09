@@ -306,6 +306,8 @@ type model struct {
 	qrzAPIKey    string
 	wrlAPIKey    string
 	wrlLogbookID string
+	lotwStation  string
+	lotwPass     string
 
 	qrzXMLCreds      qrzXMLCreds
 	qrzXMLSessionKey string
@@ -2453,6 +2455,11 @@ func (m model) uploadDestinations() []string {
 	if strings.TrimSpace(m.wrlAPIKey) != "" {
 		destinations = append(destinations, uploadDestWRL)
 	}
+	if strings.TrimSpace(m.lotwStation) != "" {
+		if _, err := findTQSL(); err == nil {
+			destinations = append(destinations, uploadDestLoTW)
+		}
+	}
 	return destinations
 }
 
@@ -2468,6 +2475,7 @@ func (m *model) drainOutbox() []tea.Cmd {
 		return nil
 	}
 	var cmds []tea.Cmd
+	var lotwBatch []qso
 	for _, e := range entries {
 		binding := m.uploadBindings()[e.destination]
 		if binding == "" || (e.binding != "" && binding != e.binding) {
@@ -2499,6 +2507,14 @@ func (m *model) drainOutbox() []tea.Cmd {
 			}
 			continue
 		}
+		if e.destination == uploadDestLoTW {
+			// LoTW is batch-oriented: every row claimed in this drain is signed
+			// and uploaded with a single tqsl call rather than one subprocess
+			// per QSO, so it is collected here and dispatched once below instead
+			// of through the per-entry switch QRZ/WRL use.
+			lotwBatch = append(lotwBatch, q)
+			continue
+		}
 		var cmd tea.Cmd
 		switch e.destination {
 		case uploadDestQRZ:
@@ -2511,6 +2527,13 @@ func (m *model) drainOutbox() []tea.Cmd {
 			continue
 		}
 		cmds = append(cmds, cmd)
+	}
+	if len(lotwBatch) > 0 {
+		if cmd := m.lotwOutboxUploadCmd(lotwBatch); cmd != nil {
+			cmds = append(cmds, cmd)
+		} else {
+			m.statusMsg = "upload paused: configure lotw credentials; delivery retained"
+		}
 	}
 	return cmds
 }
@@ -2887,6 +2910,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	if message, ok := msg.(lotwUploadMsg); ok {
+		m.refreshUploadStatus()
+		// Persistence (markUploadDone/recordUploadFailure/logUploadEvent) already
+		// ran for every QSO inside the goroutine that produced this message
+		// (lotwOutboxUploadCmd), so there is nothing left to persist here — this
+		// only needs to surface a summary. queueErr means one of those store
+		// writes itself failed; the row(s) affected keep their prior state and
+		// are picked up again by the next drain tick.
+		switch {
+		case message.queueErr != nil:
+			m.statusMsg = fmt.Sprintf("upload queue error: %v", message.queueErr)
+		case message.err != nil:
+			m.statusMsg = fmt.Sprintf("LoTW upload failed for %d QSO(s) (see upload queue): %v", len(message.results), message.err)
+		case message.delivered:
+			m.statusMsg = fmt.Sprintf("LoTW upload OK for %d QSO(s) (%s)", len(message.results), message.statusText)
+		default:
+			m.statusMsg = fmt.Sprintf("LoTW upload failed for %d QSO(s) (see upload queue): %s", len(message.results), message.statusText)
+		}
+		return m, nil
+	}
 	if message, ok := msg.(cabrilloExportedMsg); ok {
 		m.cabrilloExportInProgress = false
 		if message.err != nil {
@@ -3044,6 +3087,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "ctrl+u" {
 		m.retryFailedUploads()
+		return m, tea.Batch(m.drainOutbox()...)
+	}
+	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "ctrl+y" {
+		if strings.TrimSpace(m.lotwStation) == "" {
+			m.statusMsg = "LoTW station location not configured (set lotw.station or W4GNS_LOTW_STATION)"
+			return m, nil
+		}
+		if _, err := findTQSL(); err != nil {
+			m.statusMsg = "LoTW backfill unavailable: " + err.Error()
+			return m, nil
+		}
+		count, err := m.store.enqueueLoTWBackfill(m.activeStation.ID)
+		if err != nil {
+			m.statusMsg = err.Error()
+			return m, nil
+		}
+		m.statusMsg = fmt.Sprintf("queued %d QSO(s) for LoTW upload", count)
 		return m, tea.Batch(m.drainOutbox()...)
 	}
 	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "ctrl+w" && m.screen != continentScreen {
@@ -3579,6 +3639,8 @@ func (m model) helpPanelView() string {
 		"Ctrl+L  Open the companion World Map in your browser (F10 also works when the terminal passes it through)",
 		"Ctrl+W  Continents Worked",
 		"Ctrl+P  Toggle POST (after-contest) entry mode",
+		"Ctrl+U  Retry failed/paused uploads (QRZ/WRL/LoTW) with current credentials",
+		"Ctrl+Y  Queue the active profile's entire log for LoTW upload (requires lotw.station and tqsl)",
 		"Ctrl+G  This help screen",
 		"Esc  Context-dependent: quit QSO Entry, cancel an edit, or back up one screen",
 	)
@@ -4351,14 +4413,14 @@ func screenHotkeys(m model) string {
 	// mid-label depending on terminal width, making F6 in particular read as
 	// broken/inconsistent). Balanced by rendered length, not item count.
 	line1 := "W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  " + strings.TrimSuffix(f5Label, "  •  ")
-	line2 := f6Label + "F7: Contest/Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo"
-	line3 := "Ctrl+L: World Map  •  Ctrl+R: Export CSV  •  Ctrl+W: Continents Worked  •  Ctrl+P: POST mode  •  Ctrl+G: Help  •  " + escape
+	line2 := f6Label + "F7: Contest/Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo  •  Ctrl+U: Retry"
+	line3 := "Ctrl+L: World Map  •  Ctrl+R: Export CSV  •  Ctrl+W: Continents Worked  •  Ctrl+P: POST mode  •  Ctrl+Y: LoTW  •  Ctrl+G: Help  •  " + escape
 	return statusBarStyle.Render(m.activeEventLabel()) + "\n" + hotkeyStyle.Render(line1) + "\n" + hotkeyStyle.Render(line2) + "\n" + hotkeyStyle.Render(line3)
 }
 
 func main() {
 	if err := validateArgs(os.Args[1:]); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\nusage: %s [--export-adif PATH | --import-adif PATH | --version]\n", err, filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "%v\nusage: %s [--export-adif PATH | --import-adif PATH | --upload-lotw | --version]\n", err, filepath.Base(os.Args[0]))
 		os.Exit(2)
 	}
 	if exportPath, ok := adifExportPath(os.Args[1:]); ok {
@@ -4371,6 +4433,10 @@ func main() {
 	}
 	if hasArg(os.Args[1:], "--version") {
 		fmt.Println(appVersion)
+		return
+	}
+	if hasArg(os.Args[1:], "--upload-lotw") {
+		runUploadLoTW()
 		return
 	}
 	if !hasArg(os.Args[1:], terminalChildArg) && !hasArg(os.Args[1:], inCurrentTerminalArg) {
@@ -4407,6 +4473,8 @@ func main() {
 	m.qrzAPIKey = loadQRZAPIKey()
 	m.wrlAPIKey = loadWRLAPIKey()
 	m.wrlLogbookID = loadWRLLogbookID()
+	m.lotwStation = loadLoTWStation()
+	m.lotwPass = loadLoTWPass()
 	m.qrzXMLCreds = loadQRZXMLCredentials()
 	// Connect to the DX cluster at startup, not only when the operator
 	// visits the DX Cluster (F3) screen, so the DX Spots panel on QSO Entry
@@ -4483,6 +4551,7 @@ var recognizedArgs = map[string]bool{
 	"--export-adif":      true,
 	"--import-adif":      true,
 	"--version":          true,
+	"--upload-lotw":      true,
 	terminalChildArg:     true,
 	inCurrentTerminalArg: true,
 }
@@ -4498,7 +4567,7 @@ func validateArgs(args []string) error {
 		if !recognizedArgs[arg] {
 			return fmt.Errorf("unrecognized argument %q", arg)
 		}
-		if arg == "--export-adif" || arg == "--import-adif" || arg == "--version" {
+		if arg == "--export-adif" || arg == "--import-adif" || arg == "--version" || arg == "--upload-lotw" {
 			if action != "" {
 				return fmt.Errorf("only one action is allowed: %s cannot be combined with %s", action, arg)
 			}
@@ -4574,6 +4643,65 @@ func runADIFExport(path string) {
 		os.Exit(1)
 	}
 	fmt.Printf("ADIF export complete: %d QSOs written to %s\n", count, path)
+}
+
+// runUploadLoTW is the scripted/backfill counterpart to the automatic
+// per-QSO LoTW delivery: it signs and uploads the active profile's entire log
+// with one tqsl call, parallel to --export-adif. It does not touch the
+// upload_outbox (that's the automatic-delivery queue for newly logged QSOs);
+// TQSL's own upload-tracking database (~/.tqsl/uploaded.db) makes re-running
+// this safe against re-sending QSOs LoTW already has.
+func runUploadLoTW() {
+	station := loadLoTWStation()
+	if station == "" {
+		fmt.Fprintln(os.Stderr, "LoTW station location not configured (set lotw.station or W4GNS_LOTW_STATION)")
+		os.Exit(1)
+	}
+	tqslPath, err := findTQSL()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	pass := loadLoTWPass()
+
+	dbPath := os.Getenv("W4GNS_DB")
+	if dbPath == "" {
+		dbPath = defaultDBPath()
+	}
+	st, err := openStore(dbPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error opening database: %v\n", err)
+		os.Exit(1)
+	}
+	defer st.Close()
+
+	profile, err := st.activeStationProfile()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error loading station profile: %v\n", err)
+		os.Exit(1)
+	}
+	qsos, err := st.qsosForProfile(context.Background(), profile.ID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error loading QSOs: %v\n", err)
+		os.Exit(1)
+	}
+	if len(qsos) == 0 {
+		fmt.Println("no QSOs to upload")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), lotwBackfillTimeout)
+	defer cancel()
+	exitCode, statusText, err := signAndUploadLoTW(ctx, tqslPath, station, pass, qsos)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "LoTW upload failed: %v\n", err)
+		os.Exit(1)
+	}
+	if !lotwExitDelivered(exitCode) {
+		fmt.Fprintf(os.Stderr, "LoTW upload failed: %s (tqsl exit %d)\n", statusText, exitCode)
+		os.Exit(1)
+	}
+	fmt.Printf("LoTW upload complete: %d QSOs submitted (%s)\n", len(qsos), statusText)
 }
 
 func pathsReferToSameFile(first, second string) bool {
