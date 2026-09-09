@@ -420,18 +420,32 @@ last-run timestamp:
   `enqueueLoTWBackfill` and records the timestamp after a successful enqueue;
   within the cooldown it reports a "ran recently" status message and enqueues
   nothing.
-- `--upload-lotw` (`runUploadLoTW`) applies the same check and records the
-  timestamp after a successful upload, but accepts a new `--force` flag
-  (`validateArgs` rejects `--force` used without `--upload-lotw`) to let an
-  operator override it for a deliberate recovery re-run. There is no
-  equivalent in-app override for `Ctrl+Y` — a script hammering the hotkey on a
-  timer is exactly what this backstop targets, unlike a human occasionally
-  checking in on the app.
+- `--upload-lotw` (`runUploadLoTW`) applies the same check — before loading
+  the profile's QSOs, not after, so a blocked run costs one small lookup
+  instead of a full-log read — and records the timestamp after a successful
+  upload, but accepts a new `--force` flag (`validateArgs` rejects `--force`
+  used without `--upload-lotw`) to let an operator override it for a
+  deliberate recovery re-run. There is no equivalent in-app override for
+  `Ctrl+Y` — a script hammering the hotkey on a timer is exactly what this
+  backstop targets, unlike a human occasionally checking in on the app.
+- `lastLoTWBackfillAt` fails loud, not open, on a corrupt/unparsable
+  `last_backfill_at` row (a manual DB edit or a future format change):
+  it returns an error rather than silently treating the row as "never
+  backfilled", which would otherwise cancel the very cooldown it exists to
+  enforce.
 - Tests: `TestLoTWBackfillCooldownBlocksSecondCtrlYAndCLIRun` (end-to-end
   through `Ctrl+Y`: blocked mid-cooldown, allowed once it's backdated past
   `lotwBackfillMinInterval`), `TestLotwBackfillCooldownRemainingStoreHelpers`
-  (store helper behavior directly), plus `--force`/`--upload-lotw` combination
-  cases in `TestValidateArgsRejectsUnrecognizedAndIncompleteFlags`.
+  (store helper behavior directly),
+  `TestLotwBackfillCooldownRemainingFailsLoudOnCorruptTimestamp` (corrupt row
+  surfaces an error instead of disabling the cooldown), plus
+  `--force`/`--upload-lotw` combination cases in
+  `TestValidateArgsRejectsUnrecognizedAndIncompleteFlags`.
+- Known limitation, accepted for this single-operator desktop tool: the
+  check-then-record isn't atomic across processes, so a script racing the
+  in-app `Ctrl+Y` (or two concurrent `--upload-lotw` invocations) within the
+  same instant could both slip past the cooldown. Not worth cross-process
+  locking to close.
 
 ## Phase 3: periodic `tqsl -n` update check
 
