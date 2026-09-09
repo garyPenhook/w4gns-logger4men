@@ -20,3 +20,7 @@ worldradioleague.comAPIkey
 # LoTW/TQSL station location and signing passphrase (secret, never commit)
 lotw.station
 lotw.pass
+
+# LoTW website login (confirmation sync; secret, never commit)
+lotw.login
+lotw.webpass

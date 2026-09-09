@@ -181,6 +181,10 @@ func openStore(path string) (*store, error) {
 		db.Close()
 		return nil, fmt.Errorf("migrate contest occurrences: %w", err)
 	}
+	if _, err := db.Exec(lotwConfirmationSchema); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("apply LoTW confirmation schema: %w", err)
+	}
 	var filename string
 	if err := db.QueryRow(`SELECT file FROM pragma_database_list WHERE name = 'main'`).Scan(&filename); err != nil {
 		db.Close()

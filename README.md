@@ -69,6 +69,7 @@ The certificate identity ties the signature to this repository's release workflo
 | `Ctrl+X` | Export a Cabrillo submission for the loaded contest (see [Cabrillo export](#cabrillo-export)) |
 | `Ctrl+U` | Retry failed/paused uploads for the active profile using the **current credentials and destination logbook** |
 | `Ctrl+Y` | Queue the active profile's entire log for LoTW upload, then drain the queue (see [ARRL LoTW upload](#arrl-lotw-upload)) |
+| `Ctrl+A` | Award/analytics stats: DXCC/WAS/WAZ/VUCC/IOTA worked vs. LoTW-confirmed (see [LoTW confirmation sync & award stats](#lotw-confirmation-sync--award-stats)) |
 | `Ctrl+R` | Export a CSV listing of the loaded contest's QSOs (see [CSV export](#csv-export)) |
 | `Tab` / `Shift+Tab` | Move between entry fields |
 | `Enter` | Move to the next field; save a QSO from the final field |
@@ -501,6 +502,17 @@ Every QSO logged from QSO Entry is also signed and uploaded to [ARRL Logbook of 
 - Changing the configured station location (or losing `tqsl` from `PATH`) pauses in-flight LoTW deliveries the same way a changed QRZ key does, until `Ctrl+U` retries them with the current configuration.
 - `Ctrl+Y` queues the active profile's *entire* log for LoTW upload (not just new QSOs) and immediately drains the queue — use it once after setting up LoTW to backfill your existing log. Re-running it is safe; already-uploaded QSOs are simply skipped by TQSL's tracking database.
 - `w4gns-logger --upload-lotw` does the same backfill from the command line, without starting the TUI — useful for scripting or a cron job. It signs and uploads the whole log in one `tqsl` call and exits.
+
+## LoTW confirmation sync & award stats
+
+`Ctrl+A` opens an award/analytics stats panel — DXCC/WAS/WAZ/VUCC/IOTA worked vs. LoTW-confirmed, plus a drill-down list of what's worked but not yet confirmed for whichever award is focused (`Up`/`Down` to page). This is driven entirely from local data (your log plus synced LoTW confirmations), so opening it never makes a network call and works offline.
+
+Confirmation data comes from a separate ARRL query service (`lotwreport.adi`), not from `tqsl`, and needs its own credential — your **LoTW website login**, distinct from the Callsign Certificate/passphrase used to sign uploads above:
+
+- Put your LoTW website username in a file named `lotw.login` and password in `lotw.webpass` (one line each, no quotes), or set `W4GNS_LOTW_LOGIN`/`W4GNS_LOTW_WEBPASS`. Same lookup order, `.gitignore` handling, and owner-only (`0600`) permission self-heal as the other LoTW credential files.
+- Press `s` on the stats panel to sync. Per ARRL's guidance against routinely re-fetching a log's full history, sync is incremental: after the first run, each subsequent sync only asks LoTW for confirmations newer than the last one it saw.
+- A synced confirmation is matched to a QSO in your log by callsign, band, and mode, within LoTW's own ±30-minute matching window of the confirmed contact's time. An unmatched confirmation (e.g. for a QSO logged elsewhere) is still recorded, just not counted in the stats above.
+- If `lotw.login`/`lotw.webpass` aren't set, `s` reports that sync isn't configured; the stats panel itself still works, just showing zero confirmations.
 
 ## QRZ callsign lookup
 

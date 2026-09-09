@@ -63,6 +63,7 @@ const (
 	qsoContestScreen
 	continentScreen
 	helpScreen
+	statsScreen
 )
 
 const (
@@ -308,6 +309,15 @@ type model struct {
 	wrlLogbookID string
 	lotwStation  string
 	lotwPass     string
+	lotwLogin    string
+	lotwWebPass  string
+
+	// statsSyncing/statsSyncMsg track the in-flight/last-outcome state of a
+	// manual LoTW confirmation sync triggered from the stats panel (Ctrl+A).
+	statsSyncing    bool
+	statsSyncMsg    string
+	statsAwardFocus int
+	lotwStats       *lotwAwardStats
 
 	qrzXMLCreds      qrzXMLCreds
 	qrzXMLSessionKey string
@@ -3110,6 +3120,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.openContinentPanel()
 		return m, nil
 	}
+	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "ctrl+a" && m.screen != statsScreen {
+		m.openStatsPanel()
+		return m, nil
+	}
 	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "ctrl+g" && m.screen != helpScreen {
 		m.openHelpPanel()
 		return m, nil
@@ -3190,6 +3204,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	if m.screen == continentScreen {
 		return m.updateContinentPanel(msg)
+	}
+	if m.screen == statsScreen {
+		return m.updateStatsPanel(msg)
 	}
 	if m.screen == helpScreen {
 		return m.updateHelpPanel(msg)
@@ -3641,6 +3658,7 @@ func (m model) helpPanelView() string {
 		"Ctrl+P  Toggle POST (after-contest) entry mode",
 		"Ctrl+U  Retry failed/paused uploads (QRZ/WRL/LoTW) with current credentials",
 		"Ctrl+Y  Queue the active profile's entire log for LoTW upload (requires lotw.station and tqsl)",
+		"Ctrl+A  Award/analytics stats: DXCC/WAS/WAZ/VUCC/IOTA worked vs. LoTW-confirmed; 's' to sync",
 		"Ctrl+G  This help screen",
 		"Esc  Context-dependent: quit QSO Entry, cancel an edit, or back up one screen",
 	)
@@ -3699,6 +3717,8 @@ func screenName(s screen) string {
 		return "QSO Contest"
 	case continentScreen:
 		return "Continents Worked"
+	case statsScreen:
+		return "Award Stats"
 	default:
 		return "QSO Entry"
 	}
@@ -3928,6 +3948,9 @@ func (m model) View() string {
 	}
 	if m.screen == continentScreen {
 		return m.continentPanelView()
+	}
+	if m.screen == statsScreen {
+		return m.statsPanelView()
 	}
 	if m.screen == helpScreen {
 		return m.helpPanelView()
@@ -4385,7 +4408,7 @@ func screenHotkeys(m model) string {
 		escape = "Esc: Cluster"
 	} else if current == adifImportScreen {
 		escape = "Esc: QSO Entry"
-	} else if current == qsoDetailsScreen || current == qsoContestScreen || current == eventCatalogScreen || current == continentScreen {
+	} else if current == qsoDetailsScreen || current == qsoContestScreen || current == eventCatalogScreen || current == continentScreen || current == statsScreen {
 		escape = "Esc: QSO Entry"
 	} else if current == helpScreen {
 		escape = "Esc: Back"
@@ -4414,7 +4437,7 @@ func screenHotkeys(m model) string {
 	// broken/inconsistent). Balanced by rendered length, not item count.
 	line1 := "W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  " + strings.TrimSuffix(f5Label, "  •  ")
 	line2 := f6Label + "F7: Contest/Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo  •  Ctrl+U: Retry"
-	line3 := "Ctrl+L: World Map  •  Ctrl+R: Export CSV  •  Ctrl+W: Continents Worked  •  Ctrl+P: POST mode  •  Ctrl+Y: LoTW  •  Ctrl+G: Help  •  " + escape
+	line3 := "Ctrl+L: World Map  •  Ctrl+R: Export CSV  •  Ctrl+W: Continents  •  Ctrl+P: POST  •  Ctrl+Y: LoTW  •  Ctrl+A: Stats  •  Ctrl+G: Help  •  " + escape
 	return statusBarStyle.Render(m.activeEventLabel()) + "\n" + hotkeyStyle.Render(line1) + "\n" + hotkeyStyle.Render(line2) + "\n" + hotkeyStyle.Render(line3)
 }
 
@@ -4475,6 +4498,8 @@ func main() {
 	m.wrlLogbookID = loadWRLLogbookID()
 	m.lotwStation = loadLoTWStation()
 	m.lotwPass = loadLoTWPass()
+	m.lotwLogin = loadLoTWLogin()
+	m.lotwWebPass = loadLoTWWebPass()
 	m.qrzXMLCreds = loadQRZXMLCredentials()
 	// Connect to the DX cluster at startup, not only when the operator
 	// visits the DX Cluster (F3) screen, so the DX Spots panel on QSO Entry

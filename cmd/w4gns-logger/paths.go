@@ -60,6 +60,22 @@ func defaultLoTWPassPath() string {
 	return legacyOrStablePath("lotw.pass", xdgConfigDir())
 }
 
+// defaultLoTWLoginPath resolves the LoTW website login (username) file path
+// used when W4GNS_LOTW_LOGIN is unset, with the same legacy-cwd-file
+// preference as defaultQRZKeyPath. This is the operator's LoTW web-account
+// login used by the lotwreport.adi confirmation query, a separate credential
+// from the TQSL Callsign Certificate/passphrase used to sign uploads.
+func defaultLoTWLoginPath() string {
+	return legacyOrStablePath("lotw.login", xdgConfigDir())
+}
+
+// defaultLoTWWebPassPath resolves the LoTW website password file path used
+// when W4GNS_LOTW_WEBPASS is unset, with the same legacy-cwd-file preference
+// as defaultQRZKeyPath.
+func defaultLoTWWebPassPath() string {
+	return legacyOrStablePath("lotw.webpass", xdgConfigDir())
+}
+
 func legacyOrStablePath(legacyName, stableDir string) string {
 	if _, err := os.Stat(legacyName); err == nil {
 		return legacyName

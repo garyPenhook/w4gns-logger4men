@@ -48,6 +48,27 @@ func loadLoTWPass() string {
 	return strings.TrimSpace(firstLine(readLoTWFile(defaultLoTWPassPath())))
 }
 
+// loadLoTWLogin returns the LoTW website login used to query confirmation
+// (QSL) data from lotwreport.adi. This is the operator's LoTW web-account
+// username, distinct from the TQSL Callsign Certificate used to sign
+// uploads. W4GNS_LOTW_LOGIN overrides the on-disk file. An empty return
+// disables confirmation sync.
+func loadLoTWLogin() string {
+	if login := strings.TrimSpace(os.Getenv("W4GNS_LOTW_LOGIN")); login != "" {
+		return login
+	}
+	return strings.TrimSpace(firstLine(readLoTWFile(defaultLoTWLoginPath())))
+}
+
+// loadLoTWWebPass returns the LoTW website password paired with
+// loadLoTWLogin. W4GNS_LOTW_WEBPASS overrides the on-disk file.
+func loadLoTWWebPass() string {
+	if pass := strings.TrimSpace(os.Getenv("W4GNS_LOTW_WEBPASS")); pass != "" {
+		return pass
+	}
+	return strings.TrimSpace(firstLine(readLoTWFile(defaultLoTWWebPassPath())))
+}
+
 func readLoTWFile(path string) string {
 	tightenKeyFilePermissions(path)
 	contents, err := os.ReadFile(path)

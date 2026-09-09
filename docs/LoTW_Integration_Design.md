@@ -285,13 +285,19 @@ marker) is unprotected. `lotw.pass` therefore stays unset here; `-p` is omitted
 from the invocation when empty. The same command with `-u` in place of `-z`
 is the production upload call.
 
-## Phase 2: confirmation sync & award/analytics stats (planned, not implemented)
+## Phase 2: confirmation sync & award/analytics stats
 
-Upload-only (this phase) gets QSOs *to* LoTW but tells the operator nothing
-about what LoTW has confirmed back, or how that stacks up against DXCC/WAS/
-WAZ/VUCC/IOTA award progress — which is the actual reason most operators care
-about LoTW at all. Sketched here so the eventual work has a starting design
-rather than a bare "Phase 2" bullet; not scheduled.
+Status: implemented. See `cmd/w4gns-logger/lotw_query.go` (confirmation sync),
+`cmd/w4gns-logger/lotw_stats.go` (award aggregation), and
+`cmd/w4gns-logger/stats_panel.go` (the `Ctrl+A` stats screen); the "LoTW
+confirmation sync & award stats" section of `README.md` documents the
+operator-facing setup and behavior. The design below reflects what shipped,
+with deltas from the original sketch called out inline.
+
+Upload-only (Phase 1) gets QSOs *to* LoTW but told the operator nothing about
+what LoTW confirmed back, or how that stacked up against DXCC/WAS/WAZ/VUCC/
+IOTA award progress — which is the actual reason most operators care about
+LoTW at all.
 
 ### Confirmation sync
 
@@ -300,58 +306,101 @@ sign/upload path `tqsl` drives: `https://lotw.arrl.org/lotwuser/lotwreport.adi`
 (RESTful, HTTPS only, returns ADIF). See [Querying
 LoTW](https://lotw.arrl.org/lotw-help/developer-query-qsos-qsls/?lang=en).
 
-- Auth is `login`/`password` query parameters (the operator's LoTW web login,
+- Auth is `login`/`password` query parameters — the operator's LoTW web login,
   a **third** credential distinct from the TQSL Callsign Certificate and
-  passphrase this phase already handles — needs its own config file, e.g.
-  `lotw.login`/`lotw.webpass`, same `0600`/XDG-path treatment as the others).
-- `qso_query=1` requests QSO/QSL records; `qso_qsl=yes` (the default) scopes
-  to confirmed (QSL'd) records. Filters include `qso_qslsince`,
-  `qso_qsorxsince`, `qso_owncall`, `qso_callsign`, `qso_mode`, `qso_band`,
-  `qso_dxcc`, `qso_startdate`/`qso_enddate`.
+  passphrase Phase 1 handles. `lotw.login`/`lotw.webpass` (env
+  `W4GNS_LOTW_LOGIN`/`W4GNS_LOTW_WEBPASS`), same `0600`/XDG-path treatment as
+  the others (`paths.go`, `lotw.go`'s `loadLoTWLogin`/`loadLoTWWebPass`).
+- `qso_query=1` requests QSO/QSL records; `qso_qsl=yes` scopes to confirmed
+  (QSL'd) records; `qso_owncall` is set from the active profile's callsign.
+  `buildLoTWReportURL` in `lotw_query.go` builds exactly these three plus the
+  incremental bookmark below — the other documented filters (`qso_mode`,
+  `qso_band`, `qso_dxcc`, `qso_startdate`/`qso_enddate`, etc.) aren't needed
+  since this app always wants the operator's whole confirmed history, filtered
+  locally instead.
 - **Incremental sync, not a full re-download every time**: the response
   header carries `APP_LoTW_LASTQSL` (most recent QSL in this batch) and
-  `APP_LoTW_LASTQSORX` (most recent uploaded-QSO acknowledgement). Store both
-  per profile and pass them back as `qso_qslsince`/`qso_qsorxsince` on the
-  next sync, exactly mirroring the "should not be routine" full-log-resend
-  guidance from the upload side (see ARRL developer guidance above) — a sync
-  should ask "what's new since last time," not re-fetch the whole history.
-- Per-record award fields worth persisting: `CREDIT_GRANTED` /
-  `APP_LoTW_CREDIT_GRANTED` (which award(s) this confirmed QSO counts toward),
-  plus the usual match keys (`CALL`, `BAND`, `MODE`, `QSO_DATE`, `TIME_ON`,
-  `DXCC`, `GRIDSQUARE`, state/county where present) to join back to the local
-  `qso` table. ARRL's docs don't document any rate limit for this endpoint;
-  still worth a conservative default sync interval (e.g. hourly, operator-
-  triggered manual sync also available) rather than polling aggressively.
-- New schema: a `lotw_confirmation` table (`qso_id` FK where matched, raw
-  confirmation fields, `credit_granted`, `synced_at`) — separate from
-  `upload_outbox`/`upload_log`, since this is inbound data, not an outbound
-  delivery record.
+  `APP_LoTW_LASTQSORX` (most recent uploaded-QSO acknowledgement), each an
+  ARRL-formatted `YYYY-MM-DD HH:MM:SS` string stored verbatim (no parsing) in a
+  new `lotw_sync_state` table (`profile_id` PK) and echoed back as
+  `qso_qslsince` on the next sync — mirroring the "should not be routine"
+  full-log-resend guidance from the upload side (see ARRL developer guidance
+  above). `parseADIRecords` (shared with ADIF import) discards header fields
+  by design, so a small dedicated header reader
+  (`parseLoTWReportHeader`, reusing its tag/field primitives) reads
+  everything up to `<EOH>` before handing the rest of the stream to
+  `parseADIRecords` for the records themselves.
+- Per-record fields persisted: `CREDIT_GRANTED`/`APP_LoTW_CREDIT_GRANTED`,
+  `DXCC`, `COUNTRY`, `GRIDSQUARE`, `STATE`, `CQZ`, plus the match keys `CALL`,
+  `BAND`, `MODE`, `QSO_DATE`, `TIME_ON`. ARRL's docs don't document a rate
+  limit for this endpoint; sync is operator-triggered only (`s` on the stats
+  panel) rather than on a timer — this app has no background scheduler to
+  hang a periodic sync off of.
+- Schema: a `lotw_confirmation` table (`qso_id` nullable FK, the fields above,
+  `synced_at`, unique on `(profile_id, call, band, mode, qso_date, time_on)`
+  so a re-sync over an overlapping window upserts instead of duplicating) —
+  separate from `upload_outbox`/`upload_log`, since this is inbound data, not
+  an outbound delivery record. A confirmation is matched to a local `qso` row
+  by call/band/mode within a ±30-minute window of its time (`lotwMatchWindow`
+  in `lotw_query.go`), mirroring LoTW's own documented matching tolerance; an
+  unmatched confirmation is still stored (`qso_id` left `NULL`) rather than
+  dropped.
 
 ### Award/analytics stats panel
 
-A new hotkey (e.g. `Ctrl+A`, next free binding) opens a stats panel, driven
-entirely from local data (the `qso` table plus the new `lotw_confirmation`
-table) — no network call on open, so it's instant even offline:
+`Ctrl+A` opens a stats panel (`stats_panel.go`), driven entirely from local
+data (the `qso` table plus `lotw_confirmation`, via the aggregation queries in
+`lotw_stats.go`) — no network call on open, so it's instant even offline:
 
-- **DXCC**: entities worked vs. confirmed, using the DXCC entity table this
-  app already has (`dxcc.go`, the same data backing the analysis panel's
-  country/zone lookups) — reuse, don't duplicate, that reference data.
-- **WAS** (Worked All States): US states worked vs. confirmed, from the
-  existing `state` field/state-QSO-party infrastructure.
-- **WAZ**: CQ zones worked vs. confirmed, from the existing CQ-zone lookup
-  already used for contest scoring.
-- **VUCC**: grid squares confirmed on VHF+ bands, from the existing grid
-  utilities (`grid.go`).
-- **IOTA**: island references confirmed, from the existing `iota.go`
-  reference data already used for IOTA scoring.
-- Each line: worked / confirmed / needed-for-award, with a drill-down list of
-  the specific unconfirmed-but-worked entities/states/zones/grids so an
-  operator knows what to chase next (a QRZ/LoTW-style "need list").
-- This duplicates *some* of what LoTW's own website already shows (its award
-  tracker), but locally and offline, and cross-referenced against this app's
-  own contest/event data in a way LoTW's generic UI doesn't — e.g. "confirmed
-  AND counts as a new DXCC multiplier in an active contest" isn't something
-  LoTW's website can answer.
+- **DXCC**: entities worked vs. confirmed, keyed by the `dxcc`/`country`
+  columns `qso` already carries (populated at log time by `resolveDXCC`,
+  which itself uses the `dxcc.go` entity table) — no separate number→name
+  reverse lookup needed.
+- **WAS** (Worked All States): states worked vs. confirmed, from the existing
+  `state` field.
+- **WAZ**: CQ zones worked vs. confirmed, from the existing `cqz` field.
+- **VUCC**: 4-character grid squares confirmed on 6M — the highest band this
+  app's `amateurBands` table tracks (see `bandplan.go`), and VUCC credits
+  50 MHz and up, so restricting to `band = '6M'` is the correct filter given
+  this app's scope rather than an approximation.
+- **IOTA**: island references worked vs. confirmed, from the existing
+  `iota_ref` field.
+- Each line: worked / confirmed / needed count, with `Up`/`Down` paging to a
+  drill-down list of the focused award's unconfirmed-but-worked entities/
+  states/zones/grids/references (a QRZ/LoTW-style "need list", capped at 20
+  shown with a "…and N more" tail).
+- Cross-referencing confirmations against this app's own active-contest
+  multiplier tracking (e.g. "confirmed AND counts as a new DXCC multiplier
+  right now") was sketched as a stretch goal but not built — the panel is
+  award-progress-only, matching the "what to chase next" framing above.
+
+### Phase 2 testing
+
+- `lotw_query_test.go`: a fake `lotwreport.adi` server (`httptest`) covering
+  the match-and-advance-bookmark path, the second-sync `qso_qslsince`
+  incremental parameter, missing-credentials rejection, and upsert
+  idempotency across an overlapping re-sync.
+- `lotw_stats_test.go`: worked-vs-confirmed counts and need-lists for all five
+  awards from a small seeded log, including the VUCC 6M-only filter excluding
+  a same-grid contact logged on a non-6M band.
+- `stats_panel_test.go`: `Ctrl+A` opens the panel with no command issued (the
+  "no network call on open" requirement) and populates stats from local data;
+  `Esc` returns to QSO Entry; `s` without configured credentials reports the
+  not-configured status instead of syncing.
+
+### Phase 2 files touched
+
+| File | Change |
+| --- | --- |
+| `cmd/w4gns-logger/lotw_query.go` (new) | `lotw_confirmation`/`lotw_sync_state` schema, credential-aware fetch, header parsing, record matching/upsert |
+| `cmd/w4gns-logger/lotw_stats.go` (new) | worked/confirmed/needed aggregation for DXCC/WAS/WAZ/VUCC/IOTA |
+| `cmd/w4gns-logger/stats_panel.go` (new) | `Ctrl+A` screen: award summary, drill-down need list, manual sync (`s`) |
+| `cmd/w4gns-logger/lotw.go` | `loadLoTWLogin`/`loadLoTWWebPass` |
+| `cmd/w4gns-logger/paths.go` | `lotw.login`/`lotw.webpass` path resolvers |
+| `cmd/w4gns-logger/store.go` | apply `lotwConfirmationSchema` in `openStore` |
+| `cmd/w4gns-logger/main.go` | `statsScreen`, `Ctrl+A` dispatch, help/footer text, credential loading at startup |
+| `README.md` | "LoTW confirmation sync & award stats" section |
+| `.gitignore` | `lotw.login`/`lotw.webpass` |
 
 ### Open follow-ups (this phase, not Phase 2)
 
