@@ -257,6 +257,16 @@ func parseLoTWReportRecords(br *bufio.Reader, onRecord func(map[string]string) e
 			}
 			continue
 		}
+		// APP_LoTW_EOF is a bare tag with no ":length" suffix (confirmed
+		// against live lotwreport.adi responses) — same shape as <eor>/<eoh>,
+		// not a NAME:LENGTH field. It must be recognized here, before the
+		// colon split below discards it as "not a field" and this loop reads
+		// straight past it to genuine end-of-stream, permanently unable to
+		// reach the length-prefixed check that used to sit after
+		// io.ReadFull.
+		if strings.EqualFold(descriptor, "APP_LoTW_EOF") {
+			return true, nil
+		}
 		parts := strings.SplitN(descriptor, ":", 2)
 		if len(parts) < 2 {
 			continue
@@ -273,9 +283,6 @@ func parseLoTWReportRecords(br *bufio.Reader, onRecord func(map[string]string) e
 			return false, fmt.Errorf("LoTW report field %q: %w", parts[0], err)
 		}
 		name := strings.ToUpper(strings.TrimSpace(parts[0]))
-		if name == "APP_LOTW_EOF" {
-			return true, nil
-		}
 		if len(record) >= maxADIFFieldsPerRecord {
 			return false, fmt.Errorf("LoTW report record exceeds %d fields", maxADIFFieldsPerRecord)
 		}

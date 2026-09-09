@@ -39,7 +39,10 @@ func lotwReportFixture(lastQSL, lastQSORX string, records []map[string]string) s
 		}
 		b.WriteString("<EOR>\n")
 	}
-	writeADIField("APP_LoTW_EOF", "1")
+	// Bare tag, no ":length" suffix — matches live lotwreport.adi responses
+	// (verified manually against the real endpoint), unlike every other
+	// field here.
+	b.WriteString("<APP_LoTW_EOF>")
 	return b.String()
 }
 
@@ -263,7 +266,7 @@ func TestSyncLoTWConfirmationsErrorsOnNumRecMismatch(t *testing.T) {
 
 	body := "LoTW QSO/QSL query response\n<APP_LoTW_NUMREC:1>2<EOH>\n" +
 		"<CALL:4>W1AW<BAND:3>20M<MODE:2>CW<QSO_DATE:8>20260301<TIME_ON:6>120000<EOR>\n" +
-		"<APP_LoTW_EOF:1>1"
+		"<APP_LoTW_EOF>"
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(body))
 	}))

@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.51.2
+
+- Fix LoTW confirmation sync always failing with "response ended without the documented end-of-file marker," even on a complete, successful response: `parseLoTWReportRecords` only recognized `APP_LoTW_EOF` inside its `NAME:LENGTH>value` field-parsing branch, but ARRL's live `lotwreport.adi` sends it as a bare tag with no length prefix (confirmed against the real endpoint), so the check was unreachable and every sync fell through to genuine end-of-stream first.
+
 ### v1.51.1
 
 - Surface a specific, actionable message when the configured LoTW Station doesn't match any TQSL Station Location, instead of `tqsl`'s generic "Command Syntax Error": `tqsl` uses the same exit code (10) for a genuinely malformed command line and for an unrecognized `-l` value, but its stdout names the real cause, which is now detected and reported (e.g. after entering a callsign instead of a Station Location name into Station Setup's LoTW Station field).
