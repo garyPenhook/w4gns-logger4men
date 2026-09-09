@@ -194,7 +194,7 @@ func parseLoTWReportHeader(br *bufio.Reader) (map[string]string, error) {
 // ownCall scopes the query to one callsign on a multi-callsign LoTW account.
 func syncLoTWConfirmations(ctx context.Context, st *store, profileID int64, login, password, ownCall string) (lotwSyncSummary, error) {
 	if strings.TrimSpace(login) == "" || strings.TrimSpace(password) == "" {
-		return lotwSyncSummary{}, fmt.Errorf("LoTW login/password not configured (set lotw.login/lotw.webpass or W4GNS_LOTW_LOGIN/W4GNS_LOTW_WEBPASS)")
+		return lotwSyncSummary{}, fmt.Errorf("LoTW login/password not configured (set lotw.login/lotw.webpass or CWLOGGER_LOTW_LOGIN/CWLOGGER_LOTW_WEBPASS)")
 	}
 	state, err := st.loadLoTWSyncState(profileID)
 	if err != nil {

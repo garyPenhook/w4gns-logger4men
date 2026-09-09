@@ -12,8 +12,8 @@ import (
 )
 
 func TestLoadQRZXMLCredentialsPrefersEnvOverride(t *testing.T) {
-	t.Setenv("W4GNS_QRZ_XML_USER", "envuser")
-	t.Setenv("W4GNS_QRZ_XML_PASS", "envpass")
+	t.Setenv("CWLOGGER_QRZ_XML_USER", "envuser")
+	t.Setenv("CWLOGGER_QRZ_XML_PASS", "envpass")
 	got := loadQRZXMLCredentials()
 	if got.username != "envuser" || got.password != "envpass" {
 		t.Fatalf("loadQRZXMLCredentials() = %+v, want envuser/envpass", got)
@@ -77,7 +77,7 @@ func TestSaveQRZXMLCredentialsRoundTripsAndTightensPermissions(t *testing.T) {
 		t.Fatalf("loadQRZXMLCredentials() = %+v, want myuser/mypass", got)
 	}
 
-	path := filepath.Join(dir, "w4gns-logger", "qrz.comXMLlogin")
+	path := filepath.Join(dir, appDirName, "qrz.comXMLlogin")
 	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)

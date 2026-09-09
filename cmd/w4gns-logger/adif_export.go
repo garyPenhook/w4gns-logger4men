@@ -17,6 +17,13 @@ import (
 // https://www.adif.org/ for the current release.
 const adifVersion = "3.1.7"
 
+// adifProgramID is this app's PROGRAMID, shared by every ADIF writer (bulk
+// export and the LoTW batch upload in lotw.go) so it can't drift between
+// them, and so a future rename of the value doesn't require also fixing a
+// hardcoded field-length literal — the header always computes
+// len(adifProgramID) instead.
+const adifProgramID = "CW Logger"
+
 type adifContestIDMapping struct {
 	eventID string
 	adifID  string
@@ -88,7 +95,7 @@ func exportADIF(ctx context.Context, writer io.Writer, profileID int64, st *stor
 		defer close()
 		return exportADIF(ctx, writer, profileID, snapshot)
 	}
-	if _, err := io.WriteString(writer, "W4GNS Logger ADIF export\n<ADIF_VER:"+strconv.Itoa(len(adifVersion))+">"+adifVersion+"<PROGRAMID:12>W4GNS Logger<EOH>\n"); err != nil {
+	if _, err := io.WriteString(writer, adifProgramID+" ADIF export\n<ADIF_VER:"+strconv.Itoa(len(adifVersion))+">"+adifVersion+"<PROGRAMID:"+strconv.Itoa(len(adifProgramID))+">"+adifProgramID+"<EOH>\n"); err != nil {
 		return 0, fmt.Errorf("write ADIF header: %w", err)
 	}
 	count := 0
@@ -168,7 +175,7 @@ func adifQSOFields(q qso) []struct{ name, value string } {
 		{"IOTA", q.iotaRef},
 		{"COMMENT", asciiField(q.comment)},
 		{"CONTEST_ID", adifContestID(q.contestID)}, integerOnlyField("STX", q.stx), {"STX_STRING", q.stxString},
-		{"APP_W4GNS_LOGGER_CONTEST_ID", q.contestID}, {"APP_W4GNS_LOGGER_PARK_NAME", asciiField(q.parkName)}, {"APP_W4GNS_LOGGER_ISLAND_NAME", asciiField(q.islandName)}, {"APP_W4GNS_LOGGER_UNSCORED", adifBool(q.unscored)},
+		{"APP_CWLOGGER_CONTEST_ID", q.contestID}, {"APP_CWLOGGER_PARK_NAME", asciiField(q.parkName)}, {"APP_CWLOGGER_ISLAND_NAME", asciiField(q.islandName)}, {"APP_CWLOGGER_UNSCORED", adifBool(q.unscored)},
 		integerOnlyField("SRX", q.srx), {"SRX_STRING", q.srxString},
 		// OPERATOR is the operator's *callsign* per the ADIF field table; the
 		// human-readable name belongs in MY_NAME. STATION_CALLSIGN already

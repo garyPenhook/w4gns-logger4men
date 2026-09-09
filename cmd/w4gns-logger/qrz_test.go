@@ -43,7 +43,7 @@ func TestLoadQRZAPIKeyTightensLoosePermissions(t *testing.T) {
 }
 
 func TestLoadQRZAPIKeyPrefersEnvOverride(t *testing.T) {
-	t.Setenv("W4GNS_QRZ_KEY", "ENV-KEY")
+	t.Setenv("CWLOGGER_QRZ_KEY", "ENV-KEY")
 	if got := loadQRZAPIKey(); got != "ENV-KEY" {
 		t.Fatalf("loadQRZAPIKey() = %q, want ENV-KEY", got)
 	}

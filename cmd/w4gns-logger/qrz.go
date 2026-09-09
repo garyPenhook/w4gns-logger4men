@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	qrzUserAgent     = "W4GNS-Logger/1.0 (amateur radio contact logger)"
+	qrzUserAgent     = "CWLogger/1.0 (amateur radio contact logger)"
 	qrzUploadTimeout = 15 * time.Second
 	// maxQRZResponseBytes bounds how much of the response this reads: QRZ's
 	// reply is a short "RESULT=OK&LOGID=...&COUNT=1" line, so this is far
@@ -32,10 +32,10 @@ var qrzLogbookAPI = "https://logbook.qrz.com/api"
 const qrzKeyFilePermBits = 0o600
 
 // loadQRZAPIKey returns the QRZ Logbook API key used to upload logged QSOs.
-// W4GNS_QRZ_KEY overrides the on-disk key file, mirroring how W4GNS_DB
+// CWLOGGER_QRZ_KEY overrides the on-disk key file, mirroring how CWLOGGER_DB
 // overrides the database path. An empty return disables uploads.
 func loadQRZAPIKey() string {
-	if key := strings.TrimSpace(os.Getenv("W4GNS_QRZ_KEY")); key != "" {
+	if key := strings.TrimSpace(os.Getenv("CWLOGGER_QRZ_KEY")); key != "" {
 		return key
 	}
 	keyFile := defaultQRZKeyPath()

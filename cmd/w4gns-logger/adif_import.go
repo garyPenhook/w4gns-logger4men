@@ -126,7 +126,11 @@ func qsoFromADI(record map[string]string, profileID int64) (qso, bool) {
 	if band == "" {
 		return qso{}, false
 	}
-	contestID := strings.TrimSpace(record["APP_W4GNS_LOGGER_CONTEST_ID"])
+	// APP_CWLOGGER_* is the current app-specific ADIF namespace; APP_W4GNS_LOGGER_*
+	// is what this app wrote before being renamed from w4gns-logger to
+	// cwlogger — read as a fallback so a previously self-exported .adi file
+	// still round-trips these fields rather than silently losing them.
+	contestID := strings.TrimSpace(firstNonEmpty(record["APP_CWLOGGER_CONTEST_ID"], record["APP_W4GNS_LOGGER_CONTEST_ID"]))
 	if contestID == "" {
 		contestID = importedContestID(strings.TrimSpace(record["CONTEST_ID"]), start)
 	}
@@ -150,10 +154,10 @@ func qsoFromADI(record map[string]string, profileID int64) (qso, bool) {
 		comment:    strings.TrimSpace(firstNonEmpty(record["COMMENT_INTL"], record["COMMENT"])),
 		potaRef:    adifPOTAReference(record),
 		contestID:  contestID,
-		parkName:   strings.TrimSpace(record["APP_W4GNS_LOGGER_PARK_NAME"]),
+		parkName:   strings.TrimSpace(firstNonEmpty(record["APP_CWLOGGER_PARK_NAME"], record["APP_W4GNS_LOGGER_PARK_NAME"])),
 		iotaRef:    strings.ToUpper(strings.TrimSpace(record["IOTA"])),
-		islandName: strings.TrimSpace(record["APP_W4GNS_LOGGER_ISLAND_NAME"]),
-		unscored:   record["APP_W4GNS_LOGGER_UNSCORED"] == "Y",
+		islandName: strings.TrimSpace(firstNonEmpty(record["APP_CWLOGGER_ISLAND_NAME"], record["APP_W4GNS_LOGGER_ISLAND_NAME"])),
+		unscored:   record["APP_CWLOGGER_UNSCORED"] == "Y" || record["APP_W4GNS_LOGGER_UNSCORED"] == "Y",
 		stx:        strings.TrimSpace(record["STX"]),
 		stxString:  strings.TrimSpace(record["STX_STRING"]),
 		srx:        strings.TrimSpace(record["SRX"]),

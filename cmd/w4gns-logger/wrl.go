@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	wrlProgramID     = "W4GNS-Logger"
-	wrlUserAgent     = "W4GNS-Logger/1.0 (amateur radio contact logger)"
+	wrlProgramID     = "CWLogger"
+	wrlUserAgent     = "CWLogger/1.0 (amateur radio contact logger)"
 	wrlUploadTimeout = 15 * time.Second
 	// maxWRLResponseBytes bounds how much of the response this reads: WRL's
 	// error envelope is a short JSON object, so this is far larger than any
@@ -30,17 +30,17 @@ const (
 var wrlContactsAPI = "https://api.worldradioleague.com/v1/contacts"
 
 // loadWRLAPIKey returns the World Radio League API key used to forward
-// logged QSOs. W4GNS_WRL_KEY overrides the on-disk key file, mirroring
+// logged QSOs. CWLOGGER_WRL_KEY overrides the on-disk key file, mirroring
 // loadQRZAPIKey. An empty return disables forwarding.
 func loadWRLAPIKey() string {
-	if key := strings.TrimSpace(os.Getenv("W4GNS_WRL_KEY")); key != "" {
+	if key := strings.TrimSpace(os.Getenv("CWLOGGER_WRL_KEY")); key != "" {
 		return key
 	}
 	return strings.TrimSpace(firstLine(readWRLKeyFile()))
 }
 
 // loadWRLLogbookID returns the destination logbook for forwarded QSOs.
-// W4GNS_WRL_LOGBOOK_ID overrides the second line of the on-disk key file.
+// CWLOGGER_WRL_LOGBOOK_ID overrides the second line of the on-disk key file.
 // WRL is documented to fall back to the account's only logbook when this is
 // omitted, but that fallback has been observed to fail server-side with a
 // 500 rather than resolving it, so an operator with a single logbook still
@@ -48,7 +48,7 @@ func loadWRLAPIKey() string {
 // /v1/logbooks) for uploads to succeed. An empty return omits logbookId from
 // the request, relying on WRL's own default-resolution.
 func loadWRLLogbookID() string {
-	if id := strings.TrimSpace(os.Getenv("W4GNS_WRL_LOGBOOK_ID")); id != "" {
+	if id := strings.TrimSpace(os.Getenv("CWLOGGER_WRL_LOGBOOK_ID")); id != "" {
 		return id
 	}
 	contents := readWRLKeyFile()

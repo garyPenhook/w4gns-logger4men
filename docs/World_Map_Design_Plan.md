@@ -32,7 +32,7 @@ Implementation choices relative to the proposal below:
 Validation includes Go tests/vet, targeted server/feed race checks, and Chromium
 fixture checks for selection, distinct spotters, filtering, search, safe text,
 refresh, zoom/reset, and narrow layout. The opt-in fixture can be launched with
-`W4GNS_MAP_BROWSER=1 go test ./internal/mapserver -run TestBrowserFixture -v`;
+`CWLOGGER_MAP_BROWSER=1 go test ./internal/mapserver -run TestBrowserFixture -v`;
 it prints a one-use local URL and runs for three minutes without touching a
 database or establishing a cluster login. Live cluster acceptance and native
 Windows/macOS browser launching require checks on those environments. The load

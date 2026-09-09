@@ -156,15 +156,15 @@ const uploadDestLoTW = "lotw"
 Two new credential inputs, loaded with the same legacy-cwd-then-XDG precedence
 as `loadQRZAPIKey`/`loadWRLAPIKey`, files kept `0600`:
 
-- **Station location name** — file `lotw.station` (env `W4GNS_LOTW_STATION`).
+- **Station location name** — file `lotw.station` (env `CWLOGGER_LOTW_STATION`).
   Required; must match a TQSL station-location name (e.g. `Home`).
-- **Signing passphrase** — file `lotw.pass` (env `W4GNS_LOTW_PASS`). Optional;
+- **Signing passphrase** — file `lotw.pass` (env `CWLOGGER_LOTW_PASS`). Optional;
   passed as `-p` only when non-empty. On this machine the W4GNS key is **not**
   passphrase-protected (see below), so it stays empty here — but the option is
   kept for portability: a protected key would otherwise block on a prompt under
   `-x` and the upload would hang/fail.
 
-`findTQSL()` resolves the binary from `PATH`, overridable via `W4GNS_TQSL`
+`findTQSL()` resolves the binary from `PATH`, overridable via `CWLOGGER_TQSL`
 (the test seam — points at a fake script in tests).
 
 ### Enablement guard (`main.go` `uploadDestinations()`)
@@ -243,7 +243,7 @@ Wrapped in `runBgCmd(m.bgTasks, …)` so a shutdown mid-sign is awaited, matchin
 
 ## Testing
 
-- **Fake `tqsl`** shell script injected via `W4GNS_LOTW`/`W4GNS_TQSL` that exits
+- **Fake `tqsl`** shell script injected via `CWLOGGER_TQSL` that exits
   with a chosen code and echoes a `Final Status` line. Table-driven test over
   every exit code asserting the correct outbox transition (delivered set →
   `markUploadDone`; retryable → `recordUploadFailure` reschedules; permanent →
@@ -309,7 +309,7 @@ LoTW](https://lotw.arrl.org/lotw-help/developer-query-qsos-qsls/?lang=en).
 - Auth is `login`/`password` query parameters — the operator's LoTW web login,
   a **third** credential distinct from the TQSL Callsign Certificate and
   passphrase Phase 1 handles. `lotw.login`/`lotw.webpass` (env
-  `W4GNS_LOTW_LOGIN`/`W4GNS_LOTW_WEBPASS`), same `0600`/XDG-path treatment as
+  `CWLOGGER_LOTW_LOGIN`/`CWLOGGER_LOTW_WEBPASS`), same `0600`/XDG-path treatment as
   the others (`paths.go`, `lotw.go`'s `loadLoTWLogin`/`loadLoTWWebPass`).
 - `qso_query=1` requests QSO/QSL records; `qso_qsl=yes` scopes to confirmed
   (QSL'd) records; `qso_owncall` is set from the active profile's callsign.

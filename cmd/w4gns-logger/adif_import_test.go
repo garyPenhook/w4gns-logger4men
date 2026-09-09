@@ -108,6 +108,32 @@ func TestExportADIFRoundTripPreservesQSOFields(t *testing.T) {
 	}
 }
 
+// TestQsoFromADIFallsBackToLegacyAppFieldNames guards the migration path for
+// .adi files this app exported before being renamed from w4gns-logger to
+// cwlogger: the old APP_W4GNS_LOGGER_* fields must still populate park
+// name/island name/contest ID/unscored rather than silently losing them on
+// reimport.
+func TestQsoFromADIFallsBackToLegacyAppFieldNames(t *testing.T) {
+	record := map[string]string{
+		"CALL":                         "W1AW",
+		"QSO_DATE":                     "20260831",
+		"TIME_ON":                      "120000",
+		"BAND":                         "20M",
+		"MODE":                         "CW",
+		"APP_W4GNS_LOGGER_PARK_NAME":   "Old Park",
+		"APP_W4GNS_LOGGER_ISLAND_NAME": "Old Island",
+		"APP_W4GNS_LOGGER_CONTEST_ID":  "OLDCONTEST",
+		"APP_W4GNS_LOGGER_UNSCORED":    "Y",
+	}
+	q, ok := qsoFromADI(record, 1)
+	if !ok {
+		t.Fatal("qsoFromADI rejected a record with legacy APP_W4GNS_LOGGER_* fields")
+	}
+	if q.parkName != "Old Park" || q.islandName != "Old Island" || q.contestID != "OLDCONTEST" || !q.unscored {
+		t.Fatalf("qsoFromADI = %+v, want legacy APP_W4GNS_LOGGER_* fields to populate parkName/islandName/contestID/unscored", q)
+	}
+}
+
 // TestImportADIFRejectsMalformedFiveCharTime guards against a regression of a
 // panic: a 5-character TIME_ON (invalid ADIF Time, which must be HHMM or
 // HHMMSS) used to reach a fixed 6-byte slice and panic with

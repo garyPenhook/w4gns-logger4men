@@ -17,7 +17,7 @@ import (
 // writeFakeTQSL installs a fake tqsl script that ignores its arguments,
 // echoes a "Final Status" line matching what real tqsl prints, and exits
 // with the code taken from the TQSL_FAKE_EXIT env var (set per test via
-// t.Setenv), returning the script's path for W4GNS_TQSL.
+// t.Setenv), returning the script's path for CWLOGGER_TQSL.
 func writeFakeTQSL(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -32,7 +32,7 @@ func writeFakeTQSL(t *testing.T) string {
 }
 
 func TestFindTQSLPrefersEnvOverride(t *testing.T) {
-	t.Setenv("W4GNS_TQSL", "/tmp/does-not-need-to-exist-for-this-check")
+	t.Setenv("CWLOGGER_TQSL", "/tmp/does-not-need-to-exist-for-this-check")
 	got, err := findTQSL()
 	if err != nil {
 		t.Fatalf("findTQSL: %v", err)
@@ -161,7 +161,7 @@ func TestLotwOutboxUploadCmdNilWithoutStationConfigured(t *testing.T) {
 }
 
 func TestLotwOutboxUploadCmdNilWhenTQSLUnavailable(t *testing.T) {
-	t.Setenv("W4GNS_TQSL", "")
+	t.Setenv("CWLOGGER_TQSL", "")
 	t.Setenv("PATH", t.TempDir()) // a PATH with no tqsl binary in it
 	m := model{lotwStation: "Home"}
 	if cmd := m.lotwOutboxUploadCmd([]qso{validTestQSO()}); cmd != nil {
@@ -175,7 +175,7 @@ func TestLotwBindingEmptyWithoutStationOrTQSL(t *testing.T) {
 		t.Fatalf("lotwBinding() = %q, want empty with no station configured", got)
 	}
 
-	t.Setenv("W4GNS_TQSL", "")
+	t.Setenv("CWLOGGER_TQSL", "")
 	t.Setenv("PATH", t.TempDir())
 	m = model{lotwStation: "Home"}
 	if got := m.lotwBinding(); got != "" {
@@ -189,7 +189,7 @@ func TestLotwBindingEmptyWithoutStationOrTQSL(t *testing.T) {
 // row stays on its own per-entry command.
 func TestDrainOutboxBatchesLoTWEntriesIntoOneCommand(t *testing.T) {
 	m := reviewModel(t)
-	t.Setenv("W4GNS_TQSL", writeFakeTQSL(t))
+	t.Setenv("CWLOGGER_TQSL", writeFakeTQSL(t))
 	t.Setenv("TQSL_FAKE_EXIT", "0")
 	t.Setenv("TQSL_FAKE_TEXT", "Success")
 	m.lotwStation = "Home"
@@ -281,7 +281,7 @@ func TestEnqueueLoTWBackfillQueuesExistingQSOsOnce(t *testing.T) {
 
 func TestCtrlYQueuesLoTWBackfillAndDrains(t *testing.T) {
 	m := reviewModel(t)
-	t.Setenv("W4GNS_TQSL", writeFakeTQSL(t))
+	t.Setenv("CWLOGGER_TQSL", writeFakeTQSL(t))
 	t.Setenv("TQSL_FAKE_EXIT", "0")
 	t.Setenv("TQSL_FAKE_TEXT", "Success")
 	m.lotwStation = "Home"
@@ -351,7 +351,7 @@ func TestCtrlYWithoutStationConfiguredLeavesQueueEmpty(t *testing.T) {
 }
 
 func TestLotwBindingChangesWithStation(t *testing.T) {
-	t.Setenv("W4GNS_TQSL", writeFakeTQSL(t))
+	t.Setenv("CWLOGGER_TQSL", writeFakeTQSL(t))
 	home := model{lotwStation: "Home"}.lotwBinding()
 	away := model{lotwStation: "Away"}.lotwBinding()
 	if home == "" || away == "" {

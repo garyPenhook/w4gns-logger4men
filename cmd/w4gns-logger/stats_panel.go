@@ -131,7 +131,7 @@ func (m model) updateStatsPanel(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			if strings.TrimSpace(m.lotwLogin) == "" || strings.TrimSpace(m.lotwWebPass) == "" {
-				m.statsSyncMsg = "LoTW login not configured (set lotw.login/lotw.webpass or W4GNS_LOTW_LOGIN/W4GNS_LOTW_WEBPASS)"
+				m.statsSyncMsg = "LoTW login not configured (set lotw.login/lotw.webpass or CWLOGGER_LOTW_LOGIN/CWLOGGER_LOTW_WEBPASS)"
 				return m, nil
 			}
 			cmd := m.lotwStatsSyncCmd()

@@ -40,7 +40,7 @@ func TestLoadWRLAPIKeyTightensLoosePermissions(t *testing.T) {
 }
 
 func TestLoadWRLAPIKeyPrefersEnvOverride(t *testing.T) {
-	t.Setenv("W4GNS_WRL_KEY", "ENV-KEY")
+	t.Setenv("CWLOGGER_WRL_KEY", "ENV-KEY")
 	if got := loadWRLAPIKey(); got != "ENV-KEY" {
 		t.Fatalf("loadWRLAPIKey() = %q, want ENV-KEY", got)
 	}
@@ -73,7 +73,7 @@ func TestLoadWRLLogbookIDReadsSecondLine(t *testing.T) {
 }
 
 func TestLoadWRLLogbookIDPrefersEnvOverride(t *testing.T) {
-	t.Setenv("W4GNS_WRL_LOGBOOK_ID", "ENV-LOGBOOK")
+	t.Setenv("CWLOGGER_WRL_LOGBOOK_ID", "ENV-LOGBOOK")
 	if got := loadWRLLogbookID(); got != "ENV-LOGBOOK" {
 		t.Fatalf("loadWRLLogbookID() = %q, want ENV-LOGBOOK", got)
 	}

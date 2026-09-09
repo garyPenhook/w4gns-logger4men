@@ -90,8 +90,8 @@ func TestAdifQSOFieldsExportsIOTARef(t *testing.T) {
 	if value, _ := fieldValue(fields, "IOTA"); value != "EU-005" {
 		t.Errorf("IOTA = %q, want %q", value, "EU-005")
 	}
-	if value, _ := fieldValue(fields, "APP_W4GNS_LOGGER_ISLAND_NAME"); value != "Great Britain" {
-		t.Errorf("APP_W4GNS_LOGGER_ISLAND_NAME = %q, want %q", value, "Great Britain")
+	if value, _ := fieldValue(fields, "APP_CWLOGGER_ISLAND_NAME"); value != "Great Britain" {
+		t.Errorf("APP_CWLOGGER_ISLAND_NAME = %q, want %q", value, "Great Britain")
 	}
 }
 

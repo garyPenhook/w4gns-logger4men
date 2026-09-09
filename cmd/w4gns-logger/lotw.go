@@ -25,24 +25,24 @@ const lotwUploadTimeout = 60 * time.Second
 const lotwBackfillTimeout = 10 * time.Minute
 
 // loadLoTWStation returns the TQSL station-location name used to sign
-// outgoing LoTW uploads. W4GNS_LOTW_STATION overrides the on-disk file,
+// outgoing LoTW uploads. CWLOGGER_LOTW_STATION overrides the on-disk file,
 // mirroring loadQRZAPIKey/loadWRLAPIKey. An empty return disables LoTW
 // forwarding: uploadDestinations only offers uploadDestLoTW when this is
 // non-empty.
 func loadLoTWStation() string {
-	if station := strings.TrimSpace(os.Getenv("W4GNS_LOTW_STATION")); station != "" {
+	if station := strings.TrimSpace(os.Getenv("CWLOGGER_LOTW_STATION")); station != "" {
 		return station
 	}
 	return strings.TrimSpace(firstLine(readLoTWFile(defaultLoTWStationPath())))
 }
 
 // loadLoTWPass returns the signing passphrase for the TQSL Callsign
-// Certificate, if the operator's key requires one. W4GNS_LOTW_PASS overrides
+// Certificate, if the operator's key requires one. CWLOGGER_LOTW_PASS overrides
 // the on-disk file. An empty return omits -p from the tqsl invocation, which
 // is correct for an unprotected key (see docs/LoTW_Integration_Design.md) and
 // would hang/fail under -x for a protected one.
 func loadLoTWPass() string {
-	if pass := strings.TrimSpace(os.Getenv("W4GNS_LOTW_PASS")); pass != "" {
+	if pass := strings.TrimSpace(os.Getenv("CWLOGGER_LOTW_PASS")); pass != "" {
 		return pass
 	}
 	return strings.TrimSpace(firstLine(readLoTWFile(defaultLoTWPassPath())))
@@ -51,19 +51,19 @@ func loadLoTWPass() string {
 // loadLoTWLogin returns the LoTW website login used to query confirmation
 // (QSL) data from lotwreport.adi. This is the operator's LoTW web-account
 // username, distinct from the TQSL Callsign Certificate used to sign
-// uploads. W4GNS_LOTW_LOGIN overrides the on-disk file. An empty return
+// uploads. CWLOGGER_LOTW_LOGIN overrides the on-disk file. An empty return
 // disables confirmation sync.
 func loadLoTWLogin() string {
-	if login := strings.TrimSpace(os.Getenv("W4GNS_LOTW_LOGIN")); login != "" {
+	if login := strings.TrimSpace(os.Getenv("CWLOGGER_LOTW_LOGIN")); login != "" {
 		return login
 	}
 	return strings.TrimSpace(firstLine(readLoTWFile(defaultLoTWLoginPath())))
 }
 
 // loadLoTWWebPass returns the LoTW website password paired with
-// loadLoTWLogin. W4GNS_LOTW_WEBPASS overrides the on-disk file.
+// loadLoTWLogin. CWLOGGER_LOTW_WEBPASS overrides the on-disk file.
 func loadLoTWWebPass() string {
-	if pass := strings.TrimSpace(os.Getenv("W4GNS_LOTW_WEBPASS")); pass != "" {
+	if pass := strings.TrimSpace(os.Getenv("CWLOGGER_LOTW_WEBPASS")); pass != "" {
 		return pass
 	}
 	return strings.TrimSpace(firstLine(readLoTWFile(defaultLoTWWebPassPath())))
@@ -78,11 +78,11 @@ func readLoTWFile(path string) string {
 	return string(contents)
 }
 
-// findTQSL resolves the tqsl binary from PATH. W4GNS_TQSL overrides it — the
+// findTQSL resolves the tqsl binary from PATH. CWLOGGER_TQSL overrides it — the
 // test seam, pointed at a fake script that exits with a chosen code and
 // echoes a "Final Status" line.
 func findTQSL() (string, error) {
-	if override := strings.TrimSpace(os.Getenv("W4GNS_TQSL")); override != "" {
+	if override := strings.TrimSpace(os.Getenv("CWLOGGER_TQSL")); override != "" {
 		return override, nil
 	}
 	path, err := exec.LookPath("tqsl")
@@ -165,7 +165,7 @@ func writeLoTWBatchADIF(path string, qsos []qso) error {
 		return fmt.Errorf("create LoTW batch ADIF: %w", err)
 	}
 	defer file.Close()
-	if _, err := io.WriteString(file, "W4GNS Logger LoTW batch\n<ADIF_VER:"+strconv.Itoa(len(adifVersion))+">"+adifVersion+"<PROGRAMID:12>W4GNS Logger<EOH>\n"); err != nil {
+	if _, err := io.WriteString(file, adifProgramID+" LoTW batch\n<ADIF_VER:"+strconv.Itoa(len(adifVersion))+">"+adifVersion+"<PROGRAMID:"+strconv.Itoa(len(adifProgramID))+">"+adifProgramID+"<EOH>\n"); err != nil {
 		return fmt.Errorf("write LoTW batch ADIF header: %w", err)
 	}
 	for _, q := range qsos {

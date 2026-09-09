@@ -15,7 +15,7 @@ import (
 
 const (
 	backupRemote    = "gdrive"
-	backupRemoteDir = "W4GNS_Logger_Backups"
+	backupRemoteDir = "CWLogger_Backups"
 	backupKeepCount = 5
 	backupTimeout   = 120 * time.Second
 )
@@ -52,15 +52,15 @@ func runBackup(ctx context.Context, st *store, profileID int64) (backupResult, e
 		return backupResult{}, fmt.Errorf("rclone not found in PATH: %w", err)
 	}
 
-	tempDir, err := os.MkdirTemp("", "w4gns-backup")
+	tempDir, err := os.MkdirTemp("", "cwlogger-backup")
 	if err != nil {
 		return backupResult{}, fmt.Errorf("create backup staging dir: %w", err)
 	}
 	defer os.RemoveAll(tempDir)
 
 	stamp := time.Now().UTC().Format("20060102-150405")
-	dbName := fmt.Sprintf("w4gns-%s.db", stamp)
-	adifName := fmt.Sprintf("w4gns-%s.adi", stamp)
+	dbName := fmt.Sprintf("cwlogger-%s.db", stamp)
+	adifName := fmt.Sprintf("cwlogger-%s.adi", stamp)
 	dbStaged := filepath.Join(tempDir, dbName)
 	adifStaged := filepath.Join(tempDir, adifName)
 
@@ -111,10 +111,10 @@ func runBackup(ctx context.Context, st *store, profileID int64) (backupResult, e
 	// orphan backups past backupKeepCount. Retention is keyed on filename
 	// timestamps and is safe to run whether or not this run fully succeeded.
 	result := backupResult{dbName: dbName, adifName: adifName}
-	if err := pruneRemoteBackups(ctx, rclonePath, remoteDir, "w4gns-*.db"); err != nil && uploadErr == nil {
+	if err := pruneRemoteBackups(ctx, rclonePath, remoteDir, "cwlogger-*.db"); err != nil && uploadErr == nil {
 		uploadErr = fmt.Errorf("prune old database backups: %w", err)
 	}
-	if err := pruneRemoteBackups(ctx, rclonePath, remoteDir, "w4gns-*.adi"); err != nil && uploadErr == nil {
+	if err := pruneRemoteBackups(ctx, rclonePath, remoteDir, "cwlogger-*.adi"); err != nil && uploadErr == nil {
 		uploadErr = fmt.Errorf("prune old ADIF backups: %w", err)
 	}
 	if uploadErr != nil {

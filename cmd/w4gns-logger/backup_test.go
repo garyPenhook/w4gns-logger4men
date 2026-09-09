@@ -20,24 +20,24 @@ import (
 // (copyto, lsf --include, deletefile) against a plain local directory
 // instead of an actual cloud remote. This lets tests exercise runBackup's
 // real upload/retention logic end-to-end without any network access or
-// rclone configuration — the "remote" is just $W4GNS_TEST_RCLONE_DIR, and
-// $W4GNS_TEST_RCLONE_FAIL, if set to a filename (or "*" for any), makes
+// rclone configuration — the "remote" is just $CWLOGGER_TEST_RCLONE_DIR, and
+// $CWLOGGER_TEST_RCLONE_FAIL, if set to a filename (or "*" for any), makes
 // copyto fail for that name so partial-upload-failure paths are testable.
 const fakeRcloneScript = `#!/bin/sh
 set -e
-dir="$W4GNS_TEST_RCLONE_DIR"
+dir="$CWLOGGER_TEST_RCLONE_DIR"
 mkdir -p "$dir"
 cmd="$1"; shift
 case "$cmd" in
   copyto)
     src="$1"; dst="$2"
     name="${dst##*/}"
-    if [ "$W4GNS_TEST_RCLONE_FAIL" = "*" ]; then
+    if [ "$CWLOGGER_TEST_RCLONE_FAIL" = "*" ]; then
       echo "simulated rclone failure for $name" >&2
       exit 1
-    elif [ -n "$W4GNS_TEST_RCLONE_FAIL" ]; then
+    elif [ -n "$CWLOGGER_TEST_RCLONE_FAIL" ]; then
       case "$name" in
-        *"$W4GNS_TEST_RCLONE_FAIL"*)
+        *"$CWLOGGER_TEST_RCLONE_FAIL"*)
           echo "simulated rclone failure for $name" >&2
           exit 1
           ;;
@@ -71,7 +71,7 @@ esac
 
 // newFakeRclone installs fakeRcloneScript as the only "rclone" on PATH and
 // returns the local directory it uses as its fake remote, so tests can
-// inspect uploaded files directly. Set t.Setenv("W4GNS_TEST_RCLONE_FAIL",
+// inspect uploaded files directly. Set t.Setenv("CWLOGGER_TEST_RCLONE_FAIL",
 // name) before calling runBackup to simulate an upload failure for that
 // filename.
 func newFakeRclone(t *testing.T) (remoteDir string) {
@@ -85,7 +85,7 @@ func newFakeRclone(t *testing.T) (remoteDir string) {
 	// of mkdir/cp/ls/grep/rm still resolves against the real PATH.
 	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	remoteDir = t.TempDir()
-	t.Setenv("W4GNS_TEST_RCLONE_DIR", remoteDir)
+	t.Setenv("CWLOGGER_TEST_RCLONE_DIR", remoteDir)
 	return remoteDir
 }
 
@@ -210,7 +210,7 @@ func TestRunBackupReturnsErrorOnPartialUploadFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Setenv("W4GNS_TEST_RCLONE_FAIL", "*") // fail every copyto
+	t.Setenv("CWLOGGER_TEST_RCLONE_FAIL", "*") // fail every copyto
 	if _, err := runBackupSerialized(context.Background(), st, profile.ID); err == nil {
 		t.Fatal("runBackupSerialized returned no error despite every upload failing")
 	}
@@ -225,7 +225,7 @@ func TestRunBackupReturnsErrorOnPartialUploadFailure(t *testing.T) {
 	// Now let the database upload succeed but the ADIF upload fail (runBackup
 	// uploads dbStaged before adifStaged): the fake matches by substring, so
 	// ".adi" fails only the ADIF file regardless of its timestamp.
-	t.Setenv("W4GNS_TEST_RCLONE_FAIL", ".adi")
+	t.Setenv("CWLOGGER_TEST_RCLONE_FAIL", ".adi")
 	if _, err := runBackupSerialized(context.Background(), st, profile.ID); err == nil {
 		t.Fatal("runBackupSerialized returned no error despite the ADIF upload failing")
 	}
@@ -319,18 +319,18 @@ func TestPruneRemoteBackupsKeepsOnlyMostRecent(t *testing.T) {
 
 	var names []string
 	for i := 0; i < backupKeepCount+3; i++ {
-		name := fmt.Sprintf("w4gns-2026083%d-120000.db", i)
+		name := fmt.Sprintf("cwlogger-2026083%d-120000.db", i)
 		names = append(names, name)
 		if err := os.WriteFile(filepath.Join(remoteDir, name), []byte("x"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
 	// A different file type must be left untouched by a .db-pattern prune.
-	if err := os.WriteFile(filepath.Join(remoteDir, "w4gns-20260830-120000.adi"), []byte("x"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(remoteDir, "cwlogger-20260830-120000.adi"), []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := pruneRemoteBackups(context.Background(), rclonePath, backupRemote+":"+backupRemoteDir, "w4gns-*.db"); err != nil {
+	if err := pruneRemoteBackups(context.Background(), rclonePath, backupRemote+":"+backupRemoteDir, "cwlogger-*.db"); err != nil {
 		t.Fatalf("pruneRemoteBackups returned error: %v", err)
 	}
 

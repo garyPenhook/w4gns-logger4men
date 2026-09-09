@@ -23,7 +23,7 @@ import (
 var qrzXMLAPI = "https://xmldata.qrz.com/xml/current/"
 
 const (
-	qrzXMLUserAgent     = "W4GNS-Logger/1.0 (amateur radio contact logger)"
+	qrzXMLUserAgent     = "CWLogger/1.0 (amateur radio contact logger)"
 	qrzXMLLookupTimeout = 15 * time.Second
 	// maxQRZXMLResponseBytes bounds how much of the response this reads: a
 	// QRZ XML record is a few hundred bytes to a few KB, so this is far
@@ -44,12 +44,12 @@ func (c qrzXMLCreds) empty() bool {
 }
 
 // loadQRZXMLCredentials returns the QRZ.com username/password used for
-// callsign lookups. W4GNS_QRZ_XML_USER/W4GNS_QRZ_XML_PASS override the
-// on-disk credentials file, mirroring how W4GNS_QRZ_KEY overrides the
+// callsign lookups. CWLOGGER_QRZ_XML_USER/CWLOGGER_QRZ_XML_PASS override the
+// on-disk credentials file, mirroring how CWLOGGER_QRZ_KEY overrides the
 // Logbook key file. Empty credentials disable lookups.
 func loadQRZXMLCredentials() qrzXMLCreds {
-	if user := strings.TrimSpace(os.Getenv("W4GNS_QRZ_XML_USER")); user != "" {
-		return qrzXMLCreds{username: user, password: strings.TrimSpace(os.Getenv("W4GNS_QRZ_XML_PASS"))}
+	if user := strings.TrimSpace(os.Getenv("CWLOGGER_QRZ_XML_USER")); user != "" {
+		return qrzXMLCreds{username: user, password: strings.TrimSpace(os.Getenv("CWLOGGER_QRZ_XML_PASS"))}
 	}
 	credFile := defaultQRZXMLCredPath()
 	tightenKeyFilePermissions(credFile)

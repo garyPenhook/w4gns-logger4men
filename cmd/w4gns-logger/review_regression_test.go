@@ -474,9 +474,9 @@ func TestReviewUploadRecoveryAndBinding(t *testing.T) {
 	if _, err := m.store.db.Exec(`UPDATE upload_outbox SET attempts=20`); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("W4GNS_WRL_KEY", "old-key")
-	t.Setenv("W4GNS_WRL_LOGBOOK_ID", "new-book")
-	t.Setenv("W4GNS_QRZ_KEY", "unused-test-key")
+	t.Setenv("CWLOGGER_WRL_KEY", "old-key")
+	t.Setenv("CWLOGGER_WRL_LOGBOOK_ID", "new-book")
+	t.Setenv("CWLOGGER_QRZ_KEY", "unused-test-key")
 	m.retryFailedUploads()
 	var attempts int
 	var binding string
@@ -530,14 +530,14 @@ func TestReviewNativeSmoke(t *testing.T) {
 
 // TestReviewQRZXMLEnvCredentialsSurviveStationSetupSave reproduces a bug
 // where saving Station Setup adopted the just-typed form values into
-// m.qrzXMLCreds directly, even when W4GNS_QRZ_XML_USER/PASS were set.
+// m.qrzXMLCreds directly, even when CWLOGGER_QRZ_XML_USER/PASS were set.
 // loadQRZXMLCredentials treats the environment as authoritative over the
 // on-disk file, so the running session must keep honoring that after a save
 // too, not just on the next restart.
 func TestReviewQRZXMLEnvCredentialsSurviveStationSetupSave(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	t.Setenv("W4GNS_QRZ_XML_USER", "env-user")
-	t.Setenv("W4GNS_QRZ_XML_PASS", "env-pass")
+	t.Setenv("CWLOGGER_QRZ_XML_USER", "env-user")
+	t.Setenv("CWLOGGER_QRZ_XML_PASS", "env-pass")
 	m := reviewModel(t)
 	m.qrzXMLCreds = loadQRZXMLCredentials()
 

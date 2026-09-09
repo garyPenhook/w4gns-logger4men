@@ -595,7 +595,7 @@ func initialModel(st *store) model {
 
 	bgCtx, bgCancel := context.WithCancel(context.Background())
 	m := model{
-		contestName:    "W4GNS Logger 4 Men — CW Log",
+		contestName:    "CW Logger — CW Log",
 		fields:         fields,
 		store:          st,
 		table:          t,
@@ -745,7 +745,7 @@ func (m *model) saveStationSetup() tea.Cmd {
 		return m.connectClusterIfNeeded()
 	}
 	// Reload rather than adopt the just-saved form values directly: when
-	// W4GNS_QRZ_XML_USER/PASS are set, they must keep overriding the file for
+	// CWLOGGER_QRZ_XML_USER/PASS are set, they must keep overriding the file for
 	// the running session too, not just on the next restart (loadQRZXMLCredentials
 	// is the single source of truth for that precedence).
 	m.qrzXMLCreds = loadQRZXMLCredentials()
@@ -3101,7 +3101,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	if key, ok := msg.(tea.KeyMsg); ok && key.String() == "ctrl+y" {
 		if strings.TrimSpace(m.lotwStation) == "" {
-			m.statusMsg = "LoTW station location not configured (set lotw.station or W4GNS_LOTW_STATION)"
+			m.statusMsg = "LoTW station location not configured (set lotw.station or CWLOGGER_LOTW_STATION)"
 			return m, nil
 		}
 		if _, err := findTQSL(); err != nil {
@@ -4092,7 +4092,7 @@ func (m model) stationSetupView() string {
 	var b strings.Builder
 	b.WriteString(screenHotkeys(m))
 	b.WriteString("\n")
-	b.WriteString(headerStyle.Render("W4GNS Logger 4 Men  |  Station Setup"))
+	b.WriteString(headerStyle.Render("CW Logger  |  Station Setup"))
 	b.WriteString("\n\n")
 	b.WriteString(renderFieldGrid(stationFieldLabels[:], m.stationFields, m.stationFocusIdx))
 	b.WriteString("\n")
@@ -4185,7 +4185,7 @@ func (m model) clusterView() string {
 	var b strings.Builder
 	b.WriteString(screenHotkeys(m))
 	b.WriteString("\n")
-	b.WriteString(headerStyle.Render("W4GNS Logger 4 Men  |  DX Cluster  |  " + k3lrClusterName))
+	b.WriteString(headerStyle.Render("CW Logger  |  DX Cluster  |  " + k3lrClusterName))
 	b.WriteString("\n\n")
 	b.WriteString(statusBarStyle.Render(sanitizeClusterText(m.clusterStatus)))
 	b.WriteString("\n\n")
@@ -4205,7 +4205,7 @@ func (m model) clusterFiltersView() string {
 	var b strings.Builder
 	b.WriteString(screenHotkeys(m))
 	b.WriteString("\n")
-	b.WriteString(headerStyle.Render("W4GNS Logger 4 Men  |  Cluster Filters  |  CW only"))
+	b.WriteString(headerStyle.Render("CW Logger  |  Cluster Filters  |  CW only"))
 	b.WriteString("\n\n")
 	b.WriteString(renderFieldGrid(clusterFilterLabels[:], m.clusterFilterFields, m.clusterFilterFocus))
 	b.WriteString("\nBands: ")
@@ -4234,7 +4234,7 @@ func (m model) adifImportView() string {
 	var b strings.Builder
 	b.WriteString(screenHotkeys(m))
 	b.WriteString("\n")
-	b.WriteString(headerStyle.Render("W4GNS Logger 4 Men  |  Import ADIF"))
+	b.WriteString(headerStyle.Render("CW Logger  |  Import ADIF"))
 	b.WriteString("\n\n")
 	b.WriteString(focusedFieldBoxStyle.Render(labelStyle.Render("ADIF file") + m.adifPathField.View()))
 	b.WriteString("\n\n")
@@ -4276,7 +4276,7 @@ func (m model) eventCatalogView() string {
 	var b strings.Builder
 	b.WriteString(screenHotkeys(m))
 	b.WriteString("\n")
-	b.WriteString(headerStyle.Render(fmt.Sprintf("W4GNS Logger 4 Men  |  Events & Contests (%d)", len(m.events))))
+	b.WriteString(headerStyle.Render(fmt.Sprintf("CW Logger  |  Events & Contests (%d)", len(m.events))))
 	b.WriteString("\n\n")
 	const visibleEvents = 10
 	start := m.eventFocus - visibleEvents/2
@@ -4375,7 +4375,7 @@ func (m model) qsoPageView(title string, labels []string, fields []textinput.Mod
 	var b strings.Builder
 	b.WriteString(screenHotkeys(m))
 	b.WriteString("\n")
-	b.WriteString(headerStyle.Render("W4GNS Logger 4 Men  |  " + title))
+	b.WriteString(headerStyle.Render("CW Logger  |  " + title))
 	b.WriteString("\n\n")
 	b.WriteString(renderFieldGrid(labels, fields, focus))
 	b.WriteString("\n")
@@ -4435,7 +4435,7 @@ func screenHotkeys(m model) string {
 	// layout's second line ran to 231 characters, which wrapped or truncated
 	// mid-label depending on terminal width, making F6 in particular read as
 	// broken/inconsistent). Balanced by rendered length, not item count.
-	line1 := "W4GNS-Logger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  " + strings.TrimSuffix(f5Label, "  •  ")
+	line1 := "CWLogger v" + appVersion + "  •  F1: QSO Entry  •  F2: Station Setup  •  F3: DX Cluster  •  F4: Filters  •  " + strings.TrimSuffix(f5Label, "  •  ")
 	line2 := f6Label + "F7: Contest/Events  •  F8: Backup  •  F9: Browse/Edit  •  Ctrl+O: Export ADIF  •  Ctrl+X: Export Cabrillo  •  Ctrl+U: Retry"
 	line3 := "Ctrl+L: World Map  •  Ctrl+R: Export CSV  •  Ctrl+W: Continents  •  Ctrl+P: POST  •  Ctrl+Y: LoTW  •  Ctrl+A: Stats  •  Ctrl+G: Help  •  " + escape
 	return statusBarStyle.Render(m.activeEventLabel()) + "\n" + hotkeyStyle.Render(line1) + "\n" + hotkeyStyle.Render(line2) + "\n" + hotkeyStyle.Render(line3)
@@ -4478,9 +4478,14 @@ func main() {
 		}
 	}
 
-	dbPath := defaultDBPath()
-	if v := os.Getenv("W4GNS_DB"); v != "" {
-		dbPath = v
+	dbPath := os.Getenv("CWLOGGER_DB")
+	if dbPath == "" {
+		var err error
+		dbPath, err = defaultDBPath()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	st, err := openStore(dbPath)
@@ -4634,9 +4639,14 @@ func adifExportPath(args []string) (string, bool) {
 }
 
 func runADIFExport(path string) {
-	dbPath := os.Getenv("W4GNS_DB")
+	dbPath := os.Getenv("CWLOGGER_DB")
 	if dbPath == "" {
-		dbPath = defaultDBPath()
+		var err error
+		dbPath, err = defaultDBPath()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
 	}
 	if exportTargetCollidesWithDB(path, dbPath) {
 		fmt.Fprintln(os.Stderr, "ADIF export path must not be the SQLite database")
@@ -4679,7 +4689,7 @@ func runADIFExport(path string) {
 func runUploadLoTW() {
 	station := loadLoTWStation()
 	if station == "" {
-		fmt.Fprintln(os.Stderr, "LoTW station location not configured (set lotw.station or W4GNS_LOTW_STATION)")
+		fmt.Fprintln(os.Stderr, "LoTW station location not configured (set lotw.station or CWLOGGER_LOTW_STATION)")
 		os.Exit(1)
 	}
 	tqslPath, err := findTQSL()
@@ -4689,9 +4699,14 @@ func runUploadLoTW() {
 	}
 	pass := loadLoTWPass()
 
-	dbPath := os.Getenv("W4GNS_DB")
+	dbPath := os.Getenv("CWLOGGER_DB")
 	if dbPath == "" {
-		dbPath = defaultDBPath()
+		var err error
+		dbPath, err = defaultDBPath()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
 	}
 	st, err := openStore(dbPath)
 	if err != nil {
@@ -4778,9 +4793,14 @@ func runADIFImport(path string) {
 		os.Exit(1)
 	}
 	defer file.Close()
-	dbPath := os.Getenv("W4GNS_DB")
+	dbPath := os.Getenv("CWLOGGER_DB")
 	if dbPath == "" {
-		dbPath = defaultDBPath()
+		var err error
+		dbPath, err = defaultDBPath()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
 	}
 	st, err := openStore(dbPath)
 	if err != nil {

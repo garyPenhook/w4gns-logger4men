@@ -12,9 +12,9 @@ import (
 )
 
 // Opt-in fixture for real browser checks, with no database or cluster login.
-// W4GNS_MAP_BROWSER=1 go test ./internal/mapserver -run TestBrowserFixture -v
+// CWLOGGER_MAP_BROWSER=1 go test ./internal/mapserver -run TestBrowserFixture -v
 func TestBrowserFixture(t *testing.T) {
-	if os.Getenv("W4GNS_MAP_BROWSER") != "1" {
+	if os.Getenv("CWLOGGER_MAP_BROWSER") != "1" {
 		t.Skip("opt-in browser fixture")
 	}
 	store := mapfeed.NewStore(20000)
