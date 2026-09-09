@@ -100,6 +100,24 @@ operator to see. Transient failures `{11, 13}` and the ambiguous `{3, 12}` use
 normal exponential backoff; permanent config failures `{2, 15}` back off and
 eventually park with `last_error` visible, exactly like a rejected QRZ upload.
 
+## ARRL developer guidance & compliance
+
+ARRL publishes developer guidance for logging applications that automate LoTW
+signing/upload. Sources: [Integrating Logbook of the World with Logging
+Applications (PDF)](https://www.arrl.org/files/file/LoTW_Developer/DeveloperIntro.pdf),
+[Developer Information](https://lotw.arrl.org/lotw-help/developer-information/?lang=en),
+[Submitting QSOs](https://lotw.arrl.org/lotw-help/developer-submit-qsos/?lang=en),
+[TQSL Command Line Reference](https://lotw.arrl.org/lotw-help/cmdline/?lang=en).
+
+| ARRL guidance | How this app complies |
+| --- | --- |
+| *"Uploading all of a log's QSOs should not be routine."* Applications must not resubmit QSOs already at LoTW unless the operator believes they never arrived or were lost. | Automatic delivery enqueues each QSO **once**, on log, and removes its outbox row once delivered — never a routine full-log resend. `Ctrl+Y` / `--upload-lotw` *do* resubmit the whole log, but are framed in the UI/README as a one-off backfill for initial setup or recovery, not something to run on a schedule (see below). |
+| *"Exploit the duplicate QSO detection and removal facilities provided in TrustedQSL and TQSL's command line interface"* rather than reimplementing dedup. | Dedup is delegated entirely to TQSL's own `~/.tqsl/uploaded.db`. Exit code `14` (`TQSL_EXIT_UPLOADED_ALREADY`) is treated as delivered — this app never tracks "already sent to LoTW" state itself, so a backfill re-run costs a `tqsl` invocation but not a redundant server-side submission. |
+| A QSO is a duplicate when `CALL`/`BAND`/`MODE`/`PROP_MODE`/`SAT_NAME` and the station location are unchanged. | Not reimplemented here (see above) — this is exactly TQSL's own matching logic, which this app relies on rather than duplicates. |
+| `TIME_ON` should be the time "one would be satisfied with had it been written on a QSL card"; LoTW matches within a ±30-minute window. | `adifQSOFields` (shared with the ADIF export and QRZ upload) emits `q.time.UTC()` directly — the same start time recorded at logging, with no separate LoTW-specific time handling to drift out of sync. |
+| Drive `tqsl` non-interactively via `-x`/`-q` (batch, no menu), `-l` (station location), `-p` (passphrase), `-d` (suppress date-range dialog), `-a [abort\|compliant\|all\|ask]` (duplicate/out-of-range handling), `-u` (upload). Without these, TQSL falls back to interactive dialogs. | `runTQSL` invokes exactly `tqsl -x -d -a compliant -l <station> [-p <pass>] -u <file>` — the full documented non-interactive switch set. |
+| `-n` checks for TQSL version/critical-file updates; called out for programs that drive `tqsl` on the user's behalf. | **Not implemented.** Low-stakes (affects TQSL's own trust/cert data freshness, not QSO delivery) — tracked in Open questions below. |
+
 ## Architecture fit
 
 The existing durable upload machinery is reused wholesale:
@@ -201,6 +219,14 @@ Wrapped in `runBgCmd(m.bgTasks, …)` so a shutdown mid-sign is awaited, matchin
 - `--upload-lotw` CLI flag: export the profile's ADIF and run the same
   `signAndUploadLoTW`, for scripted/backfill use. Parallels `--export-adif`.
   Safe against dupes via TQSL's tracking DB.
+- Per ARRL's "should not be routine" guidance (see ARRL developer guidance
+  above), both paths are documented as an occasional/one-off backfill, not a
+  scheduled job — nothing currently *enforces* that (no rate-limit or
+  last-run tracking); it's a documentation-level nudge, not a technical
+  backstop. A cron job that runs `--upload-lotw` every few minutes would
+  still work (TQSL's own tracking DB keeps it harmless to LoTW's server) but
+  defeats the point of the durable per-QSO outbox and burns a `tqsl`
+  subprocess signing the whole log each time.
 
 ### Concurrency & shutdown notes
 
@@ -261,3 +287,9 @@ is the production upload call.
 
 - Phase 2 (out of scope here): download LoTW QSL confirmations and mark matched
   QSOs as confirmed.
+- Call `tqsl -n` (update/critical-file check) periodically — ARRL calls this
+  out for programs driving `tqsl` on the user's behalf; not implemented yet
+  (see ARRL developer guidance above).
+- Consider a technical backstop (rate-limit or last-run timestamp) for
+  `Ctrl+Y`/`--upload-lotw` so the "not routine" guidance is enforced rather
+  than only documented, if operators are observed scripting it on a schedule.
