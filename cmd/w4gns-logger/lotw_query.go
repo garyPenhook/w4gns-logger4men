@@ -116,6 +116,18 @@ func saveLoTWSyncState(exec lotwSyncExecer, profileID int64, state lotwSyncState
 	return nil
 }
 
+// lotwFullHistorySince is the qso_qslsince value used on a genuine first
+// sync (no prior bookmark), forcing ARRL to return the operator's whole
+// confirmed history rather than only what's new. Verified against the live
+// endpoint: omitting qso_qslsince entirely does NOT default to the full
+// history as this app originally assumed — ARRL substitutes its own "system
+// supplied default" (observed to be within seconds of the request time),
+// returning only a handful of the most recent confirmations and silently
+// hiding everything older, including confirmations from years before this
+// app existed. A date safely before LoTW's 2003 launch forces the real full
+// history instead.
+const lotwFullHistorySince = "1945-01-01"
+
 // buildLoTWReportURL constructs the lotwreport.adi query. login/password are
 // the operator's LoTW website credentials (loadLoTWLogin/loadLoTWWebPass) —
 // distinct from the TQSL Callsign Certificate used to sign uploads.
@@ -123,9 +135,11 @@ func saveLoTWSyncState(exec lotwSyncExecer, profileID int64, state lotwSyncState
 // documented default. qso_qsldetail=yes additionally requests the QSLing
 // station's location data (DXCC/COUNTRY/CQZ/GRIDSQUARE/STATE/IOTA) — without
 // it ARRL does not promise those fields, yet upsertLoTWConfirmation stores
-// them. qso_qslsince, when state.LastQSL is non-empty, makes the request
-// incremental. ownCall, when non-empty, sets qso_owncall so a multi-callsign
-// LoTW account only returns this profile's confirmations.
+// them. qso_qslsince is always sent — state.LastQSL on an incremental sync,
+// lotwFullHistorySince otherwise — since ARRL does not treat an omitted
+// qso_qslsince as "since forever" (see lotwFullHistorySince). ownCall, when
+// non-empty, sets qso_owncall so a multi-callsign LoTW account only returns
+// this profile's confirmations.
 func buildLoTWReportURL(login, password, ownCall string, state lotwSyncState) string {
 	values := url.Values{}
 	values.Set("login", login)
@@ -133,9 +147,11 @@ func buildLoTWReportURL(login, password, ownCall string, state lotwSyncState) st
 	values.Set("qso_query", "1")
 	values.Set("qso_qsl", "yes")
 	values.Set("qso_qsldetail", "yes")
-	if strings.TrimSpace(state.LastQSL) != "" {
-		values.Set("qso_qslsince", state.LastQSL)
+	since := lotwFullHistorySince
+	if trimmed := strings.TrimSpace(state.LastQSL); trimmed != "" {
+		since = trimmed
 	}
+	values.Set("qso_qslsince", since)
 	if strings.TrimSpace(ownCall) != "" {
 		values.Set("qso_owncall", ownCall)
 	}

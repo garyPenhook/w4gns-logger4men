@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.51.3
+
+- Fix a first LoTW confirmation sync silently returning only the last few confirmations instead of the operator's whole history: this app omitted `qso_qslsince` when no prior sync bookmark existed, assuming ARRL would then return everything, but live testing showed ARRL substitutes its own recent "system supplied default" instead — hiding years of older confirmations (e.g. DXCC entities confirmed long before switching to this app) with no error. A first sync now explicitly sends a pre-2003 `qso_qslsince` to force the real full history.
+
 ### v1.51.2
 
 - Fix LoTW confirmation sync always failing with "response ended without the documented end-of-file marker," even on a complete, successful response: `parseLoTWReportRecords` only recognized `APP_LoTW_EOF` inside its `NAME:LENGTH>value` field-parsing branch, but ARRL's live `lotwreport.adi` sends it as a bare tag with no length prefix (confirmed against the real endpoint), so the check was unreachable and every sync fell through to genuine end-of-stream first.

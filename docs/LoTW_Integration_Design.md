@@ -338,7 +338,12 @@ LoTW](https://lotw.arrl.org/lotw-help/developer-query-qsos-qsls/?lang=en).
   incremental bookmark below — the other documented filters (`qso_mode`,
   `qso_band`, `qso_dxcc`, `qso_startdate`/`qso_enddate`, etc.) aren't needed
   since this app always wants the operator's whole confirmed history, filtered
-  locally instead.
+  locally instead. `qso_qslsince` is *always* sent, even on a genuine first
+  sync: live testing showed ARRL does not treat an omitted `qso_qslsince` as
+  "since forever" — it substitutes its own recent "system supplied default"
+  and returns only the last few confirmations, silently hiding years of
+  older ones. A first sync sends `lotwFullHistorySince` (a date before LoTW's
+  2003 launch) instead of omitting the parameter.
 - **Incremental sync, not a full re-download every time**: the response
   header carries `APP_LoTW_LASTQSL` (most recent QSL in this batch) and
   `APP_LoTW_LASTQSORX` (most recent uploaded-QSO acknowledgement), each an

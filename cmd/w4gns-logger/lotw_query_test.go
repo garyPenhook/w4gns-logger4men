@@ -148,8 +148,8 @@ func TestSyncLoTWConfirmationsSendsIncrementalSinceOnSecondSync(t *testing.T) {
 	if _, err := syncLoTWConfirmations(context.Background(), st, 1, "myuser", "mypass", ""); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(lastQuery, "qso_qslsince") {
-		t.Fatalf("first sync query %q should not carry qso_qslsince yet", lastQuery)
+	if !strings.Contains(lastQuery, "qso_qslsince="+lotwFullHistorySince) {
+		t.Fatalf("first sync query %q should force the full history via lotwFullHistorySince", lastQuery)
 	}
 
 	if _, err := syncLoTWConfirmations(context.Background(), st, 1, "myuser", "mypass", ""); err != nil {
