@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -349,6 +350,80 @@ func (m model) lotwUpdateCheckCmd() tea.Cmd {
 	}, func(recovered any) tea.Msg {
 		return lotwUpdateCheckMsg{}
 	})
+}
+
+// lotwBackfillStateSchema tracks the last time this app ran a full-log LoTW
+// backfill (Ctrl+Y or --upload-lotw) for a profile. This is the technical
+// backstop for ARRL's "uploading all of a log's QSOs should not be routine"
+// guidance (docs/LoTW_Integration_Design.md) — previously only a
+// documentation-level nudge, not enforced.
+const lotwBackfillStateSchema = `
+CREATE TABLE IF NOT EXISTS lotw_backfill_state (
+    profile_id INTEGER PRIMARY KEY,
+    last_backfill_at TEXT NOT NULL
+);
+`
+
+// lotwBackfillMinInterval is the minimum time between full-log LoTW backfills
+// for one profile. A repeat backfill is harmless to LoTW's server — TQSL's
+// own upload-tracking database returns already-signed QSOs as exit code 14 —
+// but re-signing an entire log on every run still burns a tqsl subprocess and
+// defeats the point of the durable per-QSO outbox, which already delivers
+// newly logged QSOs automatically. An hour blocks an accidental cron job
+// running every few minutes without meaningfully delaying an operator's
+// occasional manual recovery.
+const lotwBackfillMinInterval = time.Hour
+
+// lastLoTWBackfillAt returns the last time profileID ran a full-log LoTW
+// backfill, and whether one has ever run.
+func (s *store) lastLoTWBackfillAt(profileID int64) (time.Time, bool, error) {
+	var raw string
+	err := s.db.QueryRow(`SELECT last_backfill_at FROM lotw_backfill_state WHERE profile_id = ?`, profileID).Scan(&raw)
+	if err == sql.ErrNoRows {
+		return time.Time{}, false, nil
+	}
+	if err != nil {
+		return time.Time{}, false, fmt.Errorf("load LoTW backfill state for profile %d: %w", profileID, err)
+	}
+	at, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		// Fail loud, not open: silently treating an unparsable timestamp as
+		// "never backfilled" would let a corrupted row cancel the cooldown it
+		// exists to enforce.
+		return time.Time{}, false, fmt.Errorf("parse LoTW backfill timestamp for profile %d: %w", profileID, err)
+	}
+	return at, true, nil
+}
+
+// recordLoTWBackfillAt stamps profileID's last full-log LoTW backfill time,
+// for lastLoTWBackfillAt's next check.
+func (s *store) recordLoTWBackfillAt(profileID int64, now time.Time) error {
+	_, err := s.db.Exec(
+		`INSERT INTO lotw_backfill_state (profile_id, last_backfill_at) VALUES (?, ?)
+		 ON CONFLICT(profile_id) DO UPDATE SET last_backfill_at = excluded.last_backfill_at`,
+		profileID, now.UTC().Format(time.RFC3339),
+	)
+	if err != nil {
+		return fmt.Errorf("record LoTW backfill state for profile %d: %w", profileID, err)
+	}
+	return nil
+}
+
+// lotwBackfillCooldownRemaining returns how much longer profileID must wait
+// before another full-log LoTW backfill is allowed, or zero if none is
+// required.
+func (s *store) lotwBackfillCooldownRemaining(profileID int64, now time.Time) (time.Duration, error) {
+	last, ok, err := s.lastLoTWBackfillAt(profileID)
+	if err != nil {
+		return 0, err
+	}
+	if !ok {
+		return 0, nil
+	}
+	if elapsed := now.Sub(last); elapsed < lotwBackfillMinInterval {
+		return lotwBackfillMinInterval - elapsed, nil
+	}
+	return 0, nil
 }
 
 // enqueueLoTWBackfill queues every one of profileID's existing QSOs for LoTW

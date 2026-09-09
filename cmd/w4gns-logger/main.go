@@ -3129,8 +3129,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMsg = "LoTW backfill unavailable: " + err.Error()
 			return m, nil
 		}
+		remaining, err := m.store.lotwBackfillCooldownRemaining(m.activeStation.ID, time.Now())
+		if err != nil {
+			m.statusMsg = err.Error()
+			return m, nil
+		}
+		if remaining > 0 {
+			m.statusMsg = fmt.Sprintf("LoTW backfill ran recently; wait %s (not routine -- for initial setup/recovery only; use --upload-lotw --force from the CLI to override)", remaining.Round(time.Second))
+			return m, nil
+		}
 		count, err := m.store.enqueueLoTWBackfill(m.activeStation.ID)
 		if err != nil {
+			m.statusMsg = err.Error()
+			return m, nil
+		}
+		if err := m.store.recordLoTWBackfillAt(m.activeStation.ID, time.Now()); err != nil {
 			m.statusMsg = err.Error()
 			return m, nil
 		}
@@ -4464,7 +4477,7 @@ func screenHotkeys(m model) string {
 
 func main() {
 	if err := validateArgs(os.Args[1:]); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\nusage: %s [--export-adif PATH | --import-adif PATH | --upload-lotw | --version]\n", err, filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "%v\nusage: %s [--export-adif PATH | --import-adif PATH | --upload-lotw [--force] | --version]\n", err, filepath.Base(os.Args[0]))
 		os.Exit(2)
 	}
 	if exportPath, ok := adifExportPath(os.Args[1:]); ok {
@@ -4480,7 +4493,7 @@ func main() {
 		return
 	}
 	if hasArg(os.Args[1:], "--upload-lotw") {
-		runUploadLoTW()
+		runUploadLoTW(hasArg(os.Args[1:], "--force"))
 		return
 	}
 	if !hasArg(os.Args[1:], terminalChildArg) && !hasArg(os.Args[1:], inCurrentTerminalArg) {
@@ -4603,6 +4616,7 @@ var recognizedArgs = map[string]bool{
 	"--import-adif":      true,
 	"--version":          true,
 	"--upload-lotw":      true,
+	"--force":            true,
 	terminalChildArg:     true,
 	inCurrentTerminalArg: true,
 }
@@ -4637,6 +4651,9 @@ func validateArgs(args []string) error {
 			}
 			i++ // Consume the operand so it cannot be parsed as another flag.
 		}
+	}
+	if hasArg(args, "--force") && action != "--upload-lotw" {
+		return fmt.Errorf("--force may only be combined with --upload-lotw")
 	}
 	return nil
 }
@@ -4707,7 +4724,7 @@ func runADIFExport(path string) {
 // upload_outbox (that's the automatic-delivery queue for newly logged QSOs);
 // TQSL's own upload-tracking database (~/.tqsl/uploaded.db) makes re-running
 // this safe against re-sending QSOs LoTW already has.
-func runUploadLoTW() {
+func runUploadLoTW(force bool) {
 	station := loadLoTWStation()
 	if station == "" {
 		fmt.Fprintln(os.Stderr, "LoTW station location not configured (set lotw.station or CWLOGGER_LOTW_STATION)")
@@ -4741,6 +4758,19 @@ func runUploadLoTW() {
 		fmt.Fprintf(os.Stderr, "error loading station profile: %v\n", err)
 		os.Exit(1)
 	}
+
+	if !force {
+		remaining, err := st.lotwBackfillCooldownRemaining(profile.ID, time.Now())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
+		}
+		if remaining > 0 {
+			fmt.Fprintf(os.Stderr, "LoTW backfill ran recently; wait %s or pass --force (not routine — for initial setup/recovery only)\n", remaining.Round(time.Second))
+			os.Exit(1)
+		}
+	}
+
 	qsos, err := st.qsosForProfile(context.Background(), profile.ID)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error loading QSOs: %v\n", err)
@@ -4761,6 +4791,9 @@ func runUploadLoTW() {
 	if !lotwExitDelivered(exitCode) {
 		fmt.Fprintf(os.Stderr, "LoTW upload failed: %s (tqsl exit %d)\n", statusText, exitCode)
 		os.Exit(1)
+	}
+	if err := st.recordLoTWBackfillAt(profile.ID, time.Now()); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to record LoTW backfill timestamp: %v\n", err)
 	}
 	fmt.Printf("LoTW upload complete: %d QSOs submitted (%s)\n", len(qsos), statusText)
 }

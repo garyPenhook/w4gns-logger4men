@@ -1431,6 +1431,9 @@ func TestValidateArgsRejectsUnrecognizedAndIncompleteFlags(t *testing.T) {
 		// Conflicting actions must be rejected outright.
 		{"--export-adif", "a.adi", "--import-adif", "b.adi"},
 		{"--upload-lotw", "--export-adif", "a.adi"},
+		// --force is only meaningful alongside --upload-lotw.
+		{"--force"},
+		{"--export-adif", "a.adi", "--force"},
 	} {
 		if err := validateArgs(args); err == nil {
 			t.Errorf("validateArgs(%v) returned no error", args)
@@ -1444,6 +1447,7 @@ func TestValidateArgsRejectsUnrecognizedAndIncompleteFlags(t *testing.T) {
 		{"--terminal-child"},
 		{"--version"},
 		{"--upload-lotw"},
+		{"--upload-lotw", "--force"},
 	} {
 		if err := validateArgs(args); err != nil {
 			t.Errorf("validateArgs(%v) returned error: %v", args, err)

@@ -402,11 +402,36 @@ data (the `qso` table plus `lotw_confirmation`, via the aggregation queries in
 | `README.md` | "LoTW confirmation sync & award stats" section |
 | `.gitignore` | `lotw.login`/`lotw.webpass` |
 
-### Open follow-ups (this phase, not Phase 2)
+### Backfill cooldown (technical backstop for "not routine")
 
-- Consider a technical backstop (rate-limit or last-run timestamp) for
-  `Ctrl+Y`/`--upload-lotw` so the "not routine" guidance is enforced rather
-  than only documented, if operators are observed scripting it on a schedule.
+Status: implemented. The Phase 2 open follow-up above — enforce, not just
+document, ARRL's "uploading all of a log's QSOs should not be routine"
+guidance for `Ctrl+Y`/`--upload-lotw` — is addressed by a per-profile
+last-run timestamp:
+
+- `lotw_backfill_state` (`profile_id` PK, `last_backfill_at`), applied in
+  `openStore` alongside `lotwConfirmationSchema`.
+- `store.lastLoTWBackfillAt` / `recordLoTWBackfillAt` /
+  `lotwBackfillCooldownRemaining` (`cmd/w4gns-logger/lotw.go`) track and check
+  the timestamp against `lotwBackfillMinInterval` (1 hour) — long enough to
+  block an accidental cron job running every few minutes, short enough to
+  never meaningfully delay an operator's occasional manual recovery.
+- `Ctrl+Y` (`main.go`'s key handler) checks the cooldown before
+  `enqueueLoTWBackfill` and records the timestamp after a successful enqueue;
+  within the cooldown it reports a "ran recently" status message and enqueues
+  nothing.
+- `--upload-lotw` (`runUploadLoTW`) applies the same check and records the
+  timestamp after a successful upload, but accepts a new `--force` flag
+  (`validateArgs` rejects `--force` used without `--upload-lotw`) to let an
+  operator override it for a deliberate recovery re-run. There is no
+  equivalent in-app override for `Ctrl+Y` — a script hammering the hotkey on a
+  timer is exactly what this backstop targets, unlike a human occasionally
+  checking in on the app.
+- Tests: `TestLoTWBackfillCooldownBlocksSecondCtrlYAndCLIRun` (end-to-end
+  through `Ctrl+Y`: blocked mid-cooldown, allowed once it's backdated past
+  `lotwBackfillMinInterval`), `TestLotwBackfillCooldownRemainingStoreHelpers`
+  (store helper behavior directly), plus `--force`/`--upload-lotw` combination
+  cases in `TestValidateArgsRejectsUnrecognizedAndIncompleteFlags`.
 
 ## Phase 3: periodic `tqsl -n` update check
 

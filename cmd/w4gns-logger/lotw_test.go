@@ -441,6 +441,117 @@ func TestCtrlYQueuesLoTWBackfillAndDrains(t *testing.T) {
 	}
 }
 
+// TestLotwBackfillCooldownRemainingFailsLoudOnCorruptTimestamp guards against
+// a corrupted last_backfill_at row silently disabling the cooldown it exists
+// to enforce (the failure mode this backstop is meant to prevent) instead of
+// surfacing an error.
+func TestLotwBackfillCooldownRemainingFailsLoudOnCorruptTimestamp(t *testing.T) {
+	m := reviewModel(t)
+	if _, err := m.store.db.Exec(
+		`INSERT INTO lotw_backfill_state (profile_id, last_backfill_at) VALUES (?, ?)`,
+		m.activeStation.ID, "not-a-timestamp",
+	); err != nil {
+		t.Fatalf("seed corrupt lotw_backfill_state row: %v", err)
+	}
+	if _, err := m.store.lotwBackfillCooldownRemaining(m.activeStation.ID, time.Now()); err == nil {
+		t.Fatal("lotwBackfillCooldownRemaining returned no error for a corrupt timestamp; want a parse error, not a silently-disabled cooldown")
+	}
+}
+
+// TestLoTWBackfillCooldownBlocksSecondCtrlYAndCLIRun guards the technical
+// backstop for ARRL's "uploading all of a log's QSOs should not be routine"
+// guidance: a second full-log backfill within lotwBackfillMinInterval must be
+// refused (both via Ctrl+Y and the recorded store state --upload-lotw checks)
+// rather than only documented as a nudge.
+func TestLoTWBackfillCooldownBlocksSecondCtrlYAndCLIRun(t *testing.T) {
+	m := reviewModel(t)
+	t.Setenv("CWLOGGER_TQSL", writeFakeTQSL(t))
+	t.Setenv("TQSL_FAKE_EXIT", "0")
+	t.Setenv("TQSL_FAKE_TEXT", "Success")
+	m.lotwStation = "Home"
+
+	q := reviewQSO(m)
+	q.call = "W1AW"
+	reviewInsert(t, m, q)
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlY})
+	m = updated.(model)
+	if !strings.Contains(m.statusMsg, "queued 1 QSO") {
+		t.Fatalf("first ctrl+y statusMsg = %q, want it to report 1 QSO queued", m.statusMsg)
+	}
+	if cmd != nil {
+		cmd() // drain so the outbox row is gone before the second attempt.
+	}
+
+	q2 := reviewQSO(m)
+	q2.call = "K1ABC"
+	reviewInsert(t, m, q2)
+
+	updated2, cmd2 := m.Update(tea.KeyMsg{Type: tea.KeyCtrlY})
+	m = updated2.(model)
+	if !strings.Contains(m.statusMsg, "ran recently") {
+		t.Fatalf("second ctrl+y statusMsg = %q, want a cooldown message", m.statusMsg)
+	}
+	if cmd2 != nil {
+		t.Fatal("second ctrl+y within the cooldown returned a command; want nil (no drain triggered)")
+	}
+	var count int
+	if err := m.store.db.QueryRow(`SELECT COUNT(*) FROM upload_outbox WHERE destination=?`, uploadDestLoTW).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("upload_outbox lotw rows = %d, err %v; want 0 (blocked by cooldown, not queued)", count, err)
+	}
+
+	// Past the cooldown, a backfill is allowed again.
+	if err := m.store.recordLoTWBackfillAt(m.activeStation.ID, time.Now().Add(-2*lotwBackfillMinInterval)); err != nil {
+		t.Fatalf("recordLoTWBackfillAt: %v", err)
+	}
+	updated3, cmd3 := m.Update(tea.KeyMsg{Type: tea.KeyCtrlY})
+	m = updated3.(model)
+	// q2 was still logged (and never delivered) during the blocked attempt
+	// above, so this backfill queues both q1 (re-queued, harmless — TQSL's
+	// tracking database will report it already-delivered) and q2.
+	if !strings.Contains(m.statusMsg, "queued 2 QSO") {
+		t.Fatalf("third ctrl+y statusMsg = %q, want it to report 2 QSOs queued once the cooldown has elapsed", m.statusMsg)
+	}
+	if cmd3 == nil {
+		t.Fatal("third ctrl+y past the cooldown returned a nil command; expected the drain to run")
+	}
+}
+
+// TestLotwBackfillCooldownRemainingStoreHelpers exercises the store-level
+// helpers directly: no prior backfill means no cooldown, a fresh timestamp
+// blocks for the full interval, and an old timestamp clears it.
+func TestLotwBackfillCooldownRemainingStoreHelpers(t *testing.T) {
+	m := reviewModel(t)
+	now := time.Now()
+
+	remaining, err := m.store.lotwBackfillCooldownRemaining(m.activeStation.ID, now)
+	if err != nil {
+		t.Fatalf("lotwBackfillCooldownRemaining (no prior run): %v", err)
+	}
+	if remaining != 0 {
+		t.Fatalf("remaining = %v, want 0 with no prior backfill recorded", remaining)
+	}
+
+	if err := m.store.recordLoTWBackfillAt(m.activeStation.ID, now); err != nil {
+		t.Fatalf("recordLoTWBackfillAt: %v", err)
+	}
+	remaining, err = m.store.lotwBackfillCooldownRemaining(m.activeStation.ID, now.Add(time.Minute))
+	if err != nil {
+		t.Fatalf("lotwBackfillCooldownRemaining (just recorded): %v", err)
+	}
+	if remaining <= 0 || remaining > lotwBackfillMinInterval {
+		t.Fatalf("remaining = %v, want a positive value up to %v", remaining, lotwBackfillMinInterval)
+	}
+
+	remaining, err = m.store.lotwBackfillCooldownRemaining(m.activeStation.ID, now.Add(lotwBackfillMinInterval+time.Minute))
+	if err != nil {
+		t.Fatalf("lotwBackfillCooldownRemaining (past interval): %v", err)
+	}
+	if remaining != 0 {
+		t.Fatalf("remaining = %v, want 0 once the interval has elapsed", remaining)
+	}
+}
+
 func TestCtrlYWithoutStationConfiguredLeavesQueueEmpty(t *testing.T) {
 	m := reviewModel(t)
 	m.lotwStation = ""
