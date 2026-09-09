@@ -252,6 +252,78 @@ func TestBackfillMissingDXCCIsIdempotent(t *testing.T) {
 	}
 }
 
+// TestBackfillQSOGeographyFromConfirmationsFillsBlanksOnly covers a QSO
+// logged without a state/grid/IOTA reference (no QRZ lookup, no ADIF import
+// data) that later gets a matched LoTW confirmation carrying that geography:
+// openStore must copy it onto the QSO row so WAS/VUCC/IOTA "worked" reflects
+// what LoTW already proves was worked, without touching a field the QSO
+// already had a (possibly different, locally-entered) value for.
+func TestBackfillQSOGeographyFromConfirmationsFillsBlanksOnly(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	blankID := insertRawQSO(t, st, "W5AR", "20260101", 1)
+	prefilledID := insertRawQSO(t, st, "W5AR", "20260102", 1)
+	if _, err := st.db.Exec(`UPDATE qso SET state = 'OK' WHERE id = ?`, prefilledID); err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	for _, c := range []struct {
+		qsoID int64
+		call  string
+	}{
+		{blankID, "W5AR-BLANK"},
+		{prefilledID, "W5AR-PREFILLED"},
+	} {
+		if _, err := st.db.Exec(
+			`INSERT INTO lotw_confirmation (profile_id, qso_id, call, band, state, gridsquare, iota_ref, synced_at) VALUES (1, ?, ?, '20M', 'AR', 'EM34xx', 'NA-999', ?)`,
+			c.qsoID, c.call, now,
+		); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := st.backfillQSOGeographyFromConfirmations(); err != nil {
+		t.Fatalf("backfillQSOGeographyFromConfirmations: %v", err)
+	}
+
+	var blankState, blankGrid, blankIota string
+	if err := st.db.QueryRow(`SELECT state, gridsquare, iota_ref FROM qso WHERE id = ?`, blankID).Scan(&blankState, &blankGrid, &blankIota); err != nil {
+		t.Fatal(err)
+	}
+	if blankState != "AR" || blankGrid != "EM34xx" || blankIota != "NA-999" {
+		t.Fatalf("blank row got state=%q grid=%q iota=%q, want AR/EM34xx/NA-999", blankState, blankGrid, blankIota)
+	}
+
+	var prefilledState string
+	if err := st.db.QueryRow(`SELECT state FROM qso WHERE id = ?`, prefilledID).Scan(&prefilledState); err != nil {
+		t.Fatal(err)
+	}
+	if prefilledState != "OK" {
+		t.Fatalf("prefilled row state = %q, want it left untouched at OK", prefilledState)
+	}
+}
+
+// insertRawQSO inserts a minimal qso row directly (bypassing insertQSO, the
+// same way a pre-this-app database or a raw copy would), returning its id.
+func insertRawQSO(t *testing.T, st *store, call, qsoDate string, profileID int64) int64 {
+	t.Helper()
+	res, err := st.db.Exec(`INSERT INTO qso (call, qso_date, time_on, band, mode, profile_id) VALUES (?, ?, ?, ?, ?, ?)`,
+		call, qsoDate, "120000", "20M", "CW", profileID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
 // TestQSOsForProfileToleratesNullEndTime covers a row from an
 // intermediate schema where qso_date_off/time_off exist but were never
 // populated (NULL), which previously failed to scan into a plain string.

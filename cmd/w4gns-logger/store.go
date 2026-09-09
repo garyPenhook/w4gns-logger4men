@@ -202,6 +202,10 @@ func openStore(path string) (*store, error) {
 		db.Close()
 		return nil, fmt.Errorf("apply LoTW backfill state schema: %w", err)
 	}
+	if err := s.backfillQSOGeographyFromConfirmations(); err != nil {
+		db.Close()
+		return nil, err
+	}
 	var filename string
 	if err := db.QueryRow(`SELECT file FROM pragma_database_list WHERE name = 'main'`).Scan(&filename); err != nil {
 		db.Close()
@@ -340,6 +344,8 @@ func (s *store) migrate() error {
 		{name: "dxcc", definition: "INTEGER"},
 		{name: "cqz", definition: "INTEGER"},
 		{name: "ituz", definition: "INTEGER"},
+		{name: "state", definition: "TEXT"},
+		{name: "gridsquare", definition: "TEXT"},
 	} {
 		exists, err := s.columnExists("qso", column.name)
 		if err != nil {
@@ -495,6 +501,85 @@ func (s *store) backfillMissingDXCC() error {
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit DXCC backfill: %w", err)
+	}
+	return nil
+}
+
+// backfillQSOGeographyFromConfirmations fills state/gridsquare/iota_ref on a
+// QSO row from its own matched LoTW confirmation whenever the QSO row itself
+// is blank there. Unlike country/dxcc/cqz/ituz (backfillMissingDXCC), these
+// fields cannot be derived from a callsign alone — they come from an ADIF
+// import, a QRZ lookup, or manual entry, so a QSO logged without any of
+// those sources stays permanently blank and undercounts "worked" for WAS/
+// VUCC/IOTA award stats even after LoTW proves it was worked (a QSO cannot
+// be confirmed if it never happened). The confirming station's own
+// qso_qsldetail=yes data is authoritative for its own geography (see the
+// *ConfirmedQuery comment in lotw_stats.go), so this only ever fills a
+// blank, never overwrites a locally-known value.
+func (s *store) backfillQSOGeographyFromConfirmations() error {
+	rows, err := s.db.Query(`
+		SELECT q.id, COALESCE(q.state, ''), COALESCE(lc.state, ''),
+			COALESCE(q.gridsquare, ''), COALESCE(lc.gridsquare, ''),
+			COALESCE(q.iota_ref, ''), COALESCE(lc.iota_ref, '')
+		FROM qso q
+		JOIN lotw_confirmation lc ON lc.qso_id = q.id
+		WHERE (TRIM(lc.state) != '' AND TRIM(COALESCE(q.state, '')) = '')
+			OR (TRIM(lc.gridsquare) != '' AND TRIM(COALESCE(q.gridsquare, '')) = '')
+			OR (TRIM(lc.iota_ref) != '' AND TRIM(COALESCE(q.iota_ref, '')) = '')`)
+	if err != nil {
+		return fmt.Errorf("find qso rows missing confirmed geography: %w", err)
+	}
+	type pending struct {
+		id                           int64
+		qState, lcState              string
+		qGrid, lcGrid, qIota, lcIota string
+	}
+	var candidates []pending
+	for rows.Next() {
+		var p pending
+		if err := rows.Scan(&p.id, &p.qState, &p.lcState, &p.qGrid, &p.lcGrid, &p.qIota, &p.lcIota); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan qso row missing confirmed geography: %w", err)
+		}
+		candidates = append(candidates, p)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return fmt.Errorf("iterate qso rows missing confirmed geography: %w", err)
+	}
+	rows.Close()
+	if len(candidates) == 0 {
+		return nil
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin confirmed-geography backfill: %w", err)
+	}
+	defer tx.Rollback()
+	statement, err := tx.Prepare(`UPDATE qso SET state = ?, gridsquare = ?, iota_ref = ? WHERE id = ?`)
+	if err != nil {
+		return fmt.Errorf("prepare confirmed-geography backfill update: %w", err)
+	}
+	defer statement.Close()
+	fillBlank := func(local, confirmed string) string {
+		if strings.TrimSpace(local) == "" && strings.TrimSpace(confirmed) != "" {
+			return confirmed
+		}
+		return local
+	}
+	for _, p := range candidates {
+		state := fillBlank(p.qState, p.lcState)
+		grid := fillBlank(p.qGrid, p.lcGrid)
+		iota := fillBlank(p.qIota, p.lcIota)
+		if state == p.qState && grid == p.qGrid && iota == p.qIota {
+			continue // WHERE matched on a row where nothing actually changes
+		}
+		if _, err := statement.Exec(state, grid, iota, p.id); err != nil {
+			return fmt.Errorf("backfill confirmed geography for qso %d: %w", p.id, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit confirmed-geography backfill: %w", err)
 	}
 	return nil
 }

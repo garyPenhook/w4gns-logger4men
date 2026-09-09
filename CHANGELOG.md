@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.52.2
+
+- Add a startup backfill (`store.backfillQSOGeographyFromConfirmations`) that copies state/gridsquare/IOTA-reference from a QSO's own matched LoTW confirmation onto the local QSO row whenever that row never had it — e.g. logged without a QRZ lookup or ADIF import carrying that data. Unlike country/DXCC (backfillMissingDXCC), these fields can't be derived from a callsign, so a confirmed QSO could still be invisible to WAS/VUCC/IOTA "worked" counts even after LoTW proved it happened. Only fills a blank, never overwrites a locally-known value. Verified against a real log: WAS worked rows went from 21 to 674, bringing worked in line with the 50 confirmed states from v1.52.1's fix.
+
 ### v1.52.1
 
 - Fix the WAS award stat counting foreign administrative subdivisions as US states: ADIF's STATE field is reused by many countries for their own "primary administrative subdivision" (Canadian provinces, Australian states, Russian oblasts, etc.), and some of those two-letter codes collide with a real US state's code (e.g. "AR" is both Arkansas and a European Russia oblast) — a real log showed 61 "confirmed" states, more than the 50 that exist. WAS worked/confirmed are now scoped to the DXCC entities WAS actually draws from (mainland United States, Alaska, Hawaii — the latter two are separate DXCC entities per ARRL's own DXCC FAQ but still count as 2 of the 50 states), restricted to the 50 real state codes, with DC folded into Maryland per ARRL's WAS rules.
