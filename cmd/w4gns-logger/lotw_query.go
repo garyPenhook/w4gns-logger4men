@@ -116,10 +116,6 @@ func saveLoTWSyncState(exec lotwSyncExecer, profileID int64, state lotwSyncState
 	return nil
 }
 
-func (s *store) saveLoTWSyncState(profileID int64, state lotwSyncState) error {
-	return saveLoTWSyncState(s.db, profileID, state)
-}
-
 // buildLoTWReportURL constructs the lotwreport.adi query. login/password are
 // the operator's LoTW website credentials (loadLoTWLogin/loadLoTWWebPass) —
 // distinct from the TQSL Callsign Certificate used to sign uploads.
@@ -464,10 +460,6 @@ func (s *store) upsertLoTWConfirmation(profileID int64, record map[string]string
 // QSO records") mode is not part of the primary filter — TQSL can remap an
 // uploaded mode to a different value than what's logged locally — and is
 // only used to break a tie when more than one local QSO falls in the window.
-func (s *store) matchLoTWConfirmation(profileID int64, call, band, mode, qsoDate, timeOn string) (int64, bool, error) {
-	return matchLoTWConfirmation(s.db, profileID, call, band, mode, qsoDate, timeOn)
-}
-
 func matchLoTWConfirmation(exec lotwSyncExecer, profileID int64, call, band, mode, qsoDate, timeOn string) (int64, bool, error) {
 	confirmedAt, err := time.ParseInLocation("20060102150405", qsoDate+timeOn, time.UTC)
 	if err != nil {
