@@ -1,5 +1,10 @@
 # Changelog
 
+### v1.52.1
+
+- Fix the WAS award stat counting foreign administrative subdivisions as US states: ADIF's STATE field is reused by many countries for their own "primary administrative subdivision" (Canadian provinces, Australian states, Russian oblasts, etc.), and some of those two-letter codes collide with a real US state's code (e.g. "AR" is both Arkansas and a European Russia oblast) — a real log showed 61 "confirmed" states, more than the 50 that exist. WAS worked/confirmed are now scoped to the DXCC entities WAS actually draws from (mainland United States, Alaska, Hawaii — the latter two are separate DXCC entities per ARRL's own DXCC FAQ but still count as 2 of the 50 states), restricted to the 50 real state codes, with DC folded into Maryland per ARRL's WAS rules.
+- Fix WAZ counting any non-zero `cqz` value as a worked/confirmed zone, including out-of-range data (CQ's WAZ award covers exactly 40 zones); both sides are now bounded to 1-40.
+
 ### v1.52.0
 
 - Add a one-time startup backfill (`store.backfillMissingDXCC`) that resolves country/CQ-zone/ITU-zone/DXCC-number for any QSO that never had them set — e.g. rows from a database carried over from before this app's DXCC resolution existed. Without it, the DXCC/WAS/WAZ award stats (`Ctrl+A`) undercounted "worked" for anyone whose log predates that feature, sometimes showing more confirmed than worked and needed-award lists missing most unconfirmed entities. Only ever fills a blank field; never overwrites a value already present, so it's safe on every startup.

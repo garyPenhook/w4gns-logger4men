@@ -76,6 +76,13 @@ type lotwAwardStats struct {
 	IOTA awardProgress
 }
 
+// usStateAndDCCodesSQL is a literal SQL IN-list of the 50 US state postal
+// codes plus DC (folded into MD by wasWorkedQuery/wasConfirmedQuery above,
+// but still needed here so a DC row passes the filter in the first place).
+// Built from a fixed, non-user-controlled Go slice, not user input, so
+// inlining it into the query string is safe.
+const usStateAndDCCodesSQL = `'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','DC'`
+
 // The *ConfirmedQuery constants read geography (dxcc/state/cqz/gridsquare/
 // iota_ref) straight from lotw_confirmation, not the locally matched qso
 // row: those columns are populated from the QSLing station's own confirmed
@@ -91,15 +98,42 @@ const (
 	dxccConfirmedQuery = `SELECT DISTINCT dxcc, TRIM(dxcc || ' ' || country)
 		FROM lotw_confirmation WHERE profile_id = ? AND dxcc != '' AND dxcc != '0'`
 
-	wasWorkedQuery = `SELECT DISTINCT UPPER(TRIM(state)), UPPER(TRIM(state))
-		FROM qso WHERE profile_id = ? AND state IS NOT NULL AND TRIM(state) != ''`
-	wasConfirmedQuery = `SELECT DISTINCT UPPER(TRIM(state)), UPPER(TRIM(state))
-		FROM lotw_confirmation WHERE profile_id = ? AND TRIM(state) != ''`
+	// WAS (Worked All States, ARRL rules at arrl.org/was) credits the 50 US
+	// states, not the ADIF STATE field verbatim: STATE is a per-DXCC-entity
+	// "primary administrative subdivision" code (ADIF spec ??3.6.24) reused by
+	// many countries — Canadian provinces, Australian states, Russian
+	// oblasts, etc. can collide with a US state's own two-letter code (e.g.
+	// "AR" is both Arkansas and a European Russia oblast code), so counting
+	// every non-blank STATE worldwide overcounts WAS, which is exactly the
+	// bug this fixes (a real log showed 61 "confirmed" states, more than the
+	// 50 that exist). The fix requires two things together, not just a state
+	// allowlist: scoping to the DXCC entities WAS actually draws from --
+	// mainland United States (291) plus Alaska (6) and Hawaii (110), which
+	// ARRL's own DXCC FAQ confirms are separate DXCC entities yet still count
+	// as 2 of the 50 states for WAS -- and restricting to the 50 real state
+	// codes. The District of Columbia (DC) is folded into Maryland (MD) per
+	// ARRL's WAS rules ("the District of Columbia may be counted for
+	// Maryland"), so a DC contact/confirmation counts as an MD credit rather
+	// than a 51st, nonexistent "state".
+	wasWorkedQuery = `SELECT DISTINCT
+			CASE WHEN UPPER(TRIM(state)) = 'DC' THEN 'MD' ELSE UPPER(TRIM(state)) END,
+			CASE WHEN UPPER(TRIM(state)) = 'DC' THEN 'MD' ELSE UPPER(TRIM(state)) END
+		FROM qso WHERE profile_id = ? AND dxcc IN (291, 6, 110)
+			AND UPPER(TRIM(state)) IN (` + usStateAndDCCodesSQL + `)`
+	wasConfirmedQuery = `SELECT DISTINCT
+			CASE WHEN UPPER(TRIM(state)) = 'DC' THEN 'MD' ELSE UPPER(TRIM(state)) END,
+			CASE WHEN UPPER(TRIM(state)) = 'DC' THEN 'MD' ELSE UPPER(TRIM(state)) END
+		FROM lotw_confirmation WHERE profile_id = ? AND dxcc IN (291, 6, 110)
+			AND UPPER(TRIM(state)) IN (` + usStateAndDCCodesSQL + `)`
 
+	// WAZ (CQ's Worked All Zones) covers exactly 40 CQ zones (cq-amateur-
+	// radio.com's WAZ rules, Section 1): bounding to 1-40 rejects a corrupt or
+	// out-of-range cqz value (e.g. bad ADIF import data) as a new "zone"
+	// instead of trusting it at face value.
 	wazWorkedQuery = `SELECT DISTINCT CAST(cqz AS TEXT), CAST(cqz AS TEXT)
-		FROM qso WHERE profile_id = ? AND cqz IS NOT NULL AND CAST(cqz AS TEXT) != '0'`
+		FROM qso WHERE profile_id = ? AND cqz IS NOT NULL AND CAST(cqz AS INTEGER) BETWEEN 1 AND 40`
 	wazConfirmedQuery = `SELECT DISTINCT cqz, cqz
-		FROM lotw_confirmation WHERE profile_id = ? AND cqz != '' AND cqz != '0'`
+		FROM lotw_confirmation WHERE profile_id = ? AND cqz != '' AND CAST(cqz AS INTEGER) BETWEEN 1 AND 40`
 
 	// VUCC credits a 4-character grid square worked on 50 MHz and above; 6M is
 	// the highest band this app's amateurBands table tracks (see

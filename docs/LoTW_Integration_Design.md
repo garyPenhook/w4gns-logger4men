@@ -448,9 +448,16 @@ data (the `qso` table plus `lotw_confirmation`, via the aggregation queries in
   columns `qso` already carries (populated at log time by `resolveDXCC`,
   which itself uses the `dxcc.go` entity table) — no separate number→name
   reverse lookup needed.
-- **WAS** (Worked All States): states worked vs. confirmed, from the existing
-  `state` field.
-- **WAZ**: CQ zones worked vs. confirmed, from the existing `cqz` field.
+- **WAS** (Worked All States): states worked vs. confirmed, scoped to the
+  DXCC entities WAS actually draws from (mainland United States/291, plus
+  Alaska/6 and Hawaii/110 — separate DXCC entities per ARRL's DXCC FAQ that
+  still count as 2 of the 50 states) and restricted to the 50 real state
+  codes, since ADIF's `STATE` field is reused by other countries for their
+  own subdivisions and can collide with a US state's code (e.g. "AR" is both
+  Arkansas and a European Russia oblast). DC folds into Maryland per ARRL's
+  WAS rules ("the District of Columbia may be counted for Maryland").
+- **WAZ**: CQ zones worked vs. confirmed, from the existing `cqz` field,
+  bounded to CQ's documented 1-40 zone range.
 - **VUCC**: 4-character grid squares confirmed on 6M — the highest band this
   app's `amateurBands` table tracks (see `bandplan.go`), and VUCC credits
   50 MHz and up, so restricting to `band = '6M'` is the correct filter given

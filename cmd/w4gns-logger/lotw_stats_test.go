@@ -102,3 +102,99 @@ func TestLoadLoTWAwardStatsCountsWorkedAndConfirmed(t *testing.T) {
 		t.Fatalf("IOTA = %+v, want worked=1 confirmed=0 needed=1", stats.IOTA)
 	}
 }
+
+// TestLoadLoTWAwardStatsWASScopesToUSAAlaskaHawaiiAndFoldsDCIntoMaryland
+// guards the ARRL WAS rule fix: the ADIF STATE field is reused by many
+// countries for their own primary administrative subdivisions (Canadian
+// provinces, Russian oblasts, etc.), and some of those codes collide with a
+// real US state's two-letter code (e.g. "AR" is both Arkansas and a European
+// Russia oblast) — a naive "any non-blank STATE" count previously let a
+// foreign confirmation masquerade as a US state, which is how a real log
+// showed 61 "confirmed" states, more than the 50 that exist. WAS must also
+// still credit Alaska/Hawaii (separate DXCC entities from the mainland, per
+// ARRL's DXCC FAQ) and fold DC into Maryland (per ARRL's WAS rules).
+func TestLoadLoTWAwardStatsWASScopesToUSAAlaskaHawaiiAndFoldsDCIntoMaryland(t *testing.T) {
+	st, err := openStore(t.TempDir() + "/logger.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	insert := func(q qso) int64 {
+		q.timeOff = q.time.Add(time.Minute)
+		id, err := st.insertQSO(q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+
+	// Arkansas (a real US state, dxcc 291) vs. a European Russia oblast that
+	// happens to share the "AR" code (dxcc 15) — only the former may count.
+	arkansasID := insert(qso{
+		call: "W5AR", band: "20M", mode: "CW", time: time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC),
+		profileID: 1, dxccNumber: "291", state: "AR", cqZone: "5",
+	})
+	insert(qso{
+		call: "R1ABC", band: "20M", mode: "CW", time: time.Date(2026, 3, 1, 13, 0, 0, 0, time.UTC),
+		profileID: 1, dxccNumber: "15", state: "AR", cqZone: "16",
+	})
+	// Alaska and Hawaii are separate DXCC entities (6 and 110) yet still
+	// count as 2 of the 50 states.
+	alaskaID := insert(qso{
+		call: "KL7ABC", band: "20M", mode: "CW", time: time.Date(2026, 3, 1, 14, 0, 0, 0, time.UTC),
+		profileID: 1, dxccNumber: "6", state: "AK", cqZone: "1",
+	})
+	hawaiiID := insert(qso{
+		call: "KH6ABC", band: "20M", mode: "CW", time: time.Date(2026, 3, 1, 15, 0, 0, 0, time.UTC),
+		profileID: 1, dxccNumber: "110", state: "HI", cqZone: "31",
+	})
+	// DC folds into Maryland, not a 51st "state".
+	dcID := insert(qso{
+		call: "W3DC", band: "20M", mode: "CW", time: time.Date(2026, 3, 1, 16, 0, 0, 0, time.UTC),
+		profileID: 1, dxccNumber: "291", state: "DC", cqZone: "5",
+	})
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	for _, c := range []struct {
+		id                int64
+		call, dxcc, state string
+	}{
+		{arkansasID, "W5AR", "291", "AR"},
+		{alaskaID, "KL7ABC", "6", "AK"},
+		{hawaiiID, "KH6ABC", "110", "HI"},
+		{dcID, "W3DC", "291", "DC"},
+	} {
+		if _, err := st.db.Exec(
+			`INSERT INTO lotw_confirmation (profile_id, qso_id, call, band, dxcc, country, state, cqz, synced_at) VALUES (1, ?, ?, '20M', ?, 'X', ?, '5', ?)`,
+			c.id, c.call, c.dxcc, c.state, now,
+		); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// A Russia oblast confirmation reusing the "AR" code must not count as an
+	// Arkansas confirmation.
+	if _, err := st.db.Exec(
+		`INSERT INTO lotw_confirmation (profile_id, call, band, dxcc, country, state, cqz, synced_at) VALUES (1, 'R1ABC', '20M', '15', 'ASIATIC RUSSIA', 'AR', '16', ?)`,
+		now,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	stats, err := st.loadLoTWAwardStats(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Worked: AR (from W5AR only, not the Russia "AR"), AK, HI, and DC folded
+	// into MD = 4 distinct states (AR, AK, HI, MD).
+	if stats.WAS.Worked != 4 {
+		t.Fatalf("WAS.Worked = %d, want 4 (AR/AK/HI/MD, excluding the Russia oblast's colliding \"AR\" code)", stats.WAS.Worked)
+	}
+	if stats.WAS.Confirmed != 4 {
+		t.Fatalf("WAS.Confirmed = %d, want 4 (AR/AK/HI/MD, excluding the Russia oblast confirmation)", stats.WAS.Confirmed)
+	}
+	if len(stats.WAS.Needed) != 0 {
+		t.Fatalf("WAS.Needed = %v, want none (everything worked is confirmed)", stats.WAS.Needed)
+	}
+}
