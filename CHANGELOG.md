@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.51.1
+
+- Surface a specific, actionable message when the configured LoTW Station doesn't match any TQSL Station Location, instead of `tqsl`'s generic "Command Syntax Error": `tqsl` uses the same exit code (10) for a genuinely malformed command line and for an unrecognized `-l` value, but its stdout names the real cause, which is now detected and reported (e.g. after entering a callsign instead of a Station Location name into Station Setup's LoTW Station field).
+
 ### v1.51.0
 
 - Add LoTW Station, LoTW Cert Pass, LoTW Login, and LoTW Web Pass fields to Station Setup (`F2`), so the TQSL station-location name, certificate passphrase, and LoTW website login/password used for upload and confirmation sync can be entered in-app instead of only via `lotw.station`/`lotw.pass`/`lotw.login`/`lotw.webpass` files or `CWLOGGER_LOTW_*` environment variables. All three configuration methods remain interchangeable and env vars still take precedence.

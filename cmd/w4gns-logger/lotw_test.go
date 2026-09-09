@@ -69,6 +69,54 @@ func TestTqslFinalStatusTextFallsBackToRawOutput(t *testing.T) {
 	}
 }
 
+// TestTqslStationLocationNotFoundHint covers the real tqsl 2.8.6 output
+// (verified locally) for an -l value that doesn't match any configured
+// Station Location, which otherwise surfaces only as the unhelpful generic
+// "Command Syntax Error(10)".
+func TestTqslStationLocationNotFoundHint(t *testing.T) {
+	output := "TQSL Version 2.8.6 [pkg-v2.8.6]\n" +
+		"The selected Station Location (W4GNS) could not be found\n" +
+		"Final Status: Command Syntax Error(10)\n"
+	hint, ok := tqslStationLocationNotFoundHint(output, "W4GNS")
+	if !ok {
+		t.Fatal("tqslStationLocationNotFoundHint: ok = false, want true")
+	}
+	if !strings.Contains(hint, `"W4GNS"`) || !strings.Contains(hint, "Station Setup") {
+		t.Fatalf("hint = %q, want it to name the bad value and point at Station Setup", hint)
+	}
+}
+
+func TestTqslStationLocationNotFoundHintFalseForUnrelatedOutput(t *testing.T) {
+	output := "Final Status: Command Syntax Error(10)\n"
+	if _, ok := tqslStationLocationNotFoundHint(output, "Home"); ok {
+		t.Fatal("tqslStationLocationNotFoundHint: ok = true for output without the marker")
+	}
+}
+
+// TestRunTQSLSurfacesStationLocationNotFoundHint checks the hint is wired
+// into runTQSL's returned statusText, not just the standalone helper above.
+func TestRunTQSLSurfacesStationLocationNotFoundHint(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "tqsl")
+	script := "#!/bin/sh\n" +
+		"echo \"The selected Station Location (W4GNS) could not be found\"\n" +
+		"echo \"Final Status: Command Syntax Error(10)\"\n" +
+		"exit 10\n"
+	if err := os.WriteFile(path, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	code, text, err := runTQSL(context.Background(), path, "W4GNS", "", "/tmp/whatever.adi")
+	if err != nil {
+		t.Fatalf("runTQSL: %v", err)
+	}
+	if code != 10 {
+		t.Fatalf("exit code = %d, want 10", code)
+	}
+	if !strings.Contains(text, `"W4GNS"`) || !strings.Contains(text, "Station Setup") {
+		t.Fatalf("status text = %q, want the station-not-found hint", text)
+	}
+}
+
 // TestRunTQSLExitCodeTable is table-driven over every documented TQSL exit
 // code (docs/LoTW_Integration_Design.md), asserting runTQSL surfaces the
 // code and status text rather than treating a nonzero exit as a Go error.

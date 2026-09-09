@@ -195,6 +195,30 @@ func tqslFinalStatusText(output string) string {
 	return rest
 }
 
+// tqslStationNotFoundMarker is the distinctive fragment of the diagnostic
+// line tqsl prints to stdout — "The selected Station Location (<name>) could
+// not be found" — when -l names a station location that doesn't match any
+// location configured in the local TQSL install.
+const tqslStationNotFoundMarker = "could not be found"
+
+// tqslStationLocationNotFoundHint replaces tqsl's generic "Command Syntax
+// Error(10)" status text with a specific, actionable one when tqsl's own
+// stdout diagnostic identifies the actual cause as an unmatched -l argument.
+// Exit 10 is tqsl's only code for "couldn't act on my own invocation",
+// covering both a genuinely malformed command line and -l simply naming a
+// station location that doesn't exist locally — indistinguishable from the
+// exit code alone. Verified locally against tqsl 2.8.6: an unknown -l value
+// prints "The selected Station Location (<name>) could not be found" on
+// stdout before exiting 10 either way. A frequent real cause: entering the
+// operator's callsign (or anything else) into Station Setup's LoTW Station
+// field instead of the Station Location name TQSL itself uses.
+func tqslStationLocationNotFoundHint(output, station string) (string, bool) {
+	if !strings.Contains(output, "Station Location") || !strings.Contains(output, tqslStationNotFoundMarker) {
+		return "", false
+	}
+	return fmt.Sprintf("LoTW Station %q does not match any TQSL Station Location — open TQSL to see the exact name (it's not necessarily your callsign), then fix it in Station Setup (F2)", station), true
+}
+
 // runTQSL invokes tqsl to sign and upload adifPath under station, returning
 // its exit code and the "Final Status" text it printed. err is only set for
 // failures to run the process at all (not found, killed, non-exit-status
@@ -209,7 +233,11 @@ func runTQSL(ctx context.Context, tqslPath, station, pass, adifPath string) (exi
 	args = append(args, "-u", adifPath)
 	cmd := exec.CommandContext(ctx, tqslPath, args...)
 	output, runErr := cmd.CombinedOutput()
-	statusText = tqslFinalStatusText(string(output))
+	raw := string(output)
+	statusText = tqslFinalStatusText(raw)
+	if hint, ok := tqslStationLocationNotFoundHint(raw, station); ok {
+		statusText = hint
+	}
 	var exitErr *exec.ExitError
 	switch {
 	case runErr == nil:
