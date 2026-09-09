@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.50.1
+
+- Harden database-path resolution against silently starting a second, empty database when the operator's real one can't be found in any of the usual locations (working directory, XDG data dir, pre-rename legacy dir): the path last successfully opened is now remembered and reused if it's still there, or reported as a clear error if it's gone, instead of quietly prompting for a callsign and creating a new log next to the real one.
+
 ### v1.50.0
 
 - Fix the QSO Entry screen losing its Call/RST Sent/RST Rcvd field row off the top of a short terminal window: the Recent QSOs table (and the DX Spots panel beside it) now shrinks to fit the actual terminal height instead of staying pinned at a fixed 10 rows, so the hotkey bar, header, and field-entry grid above it always fit on screen.

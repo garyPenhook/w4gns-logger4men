@@ -95,7 +95,62 @@ func existingDBIn(dir string) (string, bool) {
 // re-prompting. Resolving to a stable, working-directory-independent path
 // also matters because the installed command is on PATH and can be launched
 // from anywhere: without it, running from an unfamiliar directory would
-// silently open or create an unrelated, empty database.
+// silently open or create an unrelated, empty database — as a last resort
+// before treating that as a first run, the database path remembered from
+// the last successful open (see rememberLastDBPath) is reused if it still
+// exists, or reported as missing rather than silently orphaned.
+// defaultDBMarkerPath resolves the path used to remember the database this
+// install last successfully opened via defaultDBPath (see
+// rememberLastDBPath), alongside the window-size file under the user's XDG
+// config directory.
+func defaultDBMarkerPath() string {
+	dir := xdgConfigDir()
+	if dir == "" {
+		return ""
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return ""
+	}
+	return filepath.Join(dir, "last-db-path")
+}
+
+// rememberLastDBPath best-effort records dbPath as the database this
+// install last successfully opened via defaultDBPath, so a future run that
+// can't find a database in any of the usual candidate locations (wrong
+// working directory, an unmounted drive, a changed XDG_DATA_HOME) can tell
+// "a real database just isn't reachable right now" apart from "this is
+// actually a first run" — see the lastKnownDBPath check in defaultDBPath.
+// Only main calls this, and only right after openStore confirms dbPath
+// actually opened, and only when dbPath came from defaultDBPath rather than
+// an explicit CWLOGGER_DB override: an operator's deliberate one-off
+// CWLOGGER_DB (e.g. for a script or a test import) must not become the
+// assumed default for every later unmarked run.
+func rememberLastDBPath(dbPath string) {
+	abs, err := filepath.Abs(dbPath)
+	if err != nil {
+		return
+	}
+	path := defaultDBMarkerPath()
+	if path == "" {
+		return
+	}
+	_ = os.WriteFile(path, []byte(abs), 0o600)
+}
+
+// lastKnownDBPath returns the database path remembered by rememberLastDBPath,
+// or "" if none is recorded or it's unreadable.
+func lastKnownDBPath() string {
+	path := defaultDBMarkerPath()
+	if path == "" {
+		return ""
+	}
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(contents))
+}
+
 func defaultDBPath() (string, error) {
 	if _, err := os.Stat("w4gns.db"); err == nil {
 		return "w4gns.db", nil
@@ -111,6 +166,20 @@ func defaultDBPath() (string, error) {
 		if legacyPath := filepath.Join(legacyDir, "w4gns.db"); fileExists(legacyPath) {
 			return legacyPath, nil
 		}
+	}
+	// None of the usual locations turned up a database. If one was
+	// successfully opened by a previous run, that database still existing
+	// somewhere else entirely (an explicit CWLOGGER_DB used once, or a
+	// cwd-relative file found only because that run happened to launch from
+	// a particular directory) is far more likely than this genuinely being
+	// a first run — reuse it directly if it's still there, or refuse rather
+	// than silently starting a second, empty database next to the
+	// operator's real one.
+	if last := lastKnownDBPath(); last != "" {
+		if fileExists(last) {
+			return last, nil
+		}
+		return "", fmt.Errorf("previously used database %s no longer found (wrong working directory? an unmounted drive? a changed XDG_DATA_HOME?); set CWLOGGER_DB to its actual location, or delete %s to confirm starting a new database", last, defaultDBMarkerPath())
 	}
 	filename := sanitizeCallsignForFilename(promptForCallsign())
 	if filename == "" {

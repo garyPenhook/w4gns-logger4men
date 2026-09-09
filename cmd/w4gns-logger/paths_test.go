@@ -29,6 +29,7 @@ func TestDefaultDBPathPrefersExistingLegacyFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("XDG_DATA_HOME", filepath.Join(dir, "xdg-data"))
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, "xdg-config"))
 
 	got, err := defaultDBPath()
 	if err != nil {
@@ -56,6 +57,7 @@ func withPromptForCallsign(t *testing.T, callsign string) {
 func TestDefaultDBPathIsStableAcrossWorkingDirectories(t *testing.T) {
 	dataHome := t.TempDir()
 	t.Setenv("XDG_DATA_HOME", dataHome)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	withPromptForCallsign(t, "W1AW")
 
 	dirA, dirB := t.TempDir(), t.TempDir()
@@ -85,6 +87,7 @@ func TestDefaultDBPathIsStableAcrossWorkingDirectories(t *testing.T) {
 func TestDefaultDBPathNamesDatabaseAfterPromptedCallsign(t *testing.T) {
 	dataHome := t.TempDir()
 	t.Setenv("XDG_DATA_HOME", dataHome)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	chdir(t, t.TempDir())
 	withPromptForCallsign(t, "  W1AW/4  ")
 
@@ -104,6 +107,7 @@ func TestDefaultDBPathNamesDatabaseAfterPromptedCallsign(t *testing.T) {
 func TestDefaultDBPathReusesExistingCallsignNamedDBWithoutRePrompting(t *testing.T) {
 	dataHome := t.TempDir()
 	t.Setenv("XDG_DATA_HOME", dataHome)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	chdir(t, t.TempDir())
 	existing := filepath.Join(dataHome, appDirName)
 	if err := os.MkdirAll(existing, 0o700); err != nil {
@@ -136,6 +140,7 @@ func TestDefaultDBPathReusesExistingCallsignNamedDBWithoutRePrompting(t *testing
 func TestDefaultDBPathFallsBackToPreRenameXDGDir(t *testing.T) {
 	dataHome := t.TempDir()
 	t.Setenv("XDG_DATA_HOME", dataHome)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	chdir(t, t.TempDir())
 	legacyDir := filepath.Join(dataHome, legacyAppDirName)
 	if err := os.MkdirAll(legacyDir, 0o700); err != nil {
@@ -169,11 +174,75 @@ func TestDefaultDBPathFallsBackToPreRenameXDGDir(t *testing.T) {
 func TestDefaultDBPathErrorsWhenNoCallsignProvided(t *testing.T) {
 	dataHome := t.TempDir()
 	t.Setenv("XDG_DATA_HOME", dataHome)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	chdir(t, t.TempDir())
 	withPromptForCallsign(t, "   ")
 
 	if _, err := defaultDBPath(); err == nil {
 		t.Fatal("defaultDBPath() succeeded with a blank callsign, want an error")
+	}
+}
+
+// TestDefaultDBPathReusesRememberedPathOutsideStandardLocations guards the
+// actual incident this hardening fixes: a database that was only ever found
+// via the cwd-relative "./w4gns.db" check (or an explicit CWLOGGER_DB) on a
+// previous run — so it lives somewhere none of the standard XDG locations
+// would ever discover — must still be found on a run from a different
+// working directory, instead of silently starting a second, empty database.
+func TestDefaultDBPathReusesRememberedPathOutsideStandardLocations(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	chdir(t, t.TempDir())
+
+	elsewhere := filepath.Join(t.TempDir(), "w4gns.db")
+	if err := os.WriteFile(elsewhere, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	rememberLastDBPath(elsewhere)
+	old := promptForCallsign
+	promptForCallsign = func() string {
+		t.Fatal("promptForCallsign was called even though a remembered database still exists")
+		return ""
+	}
+	t.Cleanup(func() { promptForCallsign = old })
+
+	got, err := defaultDBPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != elsewhere {
+		t.Fatalf("defaultDBPath() = %q, want the remembered %q", got, elsewhere)
+	}
+}
+
+// TestDefaultDBPathErrorsWhenRememberedPathMissing guards the other half of
+// the hardening: if the remembered database has disappeared (wrong working
+// directory, unmounted drive, changed XDG_DATA_HOME), defaultDBPath must
+// report a clear error rather than silently prompting for a callsign and
+// starting a brand-new database next to the operator's real, just
+// temporarily unreachable one.
+func TestDefaultDBPathErrorsWhenRememberedPathMissing(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	chdir(t, t.TempDir())
+
+	gone := filepath.Join(t.TempDir(), "w4gns.db")
+	if err := os.WriteFile(gone, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	rememberLastDBPath(gone)
+	if err := os.Remove(gone); err != nil {
+		t.Fatal(err)
+	}
+	old := promptForCallsign
+	promptForCallsign = func() string {
+		t.Fatal("promptForCallsign was called even though the remembered database is missing")
+		return ""
+	}
+	t.Cleanup(func() { promptForCallsign = old })
+
+	if _, err := defaultDBPath(); err == nil {
+		t.Fatal("defaultDBPath() succeeded with the remembered database missing, want an error")
 	}
 }
 

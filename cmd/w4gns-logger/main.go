@@ -51,7 +51,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.50.0"
+const appVersion = "1.50.1"
 
 type screen int
 
@@ -4516,6 +4516,20 @@ func screenHotkeys(m model) string {
 	return statusBarStyle.Render(m.activeEventLabel()) + "\n" + hotkeyStyle.Render(line1) + "\n" + hotkeyStyle.Render(line2) + "\n" + hotkeyStyle.Render(line3)
 }
 
+// resolveDBPath returns the database path to open: the explicit
+// CWLOGGER_DB override if set, otherwise defaultDBPath(). usedDefault
+// reports whether defaultDBPath() supplied it, which callers use to decide
+// whether it's safe to remember (see rememberLastDBPath's doc comment) —
+// an explicit CWLOGGER_DB is a one-off the caller chose deliberately, not
+// something later unmarked runs should silently treat as the new default.
+func resolveDBPath() (path string, usedDefault bool, err error) {
+	if dbPath := os.Getenv("CWLOGGER_DB"); dbPath != "" {
+		return dbPath, false, nil
+	}
+	dbPath, err := defaultDBPath()
+	return dbPath, true, err
+}
+
 func main() {
 	if err := validateArgs(os.Args[1:]); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\nusage: %s [--export-adif PATH | --import-adif PATH | --upload-lotw [--force] | --version]\n", err, filepath.Base(os.Args[0]))
@@ -4553,20 +4567,19 @@ func main() {
 		}
 	}
 
-	dbPath := os.Getenv("CWLOGGER_DB")
-	if dbPath == "" {
-		var err error
-		dbPath, err = defaultDBPath()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			os.Exit(1)
-		}
+	dbPath, usedDefaultDBPath, err := resolveDBPath()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
 
 	st, err := openStore(dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error opening database: %v\n", err)
 		os.Exit(1)
+	}
+	if usedDefaultDBPath {
+		rememberLastDBPath(dbPath)
 	}
 	defer st.Close()
 
@@ -4718,14 +4731,10 @@ func adifExportPath(args []string) (string, bool) {
 }
 
 func runADIFExport(path string) {
-	dbPath := os.Getenv("CWLOGGER_DB")
-	if dbPath == "" {
-		var err error
-		dbPath, err = defaultDBPath()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			os.Exit(1)
-		}
+	dbPath, usedDefaultDBPath, err := resolveDBPath()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
 	if exportTargetCollidesWithDB(path, dbPath) {
 		fmt.Fprintln(os.Stderr, "ADIF export path must not be the SQLite database")
@@ -4735,6 +4744,9 @@ func runADIFExport(path string) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error opening database: %v\n", err)
 		os.Exit(1)
+	}
+	if usedDefaultDBPath {
+		rememberLastDBPath(dbPath)
 	}
 	defer st.Close()
 	// Re-check now that openStore has created the database (and its WAL/SHM
@@ -4778,19 +4790,18 @@ func runUploadLoTW(force bool) {
 	}
 	pass := loadLoTWPass()
 
-	dbPath := os.Getenv("CWLOGGER_DB")
-	if dbPath == "" {
-		var err error
-		dbPath, err = defaultDBPath()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			os.Exit(1)
-		}
+	dbPath, usedDefaultDBPath, err := resolveDBPath()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
 	st, err := openStore(dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error opening database: %v\n", err)
 		os.Exit(1)
+	}
+	if usedDefaultDBPath {
+		rememberLastDBPath(dbPath)
 	}
 	defer st.Close()
 
@@ -4888,19 +4899,18 @@ func runADIFImport(path string) {
 		os.Exit(1)
 	}
 	defer file.Close()
-	dbPath := os.Getenv("CWLOGGER_DB")
-	if dbPath == "" {
-		var err error
-		dbPath, err = defaultDBPath()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			os.Exit(1)
-		}
+	dbPath, usedDefaultDBPath, err := resolveDBPath()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
 	st, err := openStore(dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error opening database: %v\n", err)
 		os.Exit(1)
+	}
+	if usedDefaultDBPath {
+		rememberLastDBPath(dbPath)
 	}
 	defer st.Close()
 	profile, err := st.activeStationProfile()
