@@ -46,6 +46,45 @@ func TestStatsPanelEscReturnsToQSOEntry(t *testing.T) {
 	}
 }
 
+// TestWrapCommaListFitsWithinWidth guards against the DXCC needed list
+// rendering as one line wider than the terminal (a real report: entries like
+// "223 ENGLAND" joined 20-deep with no width awareness ran off the right
+// edge of the screen).
+func TestWrapCommaListFitsWithinWidth(t *testing.T) {
+	items := []string{"223 ENGLAND", "339 JAPAN", "76 GUATEMALA", "245 IRELAND", "15 ASIATIC RUSSIA"}
+	lines := wrapCommaList(items, 20)
+	if len(lines) < 2 {
+		t.Fatalf("wrapCommaList produced %d line(s) for width 20, want more than 1: %v", len(lines), lines)
+	}
+	for _, line := range lines {
+		// A single item longer than width still gets its own line (matching
+		// packFieldRows), so only a multi-item line overflowing is a bug.
+		if len([]rune(line)) > 20 && strings.Count(line, ",") > 0 {
+			t.Fatalf("line %q exceeds width 20 despite joining multiple items", line)
+		}
+	}
+	// Every item must still appear, in order, once reassembled.
+	joined := strings.Join(lines, ", ")
+	for _, item := range items {
+		if !strings.Contains(joined, item) {
+			t.Fatalf("wrapped output missing item %q: %q", item, joined)
+		}
+	}
+}
+
+func TestWrapCommaListSingleOverwidthItemGetsOwnLine(t *testing.T) {
+	lines := wrapCommaList([]string{"291 UNITED STATES OF AMERICA"}, 10)
+	if len(lines) != 1 || lines[0] != "291 UNITED STATES OF AMERICA" {
+		t.Fatalf("wrapCommaList = %v, want the single item on its own line even though it exceeds width", lines)
+	}
+}
+
+func TestWrapCommaListEmpty(t *testing.T) {
+	if lines := wrapCommaList(nil, 20); lines != nil {
+		t.Fatalf("wrapCommaList(nil) = %v, want nil", lines)
+	}
+}
+
 func TestStatsPanelSyncRequiresLoTWLoginConfigured(t *testing.T) {
 	m := reviewModel(t)
 	m.openStatsPanel()

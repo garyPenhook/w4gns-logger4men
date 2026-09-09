@@ -189,8 +189,17 @@ func (m model) statsPanelView() string {
 			shown = shown[:maxShown]
 			truncated = true
 		}
-		b.WriteString(strings.Join(shown, ", "))
-		b.WriteString("\n")
+		width := m.termWidth
+		if width <= 0 {
+			// No tea.WindowSizeMsg yet: fall back to a conventional 80-column
+			// budget so the list still wraps rather than rendering one wide
+			// line, matching the QSO Entry field-grid fallback.
+			width = 80
+		}
+		for _, line := range wrapCommaList(shown, width) {
+			b.WriteString(line)
+			b.WriteString("\n")
+		}
 		if truncated {
 			b.WriteString(helpStyle.Render(fmt.Sprintf("…and %d more", len(progress.Needed)-maxShown)))
 			b.WriteString("\n")
@@ -204,4 +213,29 @@ func (m model) statsPanelView() string {
 	}
 	b.WriteString(helpStyle.Render("Up/Down: page award  •  s: sync LoTW confirmations  •  Esc/Ctrl+A: QSO Entry"))
 	return b.String()
+}
+
+// wrapCommaList packs items into as many ", "-joined lines as fit within
+// width, so a DXCC needed list (labels like "223 ENGLAND" can run long, and
+// up to 20 of them were previously joined into a single line with no regard
+// for terminal width) wraps instead of running off the right edge of the
+// screen. A single item wider than width still gets its own line rather than
+// being dropped or cut mid-word, matching packFieldRows' overflow handling.
+func wrapCommaList(items []string, width int) []string {
+	if len(items) == 0 {
+		return nil
+	}
+	var lines []string
+	current := items[0]
+	for _, item := range items[1:] {
+		candidate := current + ", " + item
+		if len([]rune(candidate)) > width {
+			lines = append(lines, current)
+			current = item
+			continue
+		}
+		current = candidate
+	}
+	lines = append(lines, current)
+	return lines
 }

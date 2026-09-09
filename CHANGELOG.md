@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.52.3
+
+- Fix the stats panel's (`Ctrl+A`) DXCC/WAS/WAZ/VUCC/IOTA "needed" list running off the right edge of the screen: up to 20 entries (labels like "223 ENGLAND" can run long) were joined into a single comma-separated line with no regard for terminal width. The list now wraps across as many lines as needed to fit the actual terminal width.
+
 ### v1.52.2
 
 - Add a startup backfill (`store.backfillQSOGeographyFromConfirmations`) that copies state/gridsquare/IOTA-reference from a QSO's own matched LoTW confirmation onto the local QSO row whenever that row never had it — e.g. logged without a QRZ lookup or ADIF import carrying that data. Unlike country/DXCC (backfillMissingDXCC), these fields can't be derived from a callsign, so a confirmed QSO could still be invisible to WAS/VUCC/IOTA "worked" counts even after LoTW proved it happened. Only fills a blank, never overwrites a locally-known value. Verified against a real log: WAS worked rows went from 21 to 674, bringing worked in line with the 50 confirmed states from v1.52.1's fix.
