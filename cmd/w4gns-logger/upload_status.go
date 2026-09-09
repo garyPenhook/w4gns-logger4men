@@ -56,6 +56,9 @@ func (m *model) refreshUploadStatus() {
 		}
 		m.uploadQueueStatus += "\n" + summary
 	}
+	if m.lotwUpdateNotice != "" {
+		m.uploadQueueStatus += "\nTQSL: " + sanitizeClusterText(m.lotwUpdateNotice)
+	}
 }
 
 // Ctrl+U explicitly reassigns failed/paused work to the currently configured

@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -200,6 +202,153 @@ func signAndUploadLoTW(ctx context.Context, tqslPath, station, pass string, qsos
 		return -1, "", err
 	}
 	return runTQSL(ctx, tqslPath, station, pass, tempPath)
+}
+
+// lotwUpdateCheckInterval is how often this app asks tqsl to check for a new
+// TQSL version, a new Configuration Data file, and expiring/pending Callsign
+// Certificates, per ARRL's developer guidance for programs that drive tqsl on
+// the operator's behalf (docs/LoTW_Integration_Design.md, "ARRL developer
+// guidance"; <https://lotw.arrl.org/lotw-help/cmdline/?lang=en>). ARRL's docs
+// don't specify a cadence; once a day is enough for something that changes at
+// most a few times a year.
+const lotwUpdateCheckInterval = 24 * time.Hour
+
+// lotwUpdateCheckTimeout bounds the tqsl -n invocation, which only checks a
+// version file and certificate expiry (no QSO signing), so it needs far less
+// time than a sign-and-upload batch.
+const lotwUpdateCheckTimeout = 15 * time.Second
+
+// tqslCertStatus is the shape of ~/.tqsl/cert_status.xml, which tqsl -n
+// (re)writes with the revocation status of every locally installed Callsign
+// Certificate.
+type tqslCertStatus struct {
+	Certs []struct {
+		Serial string `xml:"serial,attr"`
+		Status string `xml:"status"`
+	} `xml:"Cert"`
+}
+
+// tqslCertStatusPath and tqslAppStatePath locate the two files tqsl -n
+// actually writes its findings to. Traced with strace against the installed
+// tqsl 2.8.6: ARRL's command-line reference says `-n` "displays the above
+// information (if any) to stderr, then exits" with no GUI, but on this
+// build/platform it writes stdout/stderr nothing at all, performs the real
+// network checks (a curl request to lotw.arrl.org's CRL endpoint for each
+// installed cert's serial, plus a TQSL/Configuration Data version check),
+// and instead persists the results to these two files before unconditionally
+// calling exit(-1) regardless of outcome (a code path that never got wired
+// up to return 0 on success on this build) — so neither stdout/stderr nor
+// the exit code carry any information here, but these files reliably do.
+// Both live under $HOME, which tqsl itself resolves the same way (confirmed
+// via strace: it opens exactly $HOME/.tqsl/... and $HOME/.tqslapp), so tests
+// redirect them the same way tqsl itself would follow — by overriding HOME.
+func tqslCertStatusPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".tqsl", "cert_status.xml"), nil
+}
+
+func tqslAppStatePath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".tqslapp"), nil
+}
+
+// tqslAppStateValue reads one `Key=Value` line from the ~/.tqslapp
+// preferences file tqsl maintains (a flat key=value format, not INI
+// sections, until the `[wxHtmlWindow]` marker near the end that this app
+// never needs to read past).
+func tqslAppStateValue(contents, key string) string {
+	prefix := key + "="
+	for _, line := range strings.Split(contents, "\n") {
+		if rest, ok := strings.CutPrefix(strings.TrimRight(line, "\r"), prefix); ok {
+			return strings.TrimSpace(rest)
+		}
+	}
+	return ""
+}
+
+// tqslUpdateNoticeFromFiles reads the two structured signals tqsl -n leaves
+// behind (see tqslCertStatusPath/tqslAppStatePath) and joins any actionable
+// findings into one operator-facing line. A missing/unparseable file (e.g.
+// the check has never run) is treated the same as "nothing to report", not
+// an error — this is a best-effort informational surface, not something QSO
+// delivery depends on.
+func tqslUpdateNoticeFromFiles() string {
+	var notices []string
+	if path, err := tqslCertStatusPath(); err == nil {
+		if data, err := os.ReadFile(path); err == nil {
+			var status tqslCertStatus
+			if xml.Unmarshal(data, &status) == nil {
+				for _, cert := range status.Certs {
+					if s := strings.TrimSpace(cert.Status); s != "" && !strings.EqualFold(s, "Unrevoked") {
+						notices = append(notices, fmt.Sprintf("certificate %s: %s", cert.Serial, s))
+					}
+				}
+			}
+		}
+	}
+	if path, err := tqslAppStatePath(); err == nil {
+		if data, err := os.ReadFile(path); err == nil {
+			if pending := tqslAppStateValue(string(data), "RequestPending"); pending != "" {
+				notices = append(notices, "pending Callsign Certificate request: "+pending)
+			}
+		}
+	}
+	return strings.Join(notices, "; ")
+}
+
+// checkTQSLUpdates runs `tqsl -n` (alone, per ARRL's TQSL command-line
+// reference: "-n... should therefore not be used with any other command line
+// option") to make it refresh cert_status.xml/.tqslapp, then reads the
+// findings from those files rather than from the process's output or exit
+// code — see tqslCertStatusPath for why. Both are ignored deliberately.
+func checkTQSLUpdates(ctx context.Context, tqslPath string) string {
+	cmd := exec.CommandContext(ctx, tqslPath, "-n")
+	_ = cmd.Run()
+	return tqslUpdateNoticeFromFiles()
+}
+
+// lotwUpdateCheckTickMsg wakes the periodic tqsl -n check.
+type lotwUpdateCheckTickMsg struct{}
+
+func lotwUpdateCheckTickCmd() tea.Cmd {
+	return tea.Tick(lotwUpdateCheckInterval, func(time.Time) tea.Msg { return lotwUpdateCheckTickMsg{} })
+}
+
+// lotwUpdateCheckMsg reports the result of one tqsl -n check. notice is
+// empty in the common case (tqsl found nothing to report, or the check
+// couldn't run at all) — only non-empty output is surfaced to the operator.
+type lotwUpdateCheckMsg struct {
+	notice string
+}
+
+// lotwUpdateCheckCmd runs the periodic tqsl -n check in the background. It is
+// a no-op when LoTW isn't configured, since there's no reason to shell out to
+// tqsl for an integration the operator hasn't set up.
+func (m model) lotwUpdateCheckCmd() tea.Cmd {
+	if strings.TrimSpace(m.lotwStation) == "" {
+		return nil
+	}
+	tqslPath, err := findTQSL()
+	if err != nil {
+		return nil
+	}
+	parent := m.bgCtx
+	if parent == nil {
+		parent = context.Background()
+	}
+	return runBgCmd(m.bgTasks, func() tea.Msg {
+		ctx, cancel := context.WithTimeout(parent, lotwUpdateCheckTimeout)
+		defer cancel()
+		return lotwUpdateCheckMsg{notice: checkTQSLUpdates(ctx, tqslPath)}
+	}, func(recovered any) tea.Msg {
+		return lotwUpdateCheckMsg{}
+	})
 }
 
 // enqueueLoTWBackfill queues every one of profileID's existing QSOs for LoTW

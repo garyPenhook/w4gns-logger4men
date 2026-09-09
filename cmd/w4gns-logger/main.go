@@ -312,6 +312,12 @@ type model struct {
 	lotwLogin    string
 	lotwWebPass  string
 
+	// lotwUpdateNotice holds the most recent non-empty result of the periodic
+	// `tqsl -n` check (see lotwUpdateCheckCmd) — a new TQSL/Configuration Data
+	// version or an expiring/pending Callsign Certificate. Empty when tqsl
+	// last reported nothing, which is the common case.
+	lotwUpdateNotice string
+
 	// statsSyncing/statsSyncMsg track the in-flight/last-outcome state of a
 	// manual LoTW confirmation sync triggered from the stats panel (Ctrl+A).
 	statsSyncing    bool
@@ -1173,7 +1179,10 @@ func (m model) Init() tea.Cmd {
 	// uploadDrainTickCmd starts the outbox drain loop, which also resumes any
 	// deliveries left pending in the database from a previous run (a crash,
 	// quit, or transient failure), so no logged QSO's upload is lost.
-	cmds := []tea.Cmd{textinput.Blink, fetchSolarIndicesCmd(), solarTickCmd(), uploadDrainTickCmd()}
+	cmds := []tea.Cmd{textinput.Blink, fetchSolarIndicesCmd(), solarTickCmd(), uploadDrainTickCmd(), lotwUpdateCheckTickCmd()}
+	if cmd := m.lotwUpdateCheckCmd(); cmd != nil {
+		cmds = append(cmds, cmd)
+	}
 	// main() pre-sets clusterConnecting (and the generation/status that go
 	// with it) before constructing the program, since Init has a value
 	// receiver and can't mutate the model itself — only kick off the
@@ -2854,6 +2863,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	if message, ok := msg.(tea.WindowSizeMsg); ok {
 		m.termWidth, m.termHeight = message.Width, message.Height
+		return m, nil
+	}
+	if _, ok := msg.(lotwUpdateCheckTickMsg); ok {
+		cmds := []tea.Cmd{lotwUpdateCheckTickCmd()}
+		if cmd := m.lotwUpdateCheckCmd(); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		return m, tea.Batch(cmds...)
+	}
+	if message, ok := msg.(lotwUpdateCheckMsg); ok {
+		m.lotwUpdateNotice = message.notice
+		m.refreshUploadStatus()
 		return m, nil
 	}
 	if _, ok := msg.(uploadDrainMsg); ok {

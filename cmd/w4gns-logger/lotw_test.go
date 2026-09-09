@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -180,6 +181,113 @@ func TestLotwBindingEmptyWithoutStationOrTQSL(t *testing.T) {
 	m = model{lotwStation: "Home"}
 	if got := m.lotwBinding(); got != "" {
 		t.Fatalf("lotwBinding() = %q, want empty when tqsl is unresolvable", got)
+	}
+}
+
+// writeFakeTQSLNoop installs a fake tqsl that ignores its arguments and does
+// nothing — checkTQSLUpdates reads its findings from tqsl's own state files
+// (cert_status.xml/.tqslapp) rather than from the process's output or exit
+// code (see tqslCertStatusPath), so the fake process itself only needs to
+// exist and exit; tests seed those files directly via a redirected HOME.
+func writeFakeTQSLNoop(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "tqsl")
+	if err := os.WriteFile(path, []byte("#!/bin/sh\nexit 255\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// seedTQSLHome redirects HOME (the same variable tqsl itself resolves
+// ~/.tqsl and ~/.tqslapp from) to a fresh temp dir and writes cert_status.xml
+// and .tqslapp with the given contents, so checkTQSLUpdates reads them back
+// exactly as it would tqsl's real state files.
+func seedTQSLHome(t *testing.T, certStatusXML, tqslAppState string) {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := os.MkdirAll(filepath.Join(home, ".tqsl"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if certStatusXML != "" {
+		if err := os.WriteFile(filepath.Join(home, ".tqsl", "cert_status.xml"), []byte(certStatusXML), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if tqslAppState != "" {
+		if err := os.WriteFile(filepath.Join(home, ".tqslapp"), []byte(tqslAppState), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestCheckTQSLUpdatesReportsRevokedCertificate(t *testing.T) {
+	tqslPath := writeFakeTQSLNoop(t)
+	seedTQSLHome(t, `<CertStatus><Cert serial="1144040"><status>Revoked</status></Cert></CertStatus>`, "")
+	got := checkTQSLUpdates(context.Background(), tqslPath)
+	want := "certificate 1144040: Revoked"
+	if got != want {
+		t.Fatalf("checkTQSLUpdates() = %q, want %q", got, want)
+	}
+}
+
+func TestCheckTQSLUpdatesReportsPendingCertRequest(t *testing.T) {
+	tqslPath := writeFakeTQSLNoop(t)
+	seedTQSLHome(t, "", "HasRun=yes\nRequestPending=W4GNS\nName=Test\n")
+	got := checkTQSLUpdates(context.Background(), tqslPath)
+	want := "pending Callsign Certificate request: W4GNS"
+	if got != want {
+		t.Fatalf("checkTQSLUpdates() = %q, want %q", got, want)
+	}
+}
+
+func TestCheckTQSLUpdatesEmptyWhenUnrevokedAndNoPendingRequest(t *testing.T) {
+	tqslPath := writeFakeTQSLNoop(t)
+	seedTQSLHome(t, `<CertStatus><Cert serial="1144040"><status>Unrevoked</status></Cert></CertStatus>`, "HasRun=yes\nRequestPending=\n")
+	if got := checkTQSLUpdates(context.Background(), tqslPath); got != "" {
+		t.Fatalf("checkTQSLUpdates() = %q, want empty for an unrevoked cert and no pending request", got)
+	}
+}
+
+func TestCheckTQSLUpdatesEmptyWhenFilesAbsent(t *testing.T) {
+	tqslPath := writeFakeTQSLNoop(t)
+	t.Setenv("HOME", t.TempDir())
+	if got := checkTQSLUpdates(context.Background(), tqslPath); got != "" {
+		t.Fatalf("checkTQSLUpdates() = %q, want empty when tqsl has never run", got)
+	}
+}
+
+func TestLotwUpdateCheckCmdNilWithoutStationConfigured(t *testing.T) {
+	m := model{lotwStation: ""}
+	if cmd := m.lotwUpdateCheckCmd(); cmd != nil {
+		t.Fatal("lotwUpdateCheckCmd returned a non-nil command with no station configured")
+	}
+}
+
+func TestLotwUpdateCheckCmdNilWhenTQSLUnavailable(t *testing.T) {
+	t.Setenv("CWLOGGER_TQSL", "")
+	t.Setenv("PATH", t.TempDir())
+	m := model{lotwStation: "Home"}
+	if cmd := m.lotwUpdateCheckCmd(); cmd != nil {
+		t.Fatal("lotwUpdateCheckCmd returned a non-nil command with tqsl unresolvable")
+	}
+}
+
+func TestLotwUpdateCheckCmdReportsNotice(t *testing.T) {
+	t.Setenv("CWLOGGER_TQSL", writeFakeTQSLNoop(t))
+	seedTQSLHome(t, `<CertStatus><Cert serial="1144040"><status>Expired</status></Cert></CertStatus>`, "")
+	m := model{lotwStation: "Home", bgTasks: &sync.WaitGroup{}}
+	cmd := m.lotwUpdateCheckCmd()
+	if cmd == nil {
+		t.Fatal("lotwUpdateCheckCmd returned nil with LoTW configured and tqsl resolvable")
+	}
+	msg, ok := cmd().(lotwUpdateCheckMsg)
+	if !ok {
+		t.Fatalf("cmd() = %T, want lotwUpdateCheckMsg", cmd())
+	}
+	if msg.notice != "certificate 1144040: Expired" {
+		t.Fatalf("notice = %q, want the cert_status.xml finding", msg.notice)
 	}
 }
 

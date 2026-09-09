@@ -502,6 +502,7 @@ Every QSO logged from QSO Entry is also signed and uploaded to [ARRL Logbook of 
 - Changing the configured station location (or losing `tqsl` from `PATH`) pauses in-flight LoTW deliveries the same way a changed QRZ key does, until `Ctrl+U` retries them with the current configuration.
 - `Ctrl+Y` queues the active profile's *entire* log for LoTW upload (not just new QSOs) and immediately drains the queue — use it once after setting up LoTW to backfill your existing log. Re-running it is safe; already-uploaded QSOs are simply skipped by TQSL's tracking database.
 - `w4gns-logger --upload-lotw` does the same backfill from the command line, without starting the TUI — useful for scripting or a cron job. It signs and uploads the whole log in one `tqsl` call and exits.
+- Once a day (and once at startup), this app also asks `tqsl` to check your Callsign Certificate status and for any pending certificate request, per ARRL's guidance for programs that automate `tqsl`. If it finds a revoked/expired certificate or a pending request, that shows up as a `TQSL: ...` line in the upload-status panel; a clean check (the normal case) shows nothing. This check never blocks uploads or logging.
 
 ## LoTW confirmation sync & award stats
 

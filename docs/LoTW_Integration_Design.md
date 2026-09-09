@@ -404,9 +404,89 @@ data (the `qso` table plus `lotw_confirmation`, via the aggregation queries in
 
 ### Open follow-ups (this phase, not Phase 2)
 
-- Call `tqsl -n` (update/critical-file check) periodically — ARRL calls this
-  out for programs driving `tqsl` on the user's behalf; not implemented yet
-  (see ARRL developer guidance above).
 - Consider a technical backstop (rate-limit or last-run timestamp) for
   `Ctrl+Y`/`--upload-lotw` so the "not routine" guidance is enforced rather
   than only documented, if operators are observed scripting it on a schedule.
+
+## Phase 3: periodic `tqsl -n` update check
+
+Status: implemented. See `cmd/w4gns-logger/lotw.go` (`checkTQSLUpdates`,
+`lotwUpdateCheckCmd`) and the "TQSL:" line `refreshUploadStatus` appends to
+the upload-status panel in `cmd/w4gns-logger/upload_status.go`.
+
+ARRL's [TQSL command-line reference](https://lotw.arrl.org/lotw-help/cmdline/?lang=en)
+calls out `-n`/`--updates` for programs that drive `tqsl` on the operator's
+behalf: it "checks for and reports the availability of a new version of TQSL,
+a new version of TQSL's Configuration Data file, expiring Callsign
+Certificates, [and] pending Callsign Certificates," writing findings to
+stderr, then "exits without digitally signing any specified filename" — no
+GUI, and "should therefore not be used with any other command line option."
+
+**Root-caused against the installed `tqsl` 2.8.6 with `strace` before
+implementing** (an initial cut that read stdout/stderr was wrong — see
+below): run alone per ARRL's spec, `-n` does *not* write to stderr or exit
+cleanly on this build/platform, but it isn't crashing or hanging either.
+`strace` shows it performing the real, documented checks — a `curl` request
+to `lotw.arrl.org`'s CRL endpoint for each installed certificate's serial,
+plus a TQSL/Configuration Data version check, both completing successfully —
+and then persisting the results to two files instead of stderr:
+
+- `~/.tqsl/cert_status.xml` — structured per-certificate revocation status,
+  e.g. `<CertStatus><Cert serial="1144040"><status>Unrevoked</status></Cert></CertStatus>`.
+- `~/.tqslapp` — tqsl's flat `Key=Value` preferences file; `RequestPending`
+  is non-empty when a Callsign Certificate request is outstanding (one of
+  the four things ARRL's `-n` doc says it checks).
+
+After writing both files, the process calls `exit_group(-1)` unconditionally
+— confirmed by `strace`, not a signal-killed crash (no core dump, no signal
+in the wait status) — apparently a code path in this build that was never
+wired up to return `0` on success when no GUI dialog needs to appear.
+Combining `-n` with any other flag (`-x`, `-l`, etc.) either prints
+`Option -n cannot be combined with any other options` or segfaults, matching
+ARRL's "should not be used with any other command line option," so `-n` is
+still invoked alone. Given all of this, stdout/stderr and the exit code carry
+**no information** on this build and are ignored entirely; the two files are
+the reliable source.
+
+`checkTQSLUpdates` runs `tqsl -n` alone (to make it refresh those files),
+ignores its output and exit code, then reads `cert_status.xml` (any status
+other than `Unrevoked`) and `.tqslapp`'s `RequestPending` — both structured,
+unlike the freeform `curl.log` transcript tqsl also writes, which is not
+parsed. A missing/unparseable file (the check has never run, or a future
+build changes format) is treated the same as "nothing to report" — never
+surfaced as an error, never blocks or delays anything else. This does *not*
+catch "new TQSL version available," since that information only exists in
+the freeform log; only the certificate-revocation and pending-request
+findings are surfaced. Genuine non-empty findings become
+`model.lotwUpdateNotice`, which `refreshUploadStatus` appends to the
+upload-status panel as a `TQSL: ...` line. `lotwUpdateCheckCmd` is a no-op
+unless a station location is configured and `findTQSL` resolves — same
+enablement guard as `uploadDestinations` — and runs once at startup plus every
+`lotwUpdateCheckInterval` (24h) thereafter, wrapped in `runBgCmd` so shutdown
+waits for an in-flight check the same way it waits for a sign/upload batch.
+
+### Phase 3 testing
+
+- `TestCheckTQSLUpdatesReportsRevokedCertificate` /
+  `...ReportsPendingCertRequest` / `...EmptyWhenUnrevokedAndNoPendingRequest`
+  / `...EmptyWhenFilesAbsent`: a no-op fake `tqsl` plus `seedTQSLHome`, which
+  redirects `HOME` (the same variable the real `tqsl` resolves `~/.tqsl` and
+  `~/.tqslapp` from) to a temp dir and seeds the two files directly, so these
+  exercise the real file-parsing logic without needing a working `tqsl`
+  binary.
+- `TestLotwUpdateCheckCmdNilWithoutStationConfigured` /
+  `...NilWhenTQSLUnavailable`: the same enablement guard as the upload path.
+- `TestLotwUpdateCheckCmdReportsNotice`: end-to-end through the `tea.Cmd`.
+- Manually verified end-to-end against the real installed `tqsl` 2.8.6: ran
+  `checkTQSLUpdates` against it directly, confirmed it refreshed
+  `~/.tqsl/cert_status.xml` and correctly returned an empty notice for the
+  real (unrevoked, no pending request) `W4GNS` certificate.
+
+### Phase 3 files touched
+
+| File | Change |
+| --- | --- |
+| `cmd/w4gns-logger/lotw.go` | `checkTQSLUpdates`, `tqslCertStatusPath`/`tqslAppStatePath`, `tqslUpdateNoticeFromFiles`, `lotwUpdateCheckCmd`, `lotwUpdateCheckTickCmd`, `lotwUpdateCheckMsg`/`lotwUpdateCheckTickMsg` |
+| `cmd/w4gns-logger/main.go` | `model.lotwUpdateNotice`, `Init()` scheduling, tick/message dispatch |
+| `cmd/w4gns-logger/upload_status.go` | `refreshUploadStatus` appends the `TQSL:` notice line |
+| `cmd/w4gns-logger/lotw_test.go` | Phase 3 tests above |
