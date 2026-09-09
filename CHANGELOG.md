@@ -1,5 +1,15 @@
 # Changelog
 
+### v1.49.0
+
+- Add ARRL Logbook of the World (LoTW) integration: automatic per-QSO upload signed by your locally installed `tqsl` (alongside the existing QRZ/WRL delivery), a manual/CLI full-log backfill (`Ctrl+Y` / `--upload-lotw`), incremental confirmation (QSL) sync, and a `Ctrl+A` award/analytics stats panel (DXCC/WAS/WAZ/VUCC/IOTA worked vs. confirmed). See the "ARRL LoTW upload" and "LoTW confirmation sync & award stats" sections of the README.
+- Enforce a one-hour cooldown between full-log LoTW backfills (`Ctrl+Y` / `--upload-lotw`), per ARRL's guidance that resubmitting a whole log should not be routine; `--upload-lotw --force` overrides it for a deliberate recovery re-run.
+- Fix several LoTW confirmation-sync correctness gaps found in an external review and verified against ARRL's own documentation: a failed query (bad login/password) no longer reads as "zero new confirmations"; a response truncated in transit is now detected instead of silently advancing the sync bookmark; matching a confirmation to a logged QSO no longer requires an exact mode match (TQSL may remap the uploaded mode); and confirmed-award geography (DXCC/state/CQ zone/grid/IOTA) is now read from LoTW's own confirmed data rather than this app's local guess.
+- Stop recording a LoTW upload batch as cleanly "sent" when `tqsl` reports it as all-duplicate or out-of-certificate-date-range; those are now logged as a distinct "suppressed" outcome, visible in the upload log and status line.
+- Redact the LoTW password out of any network-error text before it can reach the screen or logs.
+- Rename internal env vars, config/data directory names, and the ADIF/User-Agent product identifier so a downloaded copy of the app no longer carries the original author's callsign into another operator's config, uploads, or exports; existing installs keep working via an automatic fallback to the old paths. A first run with no existing database now prompts for the operator's own callsign and names the database file after it, instead of a fixed filename.
+- Add a periodic (daily) check of TQSL Callsign Certificate status and pending certificate requests, per ARRL's guidance for programs that automate `tqsl`; findings surface as a `TQSL: ...` line in the upload-status panel.
+
 ### v1.48.0
 
 - Reword the contest Cabrillo exchange-validation errors so they read correctly where they surface: each is wrapped as `<call> <time>: sent/received exchange: <message>`, so the former proper-noun-leading, self-repeating text (e.g. `Kentucky QSO Party DX exchange must be DX`) now reads `DX exchange must be DX` / `must be a French department code`. No validation behavior changes.
