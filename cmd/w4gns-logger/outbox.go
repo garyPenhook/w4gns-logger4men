@@ -65,6 +65,11 @@ CREATE INDEX IF NOT EXISTS idx_upload_log_occurred ON upload_log(occurred_at);
 const (
 	uploadLogSent   = "sent"
 	uploadLogFailed = "failed"
+	// uploadLogSuppressed marks a LoTW outbox batch that came back with tqsl
+	// exit code 8 or 9: terminal (removed from the outbox, see
+	// lotwExitDelivered), but not confirmed reached LoTW for every QSO in the
+	// batch the way uploadLogSent is — see lotwExitSentCleanly.
+	uploadLogSuppressed = "suppressed"
 )
 
 // logUploadEvent records the terminal outcome of one delivery attempt so an

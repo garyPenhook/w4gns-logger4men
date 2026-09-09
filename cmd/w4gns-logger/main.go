@@ -2956,6 +2956,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMsg = fmt.Sprintf("LoTW upload failed for %d QSO(s) (see upload queue): %v", len(message.results), message.err)
 		case message.delivered:
 			m.statusMsg = fmt.Sprintf("LoTW upload OK for %d QSO(s) (%s)", len(message.results), message.statusText)
+		case message.suppressed:
+			m.statusMsg = fmt.Sprintf("LoTW upload suppressed for %d QSO(s) (not confirmed reaching LoTW — duplicates or outside the certificate's date range; see upload log): %s", len(message.results), message.statusText)
 		default:
 			m.statusMsg = fmt.Sprintf("LoTW upload failed for %d QSO(s) (see upload queue): %s", len(message.results), message.statusText)
 		}

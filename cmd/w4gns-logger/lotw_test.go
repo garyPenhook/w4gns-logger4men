@@ -356,6 +356,61 @@ func TestDrainOutboxBatchesLoTWEntriesIntoOneCommand(t *testing.T) {
 	}
 }
 
+// TestLotwOutboxUploadCmdRecordsSuppressedNotSentOnAmbiguousExitCode guards
+// against a tqsl exit code 8/9 batch (some/no QSOs processed, because they
+// were duplicates or fell outside the certificate's date range) being
+// recorded as a confirmed delivery for every QSO in the automatic per-QSO
+// outbox drain: TQSL doesn't say which QSOs were skipped as harmless
+// duplicates versus never actually reaching LoTW, so the outbox row is still
+// removed (retrying won't help — see lotwExitDelivered) but the upload log
+// must show "suppressed", not "sent".
+func TestLotwOutboxUploadCmdRecordsSuppressedNotSentOnAmbiguousExitCode(t *testing.T) {
+	m := reviewModel(t)
+	t.Setenv("CWLOGGER_TQSL", writeFakeTQSL(t))
+	t.Setenv("TQSL_FAKE_EXIT", "9")
+	t.Setenv("TQSL_FAKE_TEXT", "Some QSOs not processed")
+	m.lotwStation = "Home"
+
+	q := reviewQSO(m)
+	q.call = "W1AW"
+	qsoID, err := m.store.insertQSOWithUploads(q, []string{uploadDestLoTW}, time.Now().Add(-time.Minute), m.uploadBindings())
+	if err != nil {
+		t.Fatal(err)
+	}
+	q.id = qsoID
+
+	cmd := m.lotwOutboxUploadCmd([]qso{q})
+	if cmd == nil {
+		t.Fatal("lotwOutboxUploadCmd returned nil")
+	}
+	msg, ok := cmd().(lotwUploadMsg)
+	if !ok {
+		t.Fatalf("lotwOutboxUploadCmd command produced %T, want lotwUploadMsg", msg)
+	}
+	if msg.delivered {
+		t.Fatal("exit code 9 must not be reported as cleanly delivered")
+	}
+	if !msg.suppressed {
+		t.Fatal("exit code 9 must be reported as suppressed")
+	}
+
+	var outboxCount int
+	if err := m.store.db.QueryRow(`SELECT COUNT(*) FROM upload_outbox WHERE qso_id=? AND destination=?`, qsoID, uploadDestLoTW).Scan(&outboxCount); err != nil {
+		t.Fatal(err)
+	}
+	if outboxCount != 0 {
+		t.Fatalf("outbox row still present after a terminal exit code: %d rows", outboxCount)
+	}
+
+	var status string
+	if err := m.store.db.QueryRow(`SELECT status FROM upload_log WHERE qso_id=? AND destination=? ORDER BY id DESC LIMIT 1`, qsoID, uploadDestLoTW).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != uploadLogSuppressed {
+		t.Fatalf("upload_log status = %q, want %q", status, uploadLogSuppressed)
+	}
+}
+
 func TestEnqueueLoTWBackfillQueuesExistingQSOsOnce(t *testing.T) {
 	m := reviewModel(t)
 	q1 := reviewQSO(m)

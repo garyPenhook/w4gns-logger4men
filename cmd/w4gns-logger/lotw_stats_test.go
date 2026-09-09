@@ -54,13 +54,22 @@ func TestLoadLoTWAwardStatsCountsWorkedAndConfirmed(t *testing.T) {
 		profileID: 1, dxccNumber: "291", iotaRef: "EU-005", cqZone: "5",
 	})
 
-	for i, id := range []int64{confirmedID, vuccID} {
-		if _, err := st.db.Exec(
-			`INSERT INTO lotw_confirmation (profile_id, qso_id, call, synced_at) VALUES (1, ?, ?, ?)`,
-			id, itoa(i), time.Now().UTC().Format(time.RFC3339),
-		); err != nil {
-			t.Fatal(err)
-		}
+	// lotw_confirmation's own dxcc/country/state/cqz/band/gridsquare columns
+	// (not the joined qso row) drive the confirmed side of each award tally —
+	// see lotw_stats.go's *ConfirmedQuery comment — so they're populated here
+	// the same way a real qso_qsldetail=yes sync would.
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := st.db.Exec(
+		`INSERT INTO lotw_confirmation (profile_id, qso_id, call, band, dxcc, country, state, cqz, synced_at) VALUES (1, ?, 'W1AW', '20M', '291', 'UNITED STATES', 'CT', '5', ?)`,
+		confirmedID, now,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.db.Exec(
+		`INSERT INTO lotw_confirmation (profile_id, qso_id, call, band, dxcc, country, cqz, gridsquare, synced_at) VALUES (1, ?, 'W6ABC', '6M', '291', 'UNITED STATES', '5', 'CM87XX', ?)`,
+		vuccID, now,
+	); err != nil {
+		t.Fatal(err)
 	}
 
 	stats, err := st.loadLoTWAwardStats(1)

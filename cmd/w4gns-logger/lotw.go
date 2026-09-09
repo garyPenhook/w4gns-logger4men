@@ -95,16 +95,40 @@ func findTQSL() (string, error) {
 	return path, nil
 }
 
-// lotwExitDelivered classifies a tqsl exit status as a delivered outcome per
-// the authoritative TQSL_EXIT_* table in docs/LoTW_Integration_Design.md.
-// Codes 9 (some QSOs suppressed, e.g. duplicates) and 14 (already uploaded)
-// are delivered on purpose: TQSL's own upload-tracking database will never
-// accept those QSOs again, so re-queuing them would retry forever. Every
-// other code (including unrecognized ones) is treated as a failure and goes
-// through the normal outbox backoff.
+// lotwExitDelivered classifies a tqsl exit status as terminal — no further
+// retry is useful — per the authoritative TQSL_EXIT_* table in
+// docs/LoTW_Integration_Design.md. Codes 8/9 (no/some QSOs processed because
+// they were duplicates or out of the certificate's date range) and 14
+// (already uploaded) are terminal on purpose: TQSL's own upload-tracking
+// database will never accept those QSOs again, so re-queuing them would
+// retry forever. Every other code (including unrecognized ones) is treated
+// as a failure and goes through the normal outbox backoff.
+//
+// This governs the manual full-log backfill (Ctrl+Y / --upload-lotw), where
+// a re-run naturally re-encounters QSOs already at LoTW and 8/9 is the
+// ordinary, expected outcome of a safe re-run. The automatic per-QSO outbox
+// drain (lotwOutboxUploadCmd) additionally needs lotwExitSentCleanly: TQSL
+// doesn't say, per QSO, whether an 8/9 batch's suppressed QSOs were skipped
+// as harmless duplicates or because they fall outside the signing
+// certificate's valid date range — which is not a duplicate and may never
+// have reached LoTW — so that path must not record every QSO in the batch as
+// confirmed "sent" on the strength of 8/9 alone.
 func lotwExitDelivered(code int) bool {
 	switch code {
 	case 0, 8, 9, 14:
+		return true
+	default:
+		return false
+	}
+}
+
+// lotwExitSentCleanly narrows lotwExitDelivered to the two codes that
+// confirm every QSO in the batch actually reached LoTW: 0 (clean success)
+// and 14 (already uploaded, confirmed by a previous run). See
+// lotwExitDelivered's doc comment for why 8/9 are terminal but excluded here.
+func lotwExitSentCleanly(code int) bool {
+	switch code {
+	case 0, 14:
 		return true
 	default:
 		return false
@@ -458,6 +482,7 @@ type lotwUploadResult struct {
 type lotwUploadMsg struct {
 	results    []lotwUploadResult
 	delivered  bool
+	suppressed bool
 	statusText string
 	err        error
 	queueErr   error
@@ -503,14 +528,19 @@ func (m model) lotwOutboxUploadCmd(qsos []qso) tea.Cmd {
 			}
 			return lotwUploadMsg{results: results, err: runErr, queueErr: queueErr}
 		}
-		delivered := lotwExitDelivered(exitCode)
+		terminal := lotwExitDelivered(exitCode)
+		sentCleanly := lotwExitSentCleanly(exitCode)
 		var queueErr error
 		for _, q := range qsos {
-			if delivered {
+			if terminal {
 				if err := st.markUploadDone(q.id, uploadDestLoTW); err != nil {
 					queueErr = err
 				}
-				_ = st.logUploadEvent(q.id, uploadDestLoTW, q.call, uploadLogSent, "", statusText)
+				status := uploadLogSent
+				if !sentCleanly {
+					status = uploadLogSuppressed
+				}
+				_ = st.logUploadEvent(q.id, uploadDestLoTW, q.call, status, "", statusText)
 				continue
 			}
 			if err := st.recordUploadFailure(q.id, uploadDestLoTW, statusText, time.Now()); err != nil {
@@ -518,7 +548,7 @@ func (m model) lotwOutboxUploadCmd(qsos []qso) tea.Cmd {
 			}
 			_ = st.logUploadEvent(q.id, uploadDestLoTW, q.call, uploadLogFailed, "", statusText)
 		}
-		return lotwUploadMsg{results: results, delivered: delivered, statusText: statusText, queueErr: queueErr}
+		return lotwUploadMsg{results: results, delivered: sentCleanly, suppressed: terminal && !sentCleanly, statusText: statusText, queueErr: queueErr}
 	}, func(r any) tea.Msg {
 		return lotwUploadMsg{results: results, err: fmt.Errorf("panic during LoTW upload: %v", r)}
 	})

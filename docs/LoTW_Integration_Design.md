@@ -91,16 +91,37 @@ enum is 0-based and sequential.
 | 14 | `TQSL_EXIT_UPLOADED_ALREADY` | Previously signed QSOs were detected | **delivered** (already at LoTW) |
 | 15 | `TQSL_EXIT_BAD_PASSPHRASE` | Incorrect passphrase | failure (permanent — config) |
 
-Delivered set = `{0, 8, 9, 14}`. Codes `9` (some suppressed) and `14`
-(already uploaded) are treated as delivered on purpose: the suppressed/duplicate
-QSOs are ones LoTW will never accept again, so re-queuing them would retry
-forever. The trade-off — a QSO suppressed for a *non*-duplicate reason (e.g. it
-falls outside the certificate's validity dates) is marked delivered without
-reaching LoTW — is acceptable because such a QSO can never be signed under the
-current certificate anyway, and the outcome is recorded in `upload_log` for the
-operator to see. Transient failures `{11, 13}` and the ambiguous `{3, 12}` use
-normal exponential backoff; permanent config failures `{2, 15}` back off and
-eventually park with `last_error` visible, exactly like a rejected QRZ upload.
+Terminal set (no further retry) = `{0, 8, 9, 14}`. Codes `8`/`9` (no/some QSOs
+processed, because they were duplicates or fell outside the certificate's date
+range) and `14` (already uploaded) are terminal on purpose: TQSL's own
+duplicate-tracking database will never accept those QSOs again, so re-queuing
+them would retry forever. Transient failures `{11, 13}` and the ambiguous
+`{3, 12}` use normal exponential backoff; permanent config failures `{2, 15}`
+back off and eventually park with `last_error` visible, exactly like a
+rejected QRZ upload.
+
+**Delivered vs. terminal-but-unconfirmed (fixed 2026-09, external review).**
+The original implementation logged every terminal code — including `8`/`9` —
+as a clean `upload_log` "sent" for every QSO in the batch. But TQSL's exit
+code is a whole-batch result: it does not say *which* QSOs in an `8`/`9`
+batch were suppressed as harmless duplicates versus suppressed because they
+fall outside the signing certificate's valid date range — which is not a
+duplicate, and may never have reached LoTW at all. Recording every QSO in
+such a batch as "sent" claimed a confirmed delivery the app cannot actually
+vouch for. `lotwExitSentCleanly` (`lotw.go`) narrows the terminal set to
+`{0, 14}` — the two codes that *do* confirm every QSO reached LoTW — and the
+automatic per-QSO outbox drain (`lotwOutboxUploadCmd`) now logs an `8`/`9`
+batch as a new `upload_log` status, `uploadLogSuppressed` ("suppressed"), not
+"sent": still removed from the outbox (retrying is pointless — TQSL will
+report the same duplicate/out-of-range result every time), but visibly
+distinct from a confirmed delivery. This distinction applies **only** to the
+automatic per-QSO drain. The manual full-log backfill (`Ctrl+Y` /
+`--upload-lotw`, see "Manual + CLI backfill" below) deliberately keeps the
+original `lotwExitDelivered`-only behavior: a backfill re-run is expected to
+re-encounter every already-delivered QSO as a duplicate every single time
+(that's the "re-running it is safe" property the README documents), so
+treating `8`/`9` as anything but a normal, successful re-run there would make
+the ordinary case look like a failure.
 
 ## ARRL developer guidance & compliance
 
@@ -328,23 +349,89 @@ LoTW](https://lotw.arrl.org/lotw-help/developer-query-qsos-qsls/?lang=en).
   above). `parseADIRecords` (shared with ADIF import) discards header fields
   by design, so a small dedicated header reader
   (`parseLoTWReportHeader`, reusing its tag/field primitives) reads
-  everything up to `<EOH>` before handing the rest of the stream to
-  `parseADIRecords` for the records themselves.
+  everything up to `<EOH>`; the records themselves are read by a second
+  LoTW-specific reader, `parseLoTWReportRecords` — not the shared
+  `parseADIRecords` — for a reason covered below.
 - Per-record fields persisted: `CREDIT_GRANTED`/`APP_LoTW_CREDIT_GRANTED`,
-  `DXCC`, `COUNTRY`, `GRIDSQUARE`, `STATE`, `CQZ`, plus the match keys `CALL`,
-  `BAND`, `MODE`, `QSO_DATE`, `TIME_ON`. ARRL's docs don't document a rate
-  limit for this endpoint; sync is operator-triggered only (`s` on the stats
-  panel) rather than on a timer — this app has no background scheduler to
-  hang a periodic sync off of.
+  `DXCC`, `COUNTRY`, `GRIDSQUARE`, `STATE`, `CQZ`, `IOTA`, plus the match keys
+  `CALL`, `BAND`, `MODE`, `QSO_DATE`, `TIME_ON`. `qso_qsldetail=yes` is set on
+  every request (`buildLoTWReportURL`) specifically so ARRL's docs promise
+  those detail fields at all — without it they're only sometimes present.
+  ARRL's docs don't document a rate limit for this endpoint; sync is
+  operator-triggered only (`s` on the stats panel) rather than on a timer —
+  this app has no background scheduler to hang a periodic sync off of.
 - Schema: a `lotw_confirmation` table (`qso_id` nullable FK, the fields above,
   `synced_at`, unique on `(profile_id, call, band, mode, qso_date, time_on)`
   so a re-sync over an overlapping window upserts instead of duplicating) —
   separate from `upload_outbox`/`upload_log`, since this is inbound data, not
   an outbound delivery record. A confirmation is matched to a local `qso` row
-  by call/band/mode within a ±30-minute window of its time (`lotwMatchWindow`
+  by call and band within a ±30-minute window of its time (`lotwMatchWindow`
   in `lotw_query.go`), mirroring LoTW's own documented matching tolerance; an
   unmatched confirmation is still stored (`qso_id` left `NULL`) rather than
-  dropped.
+  dropped. Mode is *not* part of the primary match — see "Response validation
+  and matching correctness" below — only used to break a tie when more than
+  one local QSO falls in the same window.
+
+### Response validation and matching correctness
+
+An external code review (2026-09) found four real gaps in the confirmation
+sync against ARRL's own documented query-service behavior — each verified
+against ARRL's live documentation (not assumed) before being fixed:
+
+- **A failed query looks like "zero new confirmations", not an error.** ARRL:
+  *"If the query fails, an HTML page containing an explanation will be
+  returned; the absence of an ADIF end of header tag can be used to detect
+  this outcome."* `parseLoTWReportHeader` now returns a `found bool`
+  alongside the header map; `syncLoTWConfirmations` treats `found == false`
+  (an expired password, revoked login, or server error returned as HTTP 200)
+  as a hard error instead of a clean empty sync.
+- **A truncated response could silently advance the bookmark past unseen
+  confirmations.** ARRL documents `APP_LoTW_EOF` ("indicates end of file...
+  can be used to verify the file was completely received... not followed by
+  `<EOR>`") and `APP_LoTW_NUMREC` ("number of QSO records in this download",
+  a header field). The shared `parseADIRecords` (adif_import.go) treats a
+  trailing field with no closing `<EOR>` as a truncation error — correct for
+  plain ADIF, which has no such marker, but wrong for this endpoint, whose
+  response is close to but not the same as bare ADIF. `parseLoTWReportRecords`
+  is a dedicated reader that requires seeing `APP_LoTW_EOF` before accepting
+  the record stream as complete, and `syncLoTWConfirmations` additionally
+  cross-checks `APP_LoTW_NUMREC` against the number of records actually
+  parsed. All confirmation upserts and the advanced bookmark now commit
+  together in one `*sql.Tx`, only after this validation passes — nothing is
+  written on a truncated or short-count response.
+- **Mode was required to match, and ARRL says not to.** ARRL: *"a QSO's mode
+  may be mapped to a different value by the user when the data is prepared to
+  be sent to LoTW. It may be best to leave the mode out of the comparison
+  except in the case where a downloaded record matches multiple QSO records
+  of the local database."* `matchLoTWConfirmation` previously required an
+  exact mode match and skipped matching entirely when a record had no `MODE`
+  field at all. It now matches on call/band/time-window first; mode (falling
+  back to `APP_LoTW_MODE` when `MODE` is absent, per ARRL's note that a future
+  ADIF version may only carry the latter) is used solely to pick among
+  multiple same-window candidates.
+- **`qso_qsldetail` wasn't requested, but the confirmed-side award queries
+  read confirmed-side geography anyway.** `lotw_stats.go`'s `*ConfirmedQuery`
+  constants originally joined back to the local `qso` row's `dxcc`/`state`/
+  `cqz`/`gridsquare`/`iota_ref` columns to compute confirmed award progress —
+  i.e. "confirmed" meant only "this QSO has *some* LoTW confirmation," with
+  the actual entity/state/zone/grid/island coming from this app's own
+  QRZ/prefix-table-derived guess, which can legitimately differ from what
+  LoTW's QSLing station actually confirmed (e.g. a station portable in a
+  different DXCC entity than its callsign prefix implies). `qso_qsldetail=yes`
+  is now set on every request, `lotw_confirmation` gained an `iota_ref` column
+  (added via an `ALTER TABLE` migration in `store.go`, matching the existing
+  `binding`-column pattern) alongside its other detail fields, and every
+  `*ConfirmedQuery` reads geography straight from `lotw_confirmation`'s own
+  columns — counting a confirmation whether or not it matched a local QSO,
+  since an unmatched confirmation is still a real LoTW confirmation of that
+  entity/state/zone.
+
+Also fixed in the same pass: a network failure (DNS, TLS, connection refused,
+timeout) during the query wraps Go's `net/url.Error`, whose `Error()` embeds
+the full request URL — and `buildLoTWReportURL` puts both LoTW credentials in
+that URL's query string. `redactLoTWCredentials` strips the login/password
+(and their URL-encoded forms) out of any such error before it can reach
+`stats_panel.go`'s on-screen status line or a CLI's stderr.
 
 ### Award/analytics stats panel
 
@@ -379,10 +466,20 @@ data (the `qso` table plus `lotw_confirmation`, via the aggregation queries in
 - `lotw_query_test.go`: a fake `lotwreport.adi` server (`httptest`) covering
   the match-and-advance-bookmark path, the second-sync `qso_qslsince`
   incremental parameter, missing-credentials rejection, and upsert
-  idempotency across an overlapping re-sync.
+  idempotency across an overlapping re-sync. Plus, from the response-
+  validation fixes above: a response with no `<EOH>` at all (both the
+  synthetic all-`<EOR>` case and a short HTML auth-failure page),  a response
+  missing the `APP_LoTW_EOF` marker, a `APP_LoTW_NUMREC`/actual-count
+  mismatch (each asserting zero rows committed), matching despite a
+  mismatched `MODE`, disambiguating by mode when multiple local QSOs share a
+  time window, and `redactLoTWCredentials` stripping a login/password out of
+  a synthetic network-error string.
 - `lotw_stats_test.go`: worked-vs-confirmed counts and need-lists for all five
   awards from a small seeded log, including the VUCC 6M-only filter excluding
-  a same-grid contact logged on a non-6M band.
+  a same-grid contact logged on a non-6M band; confirmed-side rows now carry
+  their own dxcc/state/cqz/band/gridsquare, matching what a real
+  `qso_qsldetail=yes` sync populates, rather than relying on the local `qso`
+  row's columns.
 - `stats_panel_test.go`: `Ctrl+A` opens the panel with no command issued (the
   "no network call on open" requirement) and populates stats from local data;
   `Esc` returns to QSO Entry; `s` without configured credentials reports the
@@ -392,11 +489,12 @@ data (the `qso` table plus `lotw_confirmation`, via the aggregation queries in
 
 | File | Change |
 | --- | --- |
-| `cmd/w4gns-logger/lotw_query.go` (new) | `lotw_confirmation`/`lotw_sync_state` schema, credential-aware fetch, header parsing, record matching/upsert |
-| `cmd/w4gns-logger/lotw_stats.go` (new) | worked/confirmed/needed aggregation for DXCC/WAS/WAZ/VUCC/IOTA |
+| `cmd/w4gns-logger/lotw_query.go` (new) | `lotw_confirmation`/`lotw_sync_state` schema, credential-aware fetch, header/record parsing with EOH/EOF/NUMREC validation, mode-tolerant record matching/upsert, credential redaction |
+| `cmd/w4gns-logger/lotw_stats.go` (new) | worked/confirmed/needed aggregation for DXCC/WAS/WAZ/VUCC/IOTA, confirmed side read from `lotw_confirmation`'s own detail columns |
 | `cmd/w4gns-logger/stats_panel.go` (new) | `Ctrl+A` screen: award summary, drill-down need list, manual sync (`s`) |
 | `cmd/w4gns-logger/lotw.go` | `loadLoTWLogin`/`loadLoTWWebPass` |
 | `cmd/w4gns-logger/paths.go` | `lotw.login`/`lotw.webpass` path resolvers |
+| `cmd/w4gns-logger/store.go` | `lotw_confirmation.iota_ref` column migration |
 | `cmd/w4gns-logger/store.go` | apply `lotwConfirmationSchema` in `openStore` |
 | `cmd/w4gns-logger/main.go` | `statsScreen`, `Ctrl+A` dispatch, help/footer text, credential loading at startup |
 | `README.md` | "LoTW confirmation sync & award stats" section |

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -93,8 +94,18 @@ func (s *store) loadLoTWSyncState(profileID int64) (lotwSyncState, error) {
 	return state, nil
 }
 
-func (s *store) saveLoTWSyncState(profileID int64, state lotwSyncState) error {
-	_, err := s.db.Exec(
+// lotwSyncExecer is the subset of *sql.DB / *sql.Tx the confirmation-sync
+// read/write helpers need, so the same query logic can run standalone (the
+// direct-call test/legacy path) or inside the one transaction that makes a
+// sync's records-plus-bookmark commit atomic (see syncLoTWConfirmations).
+type lotwSyncExecer interface {
+	Exec(query string, args ...any) (sql.Result, error)
+	Query(query string, args ...any) (*sql.Rows, error)
+	QueryRow(query string, args ...any) *sql.Row
+}
+
+func saveLoTWSyncState(exec lotwSyncExecer, profileID int64, state lotwSyncState) error {
+	_, err := exec.Exec(
 		`INSERT INTO lotw_sync_state (profile_id, last_qsl, last_qsorx, synced_at) VALUES (?, ?, ?, ?)
 		 ON CONFLICT(profile_id) DO UPDATE SET last_qsl = excluded.last_qsl, last_qsorx = excluded.last_qsorx, synced_at = excluded.synced_at`,
 		profileID, state.LastQSL, state.LastQSORX, time.Now().UTC().Format(time.RFC3339),
@@ -105,19 +116,27 @@ func (s *store) saveLoTWSyncState(profileID int64, state lotwSyncState) error {
 	return nil
 }
 
+func (s *store) saveLoTWSyncState(profileID int64, state lotwSyncState) error {
+	return saveLoTWSyncState(s.db, profileID, state)
+}
+
 // buildLoTWReportURL constructs the lotwreport.adi query. login/password are
 // the operator's LoTW website credentials (loadLoTWLogin/loadLoTWWebPass) —
 // distinct from the TQSL Callsign Certificate used to sign uploads.
 // qso_qsl=yes scopes the response to confirmed (QSL'd) records, per ARRL's
-// documented default. qso_qslsince, when state.LastQSL is non-empty, makes
-// the request incremental. ownCall, when non-empty, sets qso_owncall so a
-// multi-callsign LoTW account only returns this profile's confirmations.
+// documented default. qso_qsldetail=yes additionally requests the QSLing
+// station's location data (DXCC/COUNTRY/CQZ/GRIDSQUARE/STATE/IOTA) — without
+// it ARRL does not promise those fields, yet upsertLoTWConfirmation stores
+// them. qso_qslsince, when state.LastQSL is non-empty, makes the request
+// incremental. ownCall, when non-empty, sets qso_owncall so a multi-callsign
+// LoTW account only returns this profile's confirmations.
 func buildLoTWReportURL(login, password, ownCall string, state lotwSyncState) string {
 	values := url.Values{}
 	values.Set("login", login)
 	values.Set("password", password)
 	values.Set("qso_query", "1")
 	values.Set("qso_qsl", "yes")
+	values.Set("qso_qsldetail", "yes")
 	if strings.TrimSpace(state.LastQSL) != "" {
 		values.Set("qso_qslsince", state.LastQSL)
 	}
@@ -125,6 +144,26 @@ func buildLoTWReportURL(login, password, ownCall string, state lotwSyncState) st
 		values.Set("qso_owncall", ownCall)
 	}
 	return lotwReportURL + "?" + values.Encode()
+}
+
+// redactLoTWCredentials strips login/password (and their URL-encoded forms)
+// out of err's text. Go's net/url.Error.Error() embeds the full request URL,
+// and buildLoTWReportURL puts both credentials in that URL's query string —
+// without this, a network failure (DNS, TLS, connection refused, timeout)
+// would surface the operator's LoTW password in plain text in the status
+// line (stats_panel.go) or on the CLI's stderr.
+func redactLoTWCredentials(err error, login, password string) string {
+	msg := err.Error()
+	for _, secret := range []string{login, password} {
+		if secret == "" {
+			continue
+		}
+		msg = strings.ReplaceAll(msg, secret, "[redacted]")
+		if encoded := url.QueryEscape(secret); encoded != secret {
+			msg = strings.ReplaceAll(msg, encoded, "[redacted]")
+		}
+	}
+	return msg
 }
 
 // maxLoTWHeaderFields bounds how many fields parseLoTWReportHeader reads
@@ -141,31 +180,33 @@ const maxLoTWHeaderFields = 64
 // parseLoTWReportHeader reads ADIF header fields (everything before <EOH>)
 // from br, reusing the same tag/field primitives as parseADIRecords
 // (discardUntil/readUntil/parseADIFLength) since the wire format is
-// identical. parseADIRecords itself discards header fields (ADIF permits an
-// omitted header, so it can't distinguish "header field" from "record field
-// before any EOH" and treats both as record data) — this is the only way to
-// recover APP_LoTW_LASTQSL/APP_LoTW_LASTQSORX, which arrive only in the
-// header, never as a per-record field.
-func parseLoTWReportHeader(br *bufio.Reader) (map[string]string, error) {
-	header := make(map[string]string)
+// identical. found reports whether <EOH> was actually seen: ARRL's
+// documentation is explicit that "if the query fails, an HTML page
+// containing an explanation will be returned; the absence of an ADIF end of
+// header tag can be used to detect this outcome" — an expired password,
+// revoked login, or server error returned as HTTP 200 looks exactly like a
+// response with no header, and the caller must treat that as a failure, not
+// as "zero confirmations".
+func parseLoTWReportHeader(br *bufio.Reader) (header map[string]string, found bool, err error) {
+	header = make(map[string]string)
 	fieldsSeen := 0
 	for {
 		if fieldsSeen > maxLoTWHeaderFields {
-			return nil, fmt.Errorf("LoTW report header exceeds %d fields without an <EOH> — response may be malformed or missing its header", maxLoTWHeaderFields)
+			return nil, false, fmt.Errorf("LoTW report header exceeds %d fields without an <EOH> — response may be malformed or missing its header", maxLoTWHeaderFields)
 		}
 		if err := discardUntil(br, '<'); err != nil {
 			if err == io.EOF {
-				return header, nil
+				return header, false, nil
 			}
-			return nil, fmt.Errorf("read LoTW report header: %w", err)
+			return nil, false, fmt.Errorf("read LoTW report header: %w", err)
 		}
 		tag, err := readUntil(br, '>', maxADIFTagLength)
 		if err != nil {
-			return nil, fmt.Errorf("LoTW report header tag is unterminated or too long: %w", err)
+			return nil, false, fmt.Errorf("LoTW report header tag is unterminated or too long: %w", err)
 		}
 		descriptor := strings.TrimSpace(string(tag[:len(tag)-1]))
 		if strings.EqualFold(descriptor, "EOH") {
-			return header, nil
+			return header, true, nil
 		}
 		parts := strings.SplitN(descriptor, ":", 2)
 		if len(parts) < 2 {
@@ -176,14 +217,73 @@ func parseLoTWReportHeader(br *bufio.Reader) (map[string]string, error) {
 			continue
 		}
 		if length > maxADIFFieldBytes {
-			return nil, fmt.Errorf("LoTW report header field %q declares length %d, exceeding the %d-byte limit", parts[0], length, maxADIFFieldBytes)
+			return nil, false, fmt.Errorf("LoTW report header field %q declares length %d, exceeding the %d-byte limit", parts[0], length, maxADIFFieldBytes)
 		}
 		value := make([]byte, length)
 		if _, err := io.ReadFull(br, value); err != nil {
-			return nil, fmt.Errorf("LoTW report header field %q: %w", parts[0], err)
+			return nil, false, fmt.Errorf("LoTW report header field %q: %w", parts[0], err)
 		}
 		header[strings.ToUpper(strings.TrimSpace(parts[0]))] = string(value)
 		fieldsSeen++
+	}
+}
+
+// parseLoTWReportRecords reads QSO/QSL records from br (positioned just past
+// <EOH>), invoking onRecord for each <EOR>-terminated record, until EOF.
+// sawEOF reports whether ARRL's documented APP_LoTW_EOF trailing marker was
+// seen — a field ARRL's docs describe as appearing after all QSO records and
+// deliberately "not followed by <EOR>", specifically so a client "can verify
+// that the file was completely received". This app doesn't reuse the
+// stricter, general-purpose parseADIRecords (adif_import.go) here because
+// that parser treats a trailing field with no closing <EOR> as an error
+// (correctly, for a plain ADIF file, which has no such trailing marker) —
+// this endpoint's response format is close to but not the same as bare ADIF.
+func parseLoTWReportRecords(br *bufio.Reader, onRecord func(map[string]string) error) (sawEOF bool, err error) {
+	record := make(map[string]string)
+	for {
+		if err := discardUntil(br, '<'); err != nil {
+			if err == io.EOF {
+				return false, nil
+			}
+			return false, fmt.Errorf("read LoTW report records: %w", err)
+		}
+		tag, err := readUntil(br, '>', maxADIFTagLength)
+		if err != nil {
+			return false, fmt.Errorf("LoTW report record tag is unterminated or too long: %w", err)
+		}
+		descriptor := strings.TrimSpace(string(tag[:len(tag)-1]))
+		if strings.EqualFold(descriptor, "EOR") {
+			if len(record) > 0 {
+				if err := onRecord(record); err != nil {
+					return false, err
+				}
+				record = make(map[string]string)
+			}
+			continue
+		}
+		parts := strings.SplitN(descriptor, ":", 2)
+		if len(parts) < 2 {
+			continue
+		}
+		length, err := parseADIFLength(parts[1])
+		if err != nil {
+			continue
+		}
+		if length > maxADIFFieldBytes {
+			return false, fmt.Errorf("LoTW report field %q declares length %d, exceeding the %d-byte limit", parts[0], length, maxADIFFieldBytes)
+		}
+		value := make([]byte, length)
+		if _, err := io.ReadFull(br, value); err != nil {
+			return false, fmt.Errorf("LoTW report field %q: %w", parts[0], err)
+		}
+		name := strings.ToUpper(strings.TrimSpace(parts[0]))
+		if name == "APP_LOTW_EOF" {
+			return true, nil
+		}
+		if len(record) >= maxADIFFieldsPerRecord {
+			return false, fmt.Errorf("LoTW report record exceeds %d fields", maxADIFFieldsPerRecord)
+		}
+		record[name] = string(value)
 	}
 }
 
@@ -192,6 +292,12 @@ func parseLoTWReportHeader(br *bufio.Reader) (map[string]string, error) {
 // (matched to a local QSO where possible), and advances the sync bookmark
 // from the response header. login/password are the LoTW website credentials;
 // ownCall scopes the query to one callsign on a multi-callsign LoTW account.
+//
+// The whole response is validated (header present, APP_LoTW_EOF marker seen,
+// APP_LoTW_NUMREC matching the records actually parsed) before anything is
+// written, and every confirmation plus the advanced bookmark commit together
+// in one transaction — a response truncated mid-transfer must not leave a
+// bookmark advanced past confirmations it never delivered.
 func syncLoTWConfirmations(ctx context.Context, st *store, profileID int64, login, password, ownCall string) (lotwSyncSummary, error) {
 	if strings.TrimSpace(login) == "" || strings.TrimSpace(password) == "" {
 		return lotwSyncSummary{}, fmt.Errorf("LoTW login/password not configured (set lotw.login/lotw.webpass or CWLOGGER_LOTW_LOGIN/CWLOGGER_LOTW_WEBPASS)")
@@ -203,12 +309,12 @@ func syncLoTWConfirmations(ctx context.Context, st *store, profileID int64, logi
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, buildLoTWReportURL(login, password, ownCall, state), nil)
 	if err != nil {
-		return lotwSyncSummary{}, fmt.Errorf("build LoTW confirmation query: %w", err)
+		return lotwSyncSummary{}, fmt.Errorf("build LoTW confirmation query: %s", redactLoTWCredentials(err, login, password))
 	}
 	client := &http.Client{Timeout: lotwQueryTimeout}
 	response, err := client.Do(request)
 	if err != nil {
-		return lotwSyncSummary{}, fmt.Errorf("query LoTW confirmations: %w", err)
+		return lotwSyncSummary{}, fmt.Errorf("query LoTW confirmations: %s", redactLoTWCredentials(err, login, password))
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
@@ -217,32 +323,32 @@ func syncLoTWConfirmations(ctx context.Context, st *store, profileID int64, logi
 	}
 
 	br := bufio.NewReaderSize(response.Body, 64*1024)
-	header, err := parseLoTWReportHeader(br)
+	header, foundEOH, err := parseLoTWReportHeader(br)
 	if err != nil {
 		return lotwSyncSummary{}, err
 	}
-	// LoTW reports an error (bad login, etc.) as an ADIF comment/text response
-	// rather than a non-200 status; a header with no fields at all and no
-	// records to follow is the signal something other than a report came
-	// back. Not treated as fatal here — parseADIRecords below simply finds no
-	// <EOR> and returns cleanly with zero records, which is indistinguishable
-	// from "nothing new since last sync" and reported as such.
+	if !foundEOH {
+		// Per ARRL: a failed query (bad login/password, server error) comes
+		// back as an HTML explanation page instead of a non-200 status, and
+		// its absent <EOH> is the documented way to detect that.
+		return lotwSyncSummary{}, fmt.Errorf("LoTW confirmation query failed: response had no ADIF header (check lotw.login/lotw.webpass, or LoTW may be reporting an error)")
+	}
 
-	summary := lotwSyncSummary{}
-	now := time.Now().UTC().Format(time.RFC3339)
-	parseErr := parseADIRecords(br, func(record map[string]string) error {
-		summary.Fetched++
-		matched, err := st.upsertLoTWConfirmation(profileID, record, now)
-		if err != nil {
-			return err
-		}
-		if matched {
-			summary.Matched++
-		}
+	var records []map[string]string
+	sawEOF, err := parseLoTWReportRecords(br, func(record map[string]string) error {
+		records = append(records, record)
 		return nil
 	})
-	if parseErr != nil {
-		return summary, parseErr
+	if err != nil {
+		return lotwSyncSummary{}, err
+	}
+	if !sawEOF {
+		return lotwSyncSummary{}, fmt.Errorf("LoTW confirmation query failed: response ended without the documented end-of-file marker (possibly a truncated download) — nothing was recorded")
+	}
+	if numRecStr := strings.TrimSpace(header["APP_LOTW_NUMREC"]); numRecStr != "" {
+		if numRec, convErr := strconv.Atoi(numRecStr); convErr == nil && numRec != len(records) {
+			return lotwSyncSummary{}, fmt.Errorf("LoTW confirmation query failed: response declared %d record(s) but %d were received — nothing was recorded", numRec, len(records))
+		}
 	}
 
 	newState := state
@@ -252,25 +358,53 @@ func syncLoTWConfirmations(ctx context.Context, st *store, profileID int64, logi
 	if v := strings.TrimSpace(header["APP_LOTW_LASTQSORX"]); v != "" {
 		newState.LastQSORX = v
 	}
-	if newState != state {
-		if err := st.saveLoTWSyncState(profileID, newState); err != nil {
-			return summary, err
+
+	tx, err := st.db.Begin()
+	if err != nil {
+		return lotwSyncSummary{}, fmt.Errorf("begin LoTW confirmation sync: %w", err)
+	}
+	defer tx.Rollback()
+
+	summary := lotwSyncSummary{}
+	now := time.Now().UTC().Format(time.RFC3339)
+	for _, record := range records {
+		summary.Fetched++
+		matched, err := upsertLoTWConfirmation(tx, profileID, record, now)
+		if err != nil {
+			return lotwSyncSummary{}, err
 		}
+		if matched {
+			summary.Matched++
+		}
+	}
+	if newState != state {
+		if err := saveLoTWSyncState(tx, profileID, newState); err != nil {
+			return lotwSyncSummary{}, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return lotwSyncSummary{}, fmt.Errorf("commit LoTW confirmation sync: %w", err)
 	}
 	return summary, nil
 }
 
 // upsertLoTWConfirmation records one lotwreport.adi record for profileID,
-// matching it to a local QSO by call/band/mode within lotwMatchWindow of the
-// confirmed time (see lotwMatchWindow). ON CONFLICT keeps a re-run over an
-// overlapping date range idempotent rather than duplicating rows.
-func (s *store) upsertLoTWConfirmation(profileID int64, record map[string]string, syncedAt string) (matched bool, err error) {
+// matching it to a local QSO by call/band and time window (see
+// matchLoTWConfirmation), then upserting it keyed by
+// (profile_id, call, band, mode, qso_date, time_on) so a re-sync over an
+// overlapping date range updates rather than duplicates the row. exec runs
+// standalone (the direct-call test path) or inside syncLoTWConfirmations's
+// transaction.
+func upsertLoTWConfirmation(exec lotwSyncExecer, profileID int64, record map[string]string, syncedAt string) (matched bool, err error) {
 	call := strings.ToUpper(strings.TrimSpace(record["CALL"]))
 	if call == "" {
 		return false, nil
 	}
 	band := strings.ToUpper(strings.TrimSpace(record["BAND"]))
-	mode := strings.ToUpper(strings.TrimSpace(record["MODE"]))
+	// ARRL's docs: "a QSO's mode may be mapped to a different value... a
+	// future ADIF version may not include the MODE field, using instead the
+	// APP_LoTW_MODE field" — fall back to that when MODE itself is absent.
+	mode := strings.ToUpper(strings.TrimSpace(firstNonEmpty(record["MODE"], record["APP_LOTW_MODE"])))
 	qsoDate := strings.TrimSpace(record["QSO_DATE"])
 	timeOn := strings.TrimSpace(record["TIME_ON"])
 	if len(timeOn) == 4 {
@@ -282,10 +416,17 @@ func (s *store) upsertLoTWConfirmation(profileID int64, record map[string]string
 	gridsquare := strings.ToUpper(strings.TrimSpace(record["GRIDSQUARE"]))
 	state := strings.ToUpper(strings.TrimSpace(record["STATE"]))
 	cqz := strings.TrimSpace(record["CQZ"])
+	// IOTA/CQZ/GRIDSQUARE/STATE/DXCC/COUNTRY are only guaranteed present when
+	// qso_qsldetail=yes is requested (see buildLoTWReportURL) — this is the
+	// QSLing station's own confirmed location data, distinct from (and
+	// authoritative over) this app's locally resolved qso.dxcc/state/etc.,
+	// which lotw_stats.go's *ConfirmedQuery constants read from this table
+	// rather than the joined qso row for exactly that reason.
+	iotaRef := strings.ToUpper(strings.TrimSpace(record["IOTA"]))
 
 	var qsoID sql.NullInt64
-	if band != "" && mode != "" && len(qsoDate) == 8 && len(timeOn) == 6 {
-		id, ok, matchErr := s.matchLoTWConfirmation(profileID, call, band, mode, qsoDate, timeOn)
+	if band != "" && len(qsoDate) == 8 && len(timeOn) == 6 {
+		id, ok, matchErr := matchLoTWConfirmation(exec, profileID, call, band, mode, qsoDate, timeOn)
 		if matchErr != nil {
 			return false, matchErr
 		}
@@ -295,14 +436,14 @@ func (s *store) upsertLoTWConfirmation(profileID int64, record map[string]string
 		}
 	}
 
-	_, err = s.db.Exec(
-		`INSERT INTO lotw_confirmation (profile_id, qso_id, call, band, mode, qso_date, time_on, dxcc, country, gridsquare, state, cqz, credit_granted, synced_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	_, err = exec.Exec(
+		`INSERT INTO lotw_confirmation (profile_id, qso_id, call, band, mode, qso_date, time_on, dxcc, country, gridsquare, state, cqz, credit_granted, iota_ref, synced_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(profile_id, call, band, mode, qso_date, time_on) DO UPDATE SET
 		   qso_id = excluded.qso_id, dxcc = excluded.dxcc, country = excluded.country,
 		   gridsquare = excluded.gridsquare, state = excluded.state, cqz = excluded.cqz,
-		   credit_granted = excluded.credit_granted, synced_at = excluded.synced_at`,
-		profileID, qsoID, call, band, mode, qsoDate, timeOn, dxcc, country, gridsquare, state, cqz, credit, syncedAt,
+		   credit_granted = excluded.credit_granted, iota_ref = excluded.iota_ref, synced_at = excluded.synced_at`,
+		profileID, qsoID, call, band, mode, qsoDate, timeOn, dxcc, country, gridsquare, state, cqz, credit, iotaRef, syncedAt,
 	)
 	if err != nil {
 		return false, fmt.Errorf("upsert LoTW confirmation for %s: %w", call, err)
@@ -310,33 +451,84 @@ func (s *store) upsertLoTWConfirmation(profileID int64, record map[string]string
 	return matched, nil
 }
 
+func (s *store) upsertLoTWConfirmation(profileID int64, record map[string]string, syncedAt string) (bool, error) {
+	return upsertLoTWConfirmation(s.db, profileID, record, syncedAt)
+}
+
 // matchLoTWConfirmation finds the local QSO a confirmation record belongs to:
-// same profile, call, band, and mode, logged within lotwMatchWindow of the
-// confirmed QSO's start time. See docs/LoTW_Integration_Design.md's ARRL
-// developer guidance table — LoTW itself matches within a ±30-minute window,
-// so this mirrors the server's own rule rather than requiring an exact
-// TIME_ON match that would miss a confirmation over a rounding difference.
+// same profile, call, and band, logged within lotwMatchWindow of the
+// confirmed QSO's start time (see docs/LoTW_Integration_Design.md's ARRL
+// developer guidance table — LoTW itself matches within a ±30-minute
+// window). Per ARRL's guidance ("it may be best to leave the mode out of the
+// comparison except in the case where a downloaded record matches multiple
+// QSO records") mode is not part of the primary filter — TQSL can remap an
+// uploaded mode to a different value than what's logged locally — and is
+// only used to break a tie when more than one local QSO falls in the window.
 func (s *store) matchLoTWConfirmation(profileID int64, call, band, mode, qsoDate, timeOn string) (int64, bool, error) {
+	return matchLoTWConfirmation(s.db, profileID, call, band, mode, qsoDate, timeOn)
+}
+
+func matchLoTWConfirmation(exec lotwSyncExecer, profileID int64, call, band, mode, qsoDate, timeOn string) (int64, bool, error) {
 	confirmedAt, err := time.ParseInLocation("20060102150405", qsoDate+timeOn, time.UTC)
 	if err != nil {
 		return 0, false, nil
 	}
 	windowStart := confirmedAt.Add(-lotwMatchWindow).Format("20060102150405")
 	windowEnd := confirmedAt.Add(lotwMatchWindow).Format("20060102150405")
-	var id int64
-	err = s.db.QueryRow(
-		`SELECT id FROM qso
-		 WHERE profile_id = ? AND UPPER(call) = ? AND UPPER(band) = ? AND UPPER(COALESCE(mode, '')) = ?
-		   AND (qso_date || time_on) BETWEEN ? AND ?
-		 ORDER BY ABS(strftime('%s', substr(qso_date,1,4)||'-'||substr(qso_date,5,2)||'-'||substr(qso_date,7,2)||' '||substr(time_on,1,2)||':'||substr(time_on,3,2)||':'||substr(time_on,5,2)) - strftime('%s', ?))
-		 LIMIT 1`,
-		profileID, call, band, mode, windowStart, windowEnd, confirmedAt.Format("2006-01-02 15:04:05"),
-	).Scan(&id)
-	if err == sql.ErrNoRows {
-		return 0, false, nil
-	}
+	rows, err := exec.Query(
+		`SELECT id, UPPER(COALESCE(mode, '')), qso_date, time_on FROM qso
+		 WHERE profile_id = ? AND UPPER(call) = ? AND UPPER(band) = ?
+		   AND (qso_date || time_on) BETWEEN ? AND ?`,
+		profileID, call, band, windowStart, windowEnd,
+	)
 	if err != nil {
 		return 0, false, fmt.Errorf("match LoTW confirmation for %s: %w", call, err)
 	}
-	return id, true, nil
+	defer rows.Close()
+
+	type candidate struct {
+		id    int64
+		mode  string
+		delta time.Duration
+	}
+	var candidates []candidate
+	for rows.Next() {
+		var id int64
+		var qMode, qDate, qTime string
+		if err := rows.Scan(&id, &qMode, &qDate, &qTime); err != nil {
+			return 0, false, fmt.Errorf("match LoTW confirmation for %s: %w", call, err)
+		}
+		at, parseErr := time.ParseInLocation("20060102150405", qDate+qTime, time.UTC)
+		if parseErr != nil {
+			continue
+		}
+		delta := at.Sub(confirmedAt)
+		if delta < 0 {
+			delta = -delta
+		}
+		candidates = append(candidates, candidate{id: id, mode: qMode, delta: delta})
+	}
+	if err := rows.Err(); err != nil {
+		return 0, false, fmt.Errorf("match LoTW confirmation for %s: %w", call, err)
+	}
+	if len(candidates) == 0 {
+		return 0, false, nil
+	}
+	if len(candidates) == 1 {
+		return candidates[0].id, true, nil
+	}
+	// Multiple local QSOs fall in the same window: use mode only now, to
+	// disambiguate, per ARRL's guidance quoted above.
+	best := candidates[0]
+	bestModeMatch := mode != "" && strings.EqualFold(best.mode, mode)
+	for _, c := range candidates[1:] {
+		modeMatch := mode != "" && strings.EqualFold(c.mode, mode)
+		switch {
+		case modeMatch && !bestModeMatch:
+			best, bestModeMatch = c, true
+		case modeMatch == bestModeMatch && c.delta < best.delta:
+			best = c
+		}
+	}
+	return best.id, true, nil
 }

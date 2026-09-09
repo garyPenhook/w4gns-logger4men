@@ -185,6 +185,15 @@ func openStore(path string) (*store, error) {
 		db.Close()
 		return nil, fmt.Errorf("apply LoTW confirmation schema: %w", err)
 	}
+	if exists, err := s.columnExists("lotw_confirmation", "iota_ref"); err != nil {
+		db.Close()
+		return nil, err
+	} else if !exists {
+		if _, err := db.Exec(`ALTER TABLE lotw_confirmation ADD COLUMN iota_ref TEXT NOT NULL DEFAULT ''`); err != nil {
+			db.Close()
+			return nil, err
+		}
+	}
 	if _, err := db.Exec(lotwBackfillStateSchema); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("apply LoTW backfill state schema: %w", err)

@@ -76,39 +76,43 @@ type lotwAwardStats struct {
 	IOTA awardProgress
 }
 
+// The *ConfirmedQuery constants read geography (dxcc/state/cqz/gridsquare/
+// iota_ref) straight from lotw_confirmation, not the locally matched qso
+// row: those columns are populated from the QSLing station's own confirmed
+// data (requested via qso_qsldetail=yes, see buildLoTWReportURL), which is
+// authoritative over this app's local QRZ/prefix-table-derived guess and can
+// legitimately differ from it (e.g. a station portable in a different DXCC
+// entity than its callsign prefix implies). A confirmation counts here
+// whether or not it could be matched to a local QSO — an unmatched
+// confirmation is still a real LoTW confirmation of that entity/state/zone.
 const (
 	dxccWorkedQuery = `SELECT DISTINCT CAST(dxcc AS TEXT), TRIM(CAST(dxcc AS TEXT) || ' ' || COALESCE(country, ''))
 		FROM qso WHERE profile_id = ? AND dxcc IS NOT NULL AND CAST(dxcc AS TEXT) != '0'`
-	dxccConfirmedQuery = `SELECT DISTINCT CAST(q.dxcc AS TEXT), TRIM(CAST(q.dxcc AS TEXT) || ' ' || COALESCE(q.country, ''))
-		FROM qso q JOIN lotw_confirmation c ON c.qso_id = q.id
-		WHERE q.profile_id = ? AND q.dxcc IS NOT NULL AND CAST(q.dxcc AS TEXT) != '0'`
+	dxccConfirmedQuery = `SELECT DISTINCT dxcc, TRIM(dxcc || ' ' || country)
+		FROM lotw_confirmation WHERE profile_id = ? AND dxcc != '' AND dxcc != '0'`
 
 	wasWorkedQuery = `SELECT DISTINCT UPPER(TRIM(state)), UPPER(TRIM(state))
 		FROM qso WHERE profile_id = ? AND state IS NOT NULL AND TRIM(state) != ''`
-	wasConfirmedQuery = `SELECT DISTINCT UPPER(TRIM(q.state)), UPPER(TRIM(q.state))
-		FROM qso q JOIN lotw_confirmation c ON c.qso_id = q.id
-		WHERE q.profile_id = ? AND q.state IS NOT NULL AND TRIM(q.state) != ''`
+	wasConfirmedQuery = `SELECT DISTINCT UPPER(TRIM(state)), UPPER(TRIM(state))
+		FROM lotw_confirmation WHERE profile_id = ? AND TRIM(state) != ''`
 
 	wazWorkedQuery = `SELECT DISTINCT CAST(cqz AS TEXT), CAST(cqz AS TEXT)
 		FROM qso WHERE profile_id = ? AND cqz IS NOT NULL AND CAST(cqz AS TEXT) != '0'`
-	wazConfirmedQuery = `SELECT DISTINCT CAST(q.cqz AS TEXT), CAST(q.cqz AS TEXT)
-		FROM qso q JOIN lotw_confirmation c ON c.qso_id = q.id
-		WHERE q.profile_id = ? AND q.cqz IS NOT NULL AND CAST(q.cqz AS TEXT) != '0'`
+	wazConfirmedQuery = `SELECT DISTINCT cqz, cqz
+		FROM lotw_confirmation WHERE profile_id = ? AND cqz != '' AND cqz != '0'`
 
 	// VUCC credits a 4-character grid square worked on 50 MHz and above; 6M is
 	// the highest band this app's amateurBands table tracks (see
 	// bandplan.go), so it is the only VHF+ filter needed here.
 	vuccWorkedQuery = `SELECT DISTINCT UPPER(SUBSTR(gridsquare, 1, 4)), UPPER(SUBSTR(gridsquare, 1, 4))
 		FROM qso WHERE profile_id = ? AND band = '6M' AND gridsquare IS NOT NULL AND LENGTH(TRIM(gridsquare)) >= 4`
-	vuccConfirmedQuery = `SELECT DISTINCT UPPER(SUBSTR(q.gridsquare, 1, 4)), UPPER(SUBSTR(q.gridsquare, 1, 4))
-		FROM qso q JOIN lotw_confirmation c ON c.qso_id = q.id
-		WHERE q.profile_id = ? AND q.band = '6M' AND q.gridsquare IS NOT NULL AND LENGTH(TRIM(q.gridsquare)) >= 4`
+	vuccConfirmedQuery = `SELECT DISTINCT UPPER(SUBSTR(gridsquare, 1, 4)), UPPER(SUBSTR(gridsquare, 1, 4))
+		FROM lotw_confirmation WHERE profile_id = ? AND band = '6M' AND LENGTH(TRIM(gridsquare)) >= 4`
 
 	iotaWorkedQuery = `SELECT DISTINCT UPPER(TRIM(iota_ref)), UPPER(TRIM(iota_ref))
 		FROM qso WHERE profile_id = ? AND iota_ref IS NOT NULL AND TRIM(iota_ref) != ''`
-	iotaConfirmedQuery = `SELECT DISTINCT UPPER(TRIM(q.iota_ref)), UPPER(TRIM(q.iota_ref))
-		FROM qso q JOIN lotw_confirmation c ON c.qso_id = q.id
-		WHERE q.profile_id = ? AND q.iota_ref IS NOT NULL AND TRIM(q.iota_ref) != ''`
+	iotaConfirmedQuery = `SELECT DISTINCT UPPER(TRIM(iota_ref)), UPPER(TRIM(iota_ref))
+		FROM lotw_confirmation WHERE profile_id = ? AND TRIM(iota_ref) != ''`
 )
 
 // loadLoTWAwardStats computes worked-vs-confirmed progress for every award
