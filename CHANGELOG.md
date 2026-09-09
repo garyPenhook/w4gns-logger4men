@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.50.0
+
+- Fix the QSO Entry screen losing its Call/RST Sent/RST Rcvd field row off the top of a short terminal window: the Recent QSOs table (and the DX Spots panel beside it) now shrinks to fit the actual terminal height instead of staying pinned at a fixed 10 rows, so the hotkey bar, header, and field-entry grid above it always fit on screen.
+
 ### v1.49.0
 
 - Add ARRL Logbook of the World (LoTW) integration: automatic per-QSO upload signed by your locally installed `tqsl` (alongside the existing QRZ/WRL delivery), a manual/CLI full-log backfill (`Ctrl+Y` / `--upload-lotw`), incremental confirmation (QSL) sync, and a `Ctrl+A` award/analytics stats panel (DXCC/WAS/WAZ/VUCC/IOTA worked vs. confirmed). See the "ARRL LoTW upload" and "LoTW confirmation sync & award stats" sections of the README.

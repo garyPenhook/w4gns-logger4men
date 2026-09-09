@@ -35,9 +35,12 @@ const (
 	fieldCount
 )
 
-// recentQSOsVisibleRows is the Recent QSOs table's height, shared with the
-// DX Spots panel that renders alongside it on QSO Entry so the two stay the
-// same height.
+// recentQSOsVisibleRows is the Recent QSOs table's default/maximum height,
+// shared with the DX Spots panel that renders alongside it on QSO Entry so
+// the two stay the same height. Use recentRowsVisible, not this constant
+// directly, wherever a live m.termHeight is available — a short terminal
+// window shrinks the table so the hotkeys/header/field-entry chrome above it
+// never scrolls off the top of the screen (see recentRowsVisible).
 const recentQSOsVisibleRows = 10
 
 // cwMode is the only mode this logger supports — see "CW only logger, life
@@ -48,7 +51,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.49.0"
+const appVersion = "1.50.0"
 
 type screen int
 
@@ -860,7 +863,7 @@ func (m *model) pruneClusterSpots() {
 	m.clusterSpots = kept
 	// Clamp the scroll offset to the shortened list without the status-bar
 	// side effect scrollClusterSpots carries.
-	maxScroll := len(m.clusterSpots) - recentQSOsVisibleRows
+	maxScroll := len(m.clusterSpots) - m.recentRowsVisible()
 	if maxScroll < 0 {
 		maxScroll = 0
 	}
@@ -1129,7 +1132,7 @@ func (m *model) addClusterSpot(spot clusterSpot) {
 // clamped to the valid range so PgUp/PgDn can't scroll past the first or
 // last spot in m.clusterSpots.
 func (m *model) scrollClusterSpots(delta int) {
-	maxScroll := len(m.clusterSpots) - recentQSOsVisibleRows
+	maxScroll := len(m.clusterSpots) - m.recentRowsVisible()
 	if maxScroll < 0 {
 		maxScroll = 0
 	}
@@ -1144,7 +1147,7 @@ func (m *model) scrollClusterSpots(delta int) {
 		return
 	}
 	first := m.clusterSpotsScroll + 1
-	last := m.clusterSpotsScroll + recentQSOsVisibleRows
+	last := m.clusterSpotsScroll + m.recentRowsVisible()
 	if last > len(m.clusterSpots) {
 		last = len(m.clusterSpots)
 	}
@@ -2863,6 +2866,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	if message, ok := msg.(tea.WindowSizeMsg); ok {
 		m.termWidth, m.termHeight = message.Width, message.Height
+		m.table.SetHeight(m.recentRowsVisible())
 		return m, nil
 	}
 	if _, ok := msg.(lotwUpdateCheckTickMsg); ok {
@@ -3362,10 +3366,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		case "pgup":
-			m.scrollClusterSpots(-recentQSOsVisibleRows)
+			m.scrollClusterSpots(-m.recentRowsVisible())
 			return m, nil
 		case "pgdown":
-			m.scrollClusterSpots(recentQSOsVisibleRows)
+			m.scrollClusterSpots(m.recentRowsVisible())
 			return m, nil
 		}
 		if m.focusedBaseFieldIndex() == fieldBand {
@@ -3934,6 +3938,41 @@ func (m model) renderSlot(pos int, s entrySlot) string {
 	return box.Render(content)
 }
 
+// recentRowsVisibleMinRows is the floor recentRowsVisible shrinks to on a
+// very short terminal — enough to still show a couple of recent QSOs/spots
+// rather than collapsing the panel to nothing.
+const recentRowsVisibleMinRows = 3
+
+// recentRowsVisibleChrome is a conservative estimate of every line QSO Entry
+// renders around the Recent QSOs/DX Spots panel — hotkey bar, header, solar
+// line, the (up to 3-row) field-entry grid, and the status/footer lines below
+// the panel. recentRowsVisible reserves this much of the terminal height for
+// that chrome so the panel never claims rows the chrome above it needs,
+// which is what let the Call/RST field row scroll off the top of a short
+// terminal window before this existed.
+const recentRowsVisibleChrome = 20
+
+// recentRowsVisible is how many rows the Recent QSOs table (and, so the two
+// stay the same height, the DX Spots panel beside it) should show given the
+// current terminal height. It shrinks toward recentRowsVisibleMinRows on a
+// short terminal instead of staying pinned at recentQSOsVisibleRows, so the
+// hotkeys/header/field-entry chrome above the panel always fits on screen
+// too. Falls back to the historical fixed height when no WindowSizeMsg has
+// arrived yet (m.termHeight == 0).
+func (m model) recentRowsVisible() int {
+	if m.termHeight <= 0 {
+		return recentQSOsVisibleRows
+	}
+	avail := m.termHeight - recentRowsVisibleChrome
+	if avail < recentRowsVisibleMinRows {
+		avail = recentRowsVisibleMinRows
+	}
+	if avail > recentQSOsVisibleRows {
+		avail = recentQSOsVisibleRows
+	}
+	return avail
+}
+
 // packFieldRows groups the rendered QSO Entry field boxes into as many rows as
 // needed so no row exceeds maxWidth, then stacks the rows vertically. This
 // keeps the entry form from stretching every field onto one very wide line
@@ -4162,7 +4201,7 @@ func (m model) dxSpotsPanel(width int) string {
 	}
 	var b strings.Builder
 	title := "DX Spots (CW, all bands)"
-	if len(m.clusterSpots) > recentQSOsVisibleRows {
+	if len(m.clusterSpots) > m.recentRowsVisible() {
 		title += "  (PgUp/PgDn)"
 	}
 	b.WriteString(helpStyle.Render(truncateToWidth(title, width)))
@@ -4176,7 +4215,7 @@ func (m model) dxSpotsPanel(width int) string {
 		return b.String()
 	}
 	showComment := width >= dxSpotsPanelCommentMinWidth
-	maxScroll := len(m.clusterSpots) - recentQSOsVisibleRows
+	maxScroll := len(m.clusterSpots) - m.recentRowsVisible()
 	if maxScroll < 0 {
 		maxScroll = 0
 	}
@@ -4184,7 +4223,7 @@ func (m model) dxSpotsPanel(width int) string {
 	if scroll > maxScroll {
 		scroll = maxScroll
 	}
-	end := scroll + recentQSOsVisibleRows
+	end := scroll + m.recentRowsVisible()
 	if end > len(m.clusterSpots) {
 		end = len(m.clusterSpots)
 	}
