@@ -26,7 +26,9 @@ Reference: ARRL LoTW help — <https://lotw.arrl.org/lotw-help/>.
 - No certificate/station-location management UI. The operator configures those
   in TQSL as they do today; the app only *selects* an existing station location
   by name.
-- No download/sync of LoTW confirmations (QSLs) in this phase. Upload only.
+- No download/sync of LoTW confirmations (QSLs) or award/analytics stats in
+  this phase. Upload only. See "Phase 2: confirmation sync & award stats"
+  below for the planned follow-up.
 
 ## Environment (verified on this machine)
 
@@ -283,10 +285,76 @@ marker) is unprotected. `lotw.pass` therefore stays unset here; `-p` is omitted
 from the invocation when empty. The same command with `-u` in place of `-z`
 is the production upload call.
 
-## Open questions / follow-ups
+## Phase 2: confirmation sync & award/analytics stats (planned, not implemented)
 
-- Phase 2 (out of scope here): download LoTW QSL confirmations and mark matched
-  QSOs as confirmed.
+Upload-only (this phase) gets QSOs *to* LoTW but tells the operator nothing
+about what LoTW has confirmed back, or how that stacks up against DXCC/WAS/
+WAZ/VUCC/IOTA award progress — which is the actual reason most operators care
+about LoTW at all. Sketched here so the eventual work has a starting design
+rather than a bare "Phase 2" bullet; not scheduled.
+
+### Confirmation sync
+
+ARRL exposes confirmation (QSL) data through a separate query service, not the
+sign/upload path `tqsl` drives: `https://lotw.arrl.org/lotwuser/lotwreport.adi`
+(RESTful, HTTPS only, returns ADIF). See [Querying
+LoTW](https://lotw.arrl.org/lotw-help/developer-query-qsos-qsls/?lang=en).
+
+- Auth is `login`/`password` query parameters (the operator's LoTW web login,
+  a **third** credential distinct from the TQSL Callsign Certificate and
+  passphrase this phase already handles — needs its own config file, e.g.
+  `lotw.login`/`lotw.webpass`, same `0600`/XDG-path treatment as the others).
+- `qso_query=1` requests QSO/QSL records; `qso_qsl=yes` (the default) scopes
+  to confirmed (QSL'd) records. Filters include `qso_qslsince`,
+  `qso_qsorxsince`, `qso_owncall`, `qso_callsign`, `qso_mode`, `qso_band`,
+  `qso_dxcc`, `qso_startdate`/`qso_enddate`.
+- **Incremental sync, not a full re-download every time**: the response
+  header carries `APP_LoTW_LASTQSL` (most recent QSL in this batch) and
+  `APP_LoTW_LASTQSORX` (most recent uploaded-QSO acknowledgement). Store both
+  per profile and pass them back as `qso_qslsince`/`qso_qsorxsince` on the
+  next sync, exactly mirroring the "should not be routine" full-log-resend
+  guidance from the upload side (see ARRL developer guidance above) — a sync
+  should ask "what's new since last time," not re-fetch the whole history.
+- Per-record award fields worth persisting: `CREDIT_GRANTED` /
+  `APP_LoTW_CREDIT_GRANTED` (which award(s) this confirmed QSO counts toward),
+  plus the usual match keys (`CALL`, `BAND`, `MODE`, `QSO_DATE`, `TIME_ON`,
+  `DXCC`, `GRIDSQUARE`, state/county where present) to join back to the local
+  `qso` table. ARRL's docs don't document any rate limit for this endpoint;
+  still worth a conservative default sync interval (e.g. hourly, operator-
+  triggered manual sync also available) rather than polling aggressively.
+- New schema: a `lotw_confirmation` table (`qso_id` FK where matched, raw
+  confirmation fields, `credit_granted`, `synced_at`) — separate from
+  `upload_outbox`/`upload_log`, since this is inbound data, not an outbound
+  delivery record.
+
+### Award/analytics stats panel
+
+A new hotkey (e.g. `Ctrl+A`, next free binding) opens a stats panel, driven
+entirely from local data (the `qso` table plus the new `lotw_confirmation`
+table) — no network call on open, so it's instant even offline:
+
+- **DXCC**: entities worked vs. confirmed, using the DXCC entity table this
+  app already has (`dxcc.go`, the same data backing the analysis panel's
+  country/zone lookups) — reuse, don't duplicate, that reference data.
+- **WAS** (Worked All States): US states worked vs. confirmed, from the
+  existing `state` field/state-QSO-party infrastructure.
+- **WAZ**: CQ zones worked vs. confirmed, from the existing CQ-zone lookup
+  already used for contest scoring.
+- **VUCC**: grid squares confirmed on VHF+ bands, from the existing grid
+  utilities (`grid.go`).
+- **IOTA**: island references confirmed, from the existing `iota.go`
+  reference data already used for IOTA scoring.
+- Each line: worked / confirmed / needed-for-award, with a drill-down list of
+  the specific unconfirmed-but-worked entities/states/zones/grids so an
+  operator knows what to chase next (a QRZ/LoTW-style "need list").
+- This duplicates *some* of what LoTW's own website already shows (its award
+  tracker), but locally and offline, and cross-referenced against this app's
+  own contest/event data in a way LoTW's generic UI doesn't — e.g. "confirmed
+  AND counts as a new DXCC multiplier in an active contest" isn't something
+  LoTW's website can answer.
+
+### Open follow-ups (this phase, not Phase 2)
+
 - Call `tqsl -n` (update/critical-file check) periodically — ARRL calls this
   out for programs driving `tqsl` on the user's behalf; not implemented yet
   (see ARRL developer guidance above).
