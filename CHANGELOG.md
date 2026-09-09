@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.52.0
+
+- Add a one-time startup backfill (`store.backfillMissingDXCC`) that resolves country/CQ-zone/ITU-zone/DXCC-number for any QSO that never had them set — e.g. rows from a database carried over from before this app's DXCC resolution existed. Without it, the DXCC/WAS/WAZ award stats (`Ctrl+A`) undercounted "worked" for anyone whose log predates that feature, sometimes showing more confirmed than worked and needed-award lists missing most unconfirmed entities. Only ever fills a blank field; never overwrites a value already present, so it's safe on every startup.
+
 ### v1.51.3
 
 - Fix a first LoTW confirmation sync silently returning only the last few confirmations instead of the operator's whole history: this app omitted `qso_qslsince` when no prior sync bookmark existed, assuming ARRL would then return everything, but live testing showed ARRL substitutes its own recent "system supplied default" instead — hiding years of older confirmations (e.g. DXCC entities confirmed long before switching to this app) with no error. A first sync now explicitly sends a pre-2003 `qso_qslsince` to force the real full history.

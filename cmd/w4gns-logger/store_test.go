@@ -181,6 +181,77 @@ func TestBackfillMissingProfileIDSkipsWriteWhenNoOrphans(t *testing.T) {
 	}
 }
 
+// TestBackfillMissingDXCCFillsBlankRowsOnly covers a database carried over
+// from before DXCC resolution existed (or populated by a raw insert that
+// bypassed insertQSOChunk): openStore must resolve country/dxcc/cqz/ituz for
+// rows where country is blank, without touching a row that already has a
+// (possibly different, e.g. imported-and-authoritative) value.
+func TestBackfillMissingDXCCFillsBlankRowsOnly(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	if _, err := st.db.Exec(`INSERT INTO qso (call, qso_date, time_on, band, mode, profile_id) VALUES (?, ?, ?, ?, ?, ?)`,
+		"W4GNS", "20260101", "120000", "20M", "CW", 1); err != nil {
+		t.Fatalf("insert row with no country: %v", err)
+	}
+	if _, err := st.db.Exec(`INSERT INTO qso (call, qso_date, time_on, band, mode, profile_id, country) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"W4GNS", "20260102", "120000", "20M", "CW", 1, "Somewhere Else"); err != nil {
+		t.Fatalf("insert row with a pre-existing country: %v", err)
+	}
+
+	if err := st.backfillMissingDXCC(); err != nil {
+		t.Fatalf("backfillMissingDXCC: %v", err)
+	}
+
+	var blankRowCountry string
+	var blankRowDXCC sql.NullInt64
+	if err := st.db.QueryRow(`SELECT country, dxcc FROM qso WHERE qso_date = '20260101'`).Scan(&blankRowCountry, &blankRowDXCC); err != nil {
+		t.Fatal(err)
+	}
+	if blankRowCountry != "United States" || !blankRowDXCC.Valid || blankRowDXCC.Int64 != 291 {
+		t.Fatalf("blank row got country=%q dxcc=%v, want United States/291", blankRowCountry, blankRowDXCC)
+	}
+
+	var preexistingCountry string
+	if err := st.db.QueryRow(`SELECT country FROM qso WHERE qso_date = '20260102'`).Scan(&preexistingCountry); err != nil {
+		t.Fatal(err)
+	}
+	if preexistingCountry != "Somewhere Else" {
+		t.Fatalf("pre-existing country = %q, want it left untouched", preexistingCountry)
+	}
+}
+
+// TestBackfillMissingDXCCIsIdempotent guards the steady-state startup cost:
+// once every row has a country, a second run must find nothing to update.
+func TestBackfillMissingDXCCIsIdempotent(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+
+	if _, err := st.db.Exec(`INSERT INTO qso (call, qso_date, time_on, band, mode, profile_id) VALUES (?, ?, ?, ?, ?, ?)`,
+		"W4GNS", "20260101", "120000", "20M", "CW", 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.backfillMissingDXCC(); err != nil {
+		t.Fatalf("first backfillMissingDXCC: %v", err)
+	}
+	if err := st.backfillMissingDXCC(); err != nil {
+		t.Fatalf("second backfillMissingDXCC: %v", err)
+	}
+	var country string
+	if err := st.db.QueryRow(`SELECT country FROM qso WHERE qso_date = '20260101'`).Scan(&country); err != nil {
+		t.Fatal(err)
+	}
+	if country != "United States" {
+		t.Fatalf("country = %q after two runs, want United States", country)
+	}
+}
+
 // TestQSOsForProfileToleratesNullEndTime covers a row from an
 // intermediate schema where qso_date_off/time_off exist but were never
 // populated (NULL), which previously failed to scan into a plain string.

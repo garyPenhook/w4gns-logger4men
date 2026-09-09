@@ -177,6 +177,10 @@ func openStore(path string) (*store, error) {
 		db.Close()
 		return nil, err
 	}
+	if err := s.backfillMissingDXCC(); err != nil {
+		db.Close()
+		return nil, err
+	}
 	if err := s.migrateContestOccurrences(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrate contest occurrences: %w", err)
@@ -332,6 +336,10 @@ func (s *store) migrate() error {
 		{name: "iota_ref", definition: "TEXT"},
 		{name: "island_name", definition: "TEXT"},
 		{name: "unscored", definition: "INTEGER NOT NULL DEFAULT 0"},
+		{name: "country", definition: "TEXT"},
+		{name: "dxcc", definition: "INTEGER"},
+		{name: "cqz", definition: "INTEGER"},
+		{name: "ituz", definition: "INTEGER"},
 	} {
 		exists, err := s.columnExists("qso", column.name)
 		if err != nil {
@@ -427,6 +435,66 @@ func (s *store) backfillMissingProfileID() error {
 	}
 	if _, err := s.db.Exec(`UPDATE qso SET profile_id = ? WHERE profile_id IS NULL`, defaultProfileID); err != nil {
 		return fmt.Errorf("backfill qso.profile_id: %w", err)
+	}
+	return nil
+}
+
+// backfillMissingDXCC resolves country/CQ-zone/ITU-zone/DXCC-number for
+// every QSO that has never had them set (country IS NULL or blank — the same
+// condition resolveDXCC's cty.dat lookup would have failed to leave blank on
+// its own). Rows predating this app's DXCC resolution (e.g. an old database
+// carried over before the feature existed, rather than logged or imported
+// through insertQSO/insertQSOChunk) otherwise stay permanently invisible to
+// the DXCC/WAS/WAZ award stats in stats_panel.go, undercounting "worked"
+// below "confirmed" from LoTW. Only ever fills a blank; never overwrites a
+// value already present, so it is safe to run on every startup.
+func (s *store) backfillMissingDXCC() error {
+	rows, err := s.db.Query(`SELECT id, call FROM qso WHERE country IS NULL OR TRIM(country) = ''`)
+	if err != nil {
+		return fmt.Errorf("find qso rows missing DXCC data: %w", err)
+	}
+	type pending struct {
+		id   int64
+		call string
+	}
+	var candidates []pending
+	for rows.Next() {
+		var p pending
+		if err := rows.Scan(&p.id, &p.call); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan qso row missing DXCC data: %w", err)
+		}
+		candidates = append(candidates, p)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return fmt.Errorf("iterate qso rows missing DXCC data: %w", err)
+	}
+	rows.Close()
+	if len(candidates) == 0 {
+		return nil
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin DXCC backfill: %w", err)
+	}
+	defer tx.Rollback()
+	statement, err := tx.Prepare(`UPDATE qso SET country = ?, dxcc = ?, cqz = ?, ituz = ? WHERE id = ?`)
+	if err != nil {
+		return fmt.Errorf("prepare DXCC backfill update: %w", err)
+	}
+	defer statement.Close()
+	for _, p := range candidates {
+		country, cqZone, ituZone, dxccNumber := dxccContext(p.call)
+		if country == "" {
+			continue // lookup miss; leave blank, same as a fresh insert would
+		}
+		if _, err := statement.Exec(country, dxccNumber, cqZone, ituZone, p.id); err != nil {
+			return fmt.Errorf("backfill DXCC for qso %d: %w", p.id, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit DXCC backfill: %w", err)
 	}
 	return nil
 }
