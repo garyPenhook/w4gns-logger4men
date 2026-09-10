@@ -6,7 +6,7 @@ Describe the operator-facing change.
 
 - [ ] `go test ./...`
 - [ ] `go vet ./...`
-- [ ] `go build -buildvcs=false -o bin/w4gns-logger .`
+- [ ] `go build -buildvcs=false -o bin/w4gns-logger ./cmd/w4gns-logger`
 
 ## Notes
 

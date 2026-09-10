@@ -35,6 +35,30 @@ func TestCtrlAOpensStatsPanelWithLocalStatsOnly(t *testing.T) {
 	}
 }
 
+// TestStatsPanelViewSanitizesUntrustedText guards against terminal
+// control-sequence injection via two untrusted sources rendered by the stats
+// panel: a needed-award label (which can originate from an imported ADIF
+// field, e.g. IOTA_ref) and the LoTW sync status message (which can carry an
+// HTTP error body snippet). Without sanitization, an embedded ANSI/OSC escape
+// sequence would be emitted verbatim when the panel opens.
+func TestStatsPanelViewSanitizesUntrustedText(t *testing.T) {
+	m := reviewModel(t)
+	m.openStatsPanel()
+	m.lotwStats = &lotwAwardStats{
+		IOTA: awardProgress{Worked: 1, Needed: []string{"EU-005\x1b[31mINJECTED"}},
+	}
+	m.statsAwardFocus = 4
+	m.statsSyncMsg = "sync failed: \x1b]52;c;ZGF0YQ==\x07malicious"
+
+	view := m.statsPanelView()
+	if strings.ContainsRune(view, 0x1b) {
+		t.Fatalf("stats panel view contains an unsanitized ESC byte: %q", view)
+	}
+	if !strings.Contains(view, "EU-005") || !strings.Contains(view, "INJECTED") {
+		t.Fatalf("sanitization should strip control bytes, not the surrounding text: %q", view)
+	}
+}
+
 func TestStatsPanelEscReturnsToQSOEntry(t *testing.T) {
 	m := reviewModel(t)
 	m.openStatsPanel()

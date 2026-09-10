@@ -1,5 +1,16 @@
 # Changelog
 
+### v1.55.2
+
+Follow-up fixes from an independent review of the LoTW award-stats panel (docs/Award_Stats_Review_2026-09-10.md):
+
+- Exclude 60m from WAS worked/confirmed queries — ARRL's WAS rules don't credit the 60m channelized allocation, even though this app supports logging on it.
+- Fix WAZ's confirmed-side query treating a zero-padded CQ zone (`"05"`, straight from `lotw_confirmation`'s TEXT column) as a distinct zone from `"5"` (the worked side's normalized INTEGER column), undercounting "needed" and inflating "worked".
+- Restrict the IOTA worked/confirmed queries to the standard `AA-###` reference form: previously any nonblank imported `iota_ref` counted as a distinct IOTA entity. Filtered at the SQL layer rather than rejected in `validateQSO`, since a hard rejection there would also gate editing a pre-existing row with an already-invalid `iota_ref` (e.g. one backfilled from LoTW before this fix), permanently blocking unrelated edits to that row.
+- Sanitize the stats panel's needed-list labels and LoTW sync status message through the existing `sanitizeClusterText` before rendering — both can carry untrusted text (an imported ADIF field, or an LoTW HTTP error body snippet) that could otherwise emit terminal control/escape sequences.
+- Cap buffered LoTW confirmation-sync records (`maxLoTWReportRecords`, 500,000) so a runaway or malformed `lotwreport.adi` response can't grow memory without bound before the sync transaction begins.
+- Fix the PR template's build-verification step targeting the repo root (no `main` package there) instead of `./cmd/w4gns-logger`, and correct `docs/ROADMAP.md`'s stale SD-contest count (271 → the actual 269).
+
 ### v1.55.0
 
 Five defects independently verified against the actual code (each reproduced and fixed with a regression test) after a secondhand domain-review report:

@@ -152,7 +152,7 @@ govern the remaining conversions:
   `cw_rst_exchange` is still safe, just expect frequent per-QSO export
   failures on these until/unless that column-width limit is revisited.
 
-**Not started — `sd_contests.json`, 271 events (261 `entry-aware`, 10
+**Not started — `sd_contests.json`, 269 events (259 `entry-aware`, 10
 `selection-only`):** every entry in this file has a blank `rules_url` (it
 reads like an auto-generated contest-calendar import, not hand-curated like
 `contestcalendar.json`). None of these can be verified yet; each needs a web
@@ -853,7 +853,7 @@ the log, submitted contest results, or external services.
   untouched. `main.go` (`entrySlots`, `focusedInput`, `focusField`, `renderSlot`).
 
 ### Contest catalog from SD templates
-- ✅ **271 SD contests imported** into `events/sd_contests.json` (factual params
+- ✅ **269 SD contests imported** into `events/sd_contests.json` (factual params
   only: name, bands, serial/RST shape, exchange hints; 1 synthetic session each).
   Generator: `~/Downloads/sd_gen.py`. Proprietary SD data (`.MLT/.DTA/.LST/.CTY`)
   was **not** copied.
@@ -875,7 +875,7 @@ the log, submitted contest results, or external services.
 
 ## 2. Near-term — finish the contests we already list
 
-Make the 271 imported contests *correct*, not just selectable.
+Make the 269 imported contests *correct*, not just selectable.
 
 - ✅ **Ergonomic entry order.** Enter-after-Call fast-paths to the received
   exchange, skipping auto-filled RST/Band/Freq, only while a contest is active

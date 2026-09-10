@@ -183,7 +183,13 @@ func (m model) statsPanelView() string {
 		b.WriteString("\n")
 	} else {
 		const maxShown = 20
-		shown := progress.Needed
+		// Needed labels can originate from imported ADIF fields (IOTA_ref,
+		// STATE, etc.), which are untrusted text — sanitize before rendering,
+		// the same as cluster spot text (see sanitizeClusterText).
+		shown := make([]string, len(progress.Needed))
+		for i, item := range progress.Needed {
+			shown[i] = sanitizeClusterText(item)
+		}
 		truncated := false
 		if len(shown) > maxShown {
 			shown = shown[:maxShown]
@@ -208,7 +214,9 @@ func (m model) statsPanelView() string {
 
 	b.WriteString("\n")
 	if m.statsSyncMsg != "" {
-		b.WriteString(dupeStyle.Render(m.statsSyncMsg))
+		// statsSyncMsg can carry an LoTW HTTP error body snippet (untrusted
+		// remote text) — sanitize before rendering, matching cluster spot text.
+		b.WriteString(dupeStyle.Render(sanitizeClusterText(m.statsSyncMsg)))
 		b.WriteString("\n\n")
 	}
 	b.WriteString(helpStyle.Render("Up/Down: page award  •  s: sync LoTW confirmations  •  Esc/Ctrl+A: QSO Entry"))

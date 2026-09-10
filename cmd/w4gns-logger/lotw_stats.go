@@ -111,6 +111,18 @@ const usStateAndDCCodesSQL = `'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA',
 // don't silently lose their award progress.
 const stationCallsignFilter = `(%[1]s.station_callsign IS NULL OR TRIM(%[1]s.station_callsign) = '' OR UPPER(TRIM(%[1]s.station_callsign)) = UPPER(TRIM(?)))`
 
+// iotaReferenceFilterSQL restricts an already upper-cased/trimmed IOTA
+// reference column expression (%[1]s) to the standard "AA-###"
+// continent/sequence form (matching iotaReferenceCode in iota.go): a
+// two-letter continent code from a fixed list, a literal hyphen, and three
+// digits. iota_ref is stored from imported ADIF data with no format check
+// (adif_import.go), so an unchecked free-text value would otherwise count as
+// a spurious distinct IOTA entity here — filtering it out of the award
+// query, rather than rejecting it at the database boundary, keeps a
+// malformed value from blocking an otherwise-unrelated edit to the same row
+// (see validateQSO, which intentionally does not enforce this format).
+const iotaReferenceFilterSQL = `LENGTH(%[1]s) = 6 AND SUBSTR(%[1]s, 3, 1) = '-' AND SUBSTR(%[1]s, 1, 2) IN ('AF','AN','AS','EU','NA','OC','SA') AND SUBSTR(%[1]s, 4, 3) GLOB '[0-9][0-9][0-9]'`
+
 var (
 	dxccWorkedQuery = `SELECT DISTINCT CAST(dxcc AS TEXT), TRIM(CAST(dxcc AS TEXT) || ' ' || COALESCE(country, ''))
 		FROM qso WHERE profile_id = ? AND dxcc IS NOT NULL AND CAST(dxcc AS TEXT) != '0'
@@ -137,17 +149,20 @@ var (
 	// ARRL's WAS rules ("the District of Columbia may be counted for
 	// Maryland"), so a DC contact/confirmation counts as an MD credit rather
 	// than a 51st, nonexistent "state".
+	// 60M is excluded: ARRL's WAS rules (arrl.org/was) don't include the 60m
+	// channelized allocation in the general award, even though this app
+	// supports logging on it (see bandplan.go).
 	wasWorkedQuery = `SELECT DISTINCT
 			CASE WHEN UPPER(TRIM(state)) = 'DC' THEN 'MD' ELSE UPPER(TRIM(state)) END,
 			CASE WHEN UPPER(TRIM(state)) = 'DC' THEN 'MD' ELSE UPPER(TRIM(state)) END
-		FROM qso WHERE profile_id = ? AND dxcc IN (291, 6, 110)
+		FROM qso WHERE profile_id = ? AND dxcc IN (291, 6, 110) AND UPPER(TRIM(band)) != '60M'
 			AND UPPER(TRIM(state)) IN (` + usStateAndDCCodesSQL + `)
 			AND ` + fmt.Sprintf(stationCallsignFilter, "qso")
 	wasConfirmedQuery = `SELECT DISTINCT
 			CASE WHEN UPPER(TRIM(lc.state)) = 'DC' THEN 'MD' ELSE UPPER(TRIM(lc.state)) END,
 			CASE WHEN UPPER(TRIM(lc.state)) = 'DC' THEN 'MD' ELSE UPPER(TRIM(lc.state)) END
 		FROM lotw_confirmation lc JOIN qso q ON q.id = lc.qso_id
-		WHERE lc.profile_id = ? AND lc.dxcc IN ('291', '6', '110')
+		WHERE lc.profile_id = ? AND lc.dxcc IN ('291', '6', '110') AND UPPER(TRIM(lc.band)) != '60M'
 			AND UPPER(TRIM(lc.state)) IN (` + usStateAndDCCodesSQL + `)
 			AND ` + fmt.Sprintf(stationCallsignFilter, "q")
 
@@ -158,7 +173,7 @@ var (
 	wazWorkedQuery = `SELECT DISTINCT CAST(cqz AS TEXT), CAST(cqz AS TEXT)
 		FROM qso WHERE profile_id = ? AND cqz IS NOT NULL AND CAST(cqz AS INTEGER) BETWEEN 1 AND 40
 			AND ` + fmt.Sprintf(stationCallsignFilter, "qso")
-	wazConfirmedQuery = `SELECT DISTINCT lc.cqz, lc.cqz
+	wazConfirmedQuery = `SELECT DISTINCT CAST(CAST(lc.cqz AS INTEGER) AS TEXT), CAST(CAST(lc.cqz AS INTEGER) AS TEXT)
 		FROM lotw_confirmation lc JOIN qso q ON q.id = lc.qso_id
 		WHERE lc.profile_id = ? AND lc.cqz != '' AND CAST(lc.cqz AS INTEGER) BETWEEN 1 AND 40
 			AND ` + fmt.Sprintf(stationCallsignFilter, "q")
@@ -176,10 +191,12 @@ var (
 
 	iotaWorkedQuery = `SELECT DISTINCT UPPER(TRIM(iota_ref)), UPPER(TRIM(iota_ref))
 		FROM qso WHERE profile_id = ? AND iota_ref IS NOT NULL AND TRIM(iota_ref) != ''
+			AND ` + fmt.Sprintf(iotaReferenceFilterSQL, "UPPER(TRIM(iota_ref))") + `
 			AND ` + fmt.Sprintf(stationCallsignFilter, "qso")
 	iotaConfirmedQuery = `SELECT DISTINCT UPPER(TRIM(lc.iota_ref)), UPPER(TRIM(lc.iota_ref))
 		FROM lotw_confirmation lc JOIN qso q ON q.id = lc.qso_id
 		WHERE lc.profile_id = ? AND TRIM(lc.iota_ref) != ''
+			AND ` + fmt.Sprintf(iotaReferenceFilterSQL, "UPPER(TRIM(lc.iota_ref))") + `
 			AND ` + fmt.Sprintf(stationCallsignFilter, "q")
 )
 

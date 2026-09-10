@@ -189,6 +189,13 @@ func redactLoTWCredentials(err error, login, password string) string {
 // nothing to read and the sync reporting zero confirmations with no error.
 const maxLoTWHeaderFields = 64
 
+// maxLoTWReportRecords bounds how many QSO/QSL records syncLoTWConfirmations
+// buffers from one lotwreport.adi response before it validates and commits
+// them (see that function's doc comment for why the whole response must be
+// read before any row is written). Far larger than any real operator's
+// confirmed-QSO history, so it only guards against unbounded memory growth.
+const maxLoTWReportRecords = 500_000
+
 // parseLoTWReportHeader reads ADIF header fields (everything before <EOH>)
 // from br, reusing the same tag/field primitives as parseADIRecords
 // (discardUntil/readUntil/parseADIFLength) since the wire format is
@@ -355,6 +362,16 @@ func syncLoTWConfirmations(ctx context.Context, st *store, profileID int64, logi
 
 	var records []map[string]string
 	sawEOF, err := parseLoTWReportRecords(br, func(record map[string]string) error {
+		// The full response is buffered before the sync transaction begins
+		// (see the doc comment above), so peak memory is proportional to
+		// however many records this returns. Individual fields are already
+		// capped (maxADIFFieldBytes/maxADIFFieldsPerRecord); this bounds the
+		// record count itself so a runaway or malicious response can't grow
+		// this slice without limit. Generous relative to any real LoTW
+		// account history.
+		if len(records) >= maxLoTWReportRecords {
+			return fmt.Errorf("LoTW report exceeds %d records — refusing to buffer further", maxLoTWReportRecords)
+		}
 		records = append(records, record)
 		return nil
 	})

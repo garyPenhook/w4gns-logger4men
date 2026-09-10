@@ -199,6 +199,143 @@ func TestLoadLoTWAwardStatsWASScopesToUSAAlaskaHawaiiAndFoldsDCIntoMaryland(t *t
 	}
 }
 
+// TestLoadLoTWAwardStatsIOTAExcludesMalformedReferences guards against a
+// free-text or malformed iota_ref (accepted on import with no format check,
+// see adif_import.go) counting as a spurious distinct IOTA entity: only the
+// standard "AA-###" continent/sequence form may count.
+func TestLoadLoTWAwardStatsIOTAExcludesMalformedReferences(t *testing.T) {
+	st, err := openStore(t.TempDir() + "/logger.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	insert := func(call, iotaRef string, at time.Time) int64 {
+		q := qso{call: call, band: "20M", mode: "CW", time: at, profileID: 1, dxccNumber: "291", iotaRef: iotaRef}
+		q.timeOff = q.time.Add(time.Minute)
+		id, err := st.insertQSO(q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	validID := insert("W1AW", "EU-005", time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC))
+	insert("W1AX", "ISLAND", time.Date(2026, 3, 1, 13, 0, 0, 0, time.UTC))
+	insert("W1AY", "EU-0055", time.Date(2026, 3, 1, 14, 0, 0, 0, time.UTC))
+	insert("W1AZ", "ZZ-005", time.Date(2026, 3, 1, 15, 0, 0, 0, time.UTC))
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := st.db.Exec(
+		`INSERT INTO lotw_confirmation (profile_id, qso_id, call, band, dxcc, country, iota_ref, synced_at) VALUES (1, ?, 'W1AW', '20M', '291', 'X', 'EU-005', ?)`,
+		validID, now,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.db.Exec(
+		`INSERT INTO lotw_confirmation (profile_id, call, band, dxcc, country, iota_ref, synced_at) VALUES (1, 'W1AX', '20M', '291', 'X', 'ISLAND', ?)`,
+		now,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	stats, err := st.loadLoTWAwardStats(1, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.IOTA.Worked != 1 {
+		t.Fatalf("IOTA.Worked = %d, want 1 (only the well-formed EU-005)", stats.IOTA.Worked)
+	}
+	if stats.IOTA.Confirmed != 1 {
+		t.Fatalf("IOTA.Confirmed = %d, want 1 (the malformed confirmation must not count)", stats.IOTA.Confirmed)
+	}
+	if len(stats.IOTA.Needed) != 0 {
+		t.Fatalf("IOTA.Needed = %v, want none", stats.IOTA.Needed)
+	}
+}
+
+// TestLoadLoTWAwardStatsWASExcludes60Meters guards against counting a 60m
+// contact toward WAS: this app supports logging on 60m (bandplan.go), but
+// ARRL's WAS rules (arrl.org/was) exclude it from the general award, unlike
+// every other HF/VHF band this app tracks.
+func TestLoadLoTWAwardStatsWASExcludes60Meters(t *testing.T) {
+	st, err := openStore(t.TempDir() + "/logger.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	q := qso{
+		call: "W5AR", band: "60M", mode: "CW", time: time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC),
+		profileID: 1, dxccNumber: "291", state: "AR", cqZone: "5",
+	}
+	q.timeOff = q.time.Add(time.Minute)
+	id, err := st.insertQSO(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := st.db.Exec(
+		`INSERT INTO lotw_confirmation (profile_id, qso_id, call, band, dxcc, country, state, cqz, synced_at) VALUES (1, ?, 'W5AR', '60M', '291', 'X', 'AR', '5', ?)`,
+		id, now,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	stats, err := st.loadLoTWAwardStats(1, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.WAS.Worked != 0 {
+		t.Fatalf("WAS.Worked = %d, want 0 (60m is excluded from WAS)", stats.WAS.Worked)
+	}
+	if stats.WAS.Confirmed != 0 {
+		t.Fatalf("WAS.Confirmed = %d, want 0 (60m is excluded from WAS)", stats.WAS.Confirmed)
+	}
+}
+
+// TestLoadLoTWAwardStatsWAZNormalizesConfirmedZonePadding guards against
+// lotw_confirmation's cqz TEXT column ("05") and the matched qso row's
+// normalized INTEGER cqz ("5") producing two distinct WAZ keys for the same
+// zone.
+func TestLoadLoTWAwardStatsWAZNormalizesConfirmedZonePadding(t *testing.T) {
+	st, err := openStore(t.TempDir() + "/logger.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	q := qso{
+		call: "W1AW", band: "20M", mode: "CW", time: time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC),
+		profileID: 1, dxccNumber: "291", cqZone: "5",
+	}
+	q.timeOff = q.time.Add(time.Minute)
+	id, err := st.insertQSO(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := st.db.Exec(
+		`INSERT INTO lotw_confirmation (profile_id, qso_id, call, band, dxcc, country, cqz, synced_at) VALUES (1, ?, 'W1AW', '20M', '291', 'X', '05', ?)`,
+		id, now,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	stats, err := st.loadLoTWAwardStats(1, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.WAZ.Worked != 1 {
+		t.Fatalf("WAZ.Worked = %d, want 1", stats.WAZ.Worked)
+	}
+	if stats.WAZ.Confirmed != 1 {
+		t.Fatalf("WAZ.Confirmed = %d, want 1 (zero-padded \"05\" must match zone 5)", stats.WAZ.Confirmed)
+	}
+	if len(stats.WAZ.Needed) != 0 {
+		t.Fatalf("WAZ.Needed = %v, want none", stats.WAZ.Needed)
+	}
+}
+
 // TestLoadLoTWAwardStatsExcludesUnmatchedConfirmations guards the README's
 // documented behavior ("An unmatched confirmation ... is still recorded,
 // just not counted in the stats above"): a lotw_confirmation row with no
