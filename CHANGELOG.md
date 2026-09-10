@@ -1,5 +1,14 @@
 # Changelog
 
+### v1.54.0
+
+- Add read-only rig control (CAT) via Hamlib `rigctld`: a new Station Setup field ("Rig Control", or `CWLOGGER_RIGCTLD_ADDR`) polls a running `rigctld` every 2 seconds and auto-fills QSO Entry's Band/Frequency from the radio's live VFO frequency while the operator is idle at a blank Call field — never once a callsign is typed, a QSO is in progress, or an existing QSO is being edited. The logger never sends commands to the rig, only reads its frequency. A status line under the solar indices shows the live rig reading when configured. See README's "Rig control" section.
+
+### v1.53.0
+
+- Add a large digital UTC clock overlay in the World Map's open ocean space (top-right of the map viewport), alongside the existing small header clock — the map canvas had unused room and a clock is a standard grayline-map fixture.
+- Add a greyline (day/night terminator) overlay to the World Map (`Ctrl+L`/`F10`): a toggleable `#greyline` checkbox lightens the day hemisphere with a warm tint and draws a bold terminator line, computed client-side in the browser from solar declination and the sun's subsolar longitude, updating continuously from the browser's own clock. Lightening the day side (rather than only darkening night) was necessary for the overlay to read clearly against this map's already very dark theme, where a night-only darkening pass was nearly invisible. It's a coarse approximation (no equation-of-time or atmospheric-refraction correction), documented as such alongside the map's existing location-approximation notices. The preference is remembered per browser origin like the other view controls.
+
 ### v1.52.3
 
 - Fix the stats panel's (`Ctrl+A`) DXCC/WAS/WAZ/VUCC/IOTA "needed" list running off the right edge of the screen: up to 20 entries (labels like "223 ENGLAND" can run long) were joined into a single comma-separated line with no regard for terminal width. The list now wraps across as many lines as needed to fit the actual terminal width.

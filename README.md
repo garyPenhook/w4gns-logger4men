@@ -110,11 +110,13 @@ Markers are colored by band and fade with report age. Select a marker or a calls
 
 Use band, age, and callsign search to narrow the display. **Follow logger** applies F4 filters; **Independent · all CW** shows the retained CW feed with the map's own band/age/search controls. Map controls do not change F4. Zoom with the buttons or mouse wheel, drag to pan, and use Reset to return to the world view. The recent-report table is paged in groups of 50, and All visible paths is limited to 500 distinct DX/band/spotter paths to keep the display usable.
 
+The **Greyline** checkbox (on by default) shades the current night hemisphere and draws the day/night terminator, updating continuously from the browser's own clock — handy for spotting grey-line propagation windows. It's computed client-side from solar declination and the sun's subsolar longitude only, with no atmospheric refraction or equation-of-time correction, so treat the line as an approximation, consistent with the rest of this map's location data. Turning it off is remembered per browser origin like the other view controls.
+
 Locations come from the bundled country/prefix reference table and are explicitly approximate. An unresolved station stays in the report list. A cluster report does not establish reception at your station, and this display is not a propagation forecast. Each spotter's report is retained even when the terminal suppresses repeated DX calls. The map groups markers and counts distinct spotters; its report list retains individual received reports, including relays.
 
 The map keeps up to one hour or 20,000 reports in memory and shows a notice when capacity is reached. Age is measured from the logger's local UTC receipt time. Browser reconnects replace the snapshot and resume updates; expired spots disappear even after reception stops. Quitting the logger disconnects the map. Geography and UI assets are embedded, with no online map-tile dependency; receiving new spots still needs the cluster connection. View controls are remembered in that browser origin; because the local port can change after a logger restart, preferences may reset between logger sessions.
 
-The browser endpoint binds only to localhost and uses a per-run authenticated cookie. No logbook database or service credentials are exposed. This release uses the logger as the feed host; a standalone executable, manual location overrides, and day/night overlays remain planned extensions. See the [design and implementation notes](docs/World_Map_Design_Plan.md).
+The browser endpoint binds only to localhost and uses a per-run authenticated cookie. No logbook database or service credentials are exposed. This release uses the logger as the feed host; a standalone executable and manual location overrides remain planned extensions. See the [design and implementation notes](docs/World_Map_Design_Plan.md).
 
 ## Browse, edit, and delete QSOs
 
@@ -365,8 +367,17 @@ Press `F2` to maintain the active station profile:
 - Timezone
 - Club, rig, antenna, and power
 - Cat-Operator, Cat-Assisted, Cat-Power, Cat-Station, and Address — Cabrillo contest-submission fields (see [Cabrillo export](#cabrillo-export)). Cat-Station is checked against the supported station categories when saved. Blank Cat-Station defaults to FIXED; choose MOBILE or ROVER for applicable Tennessee county activation bonuses. Florida's blank Cat-Power defaults to HIGH for export and scoring; set LOW or QRP explicitly when applicable.
+- Rig Control (rigctld host:port) — see [Rig control](#rig-control) below. Leave blank to disable.
 
 Maidenhead locators support 2, 4, 6, 8, and 10-character values. New QSOs use the active station profile.
+
+## Rig control
+
+Entering a `host:port` (typically `localhost:4532`) in Station Setup's "Rig Control" field polls a running [Hamlib](https://hamlib.github.io/) `rigctld` for the radio's live VFO frequency every 2 seconds and auto-fills QSO Entry's Band and Frequency fields from it — this app never talks to a radio's own CAT protocol directly, only to an already-running `rigctld` (start it yourself, pointed at your rig, the same daemon other logging software polls). `CWLOGGER_RIGCTLD_ADDR` overrides the Station Setup value/on-disk file, with the same lookup order, `.gitignore` handling, and owner-only (`0600`) permission self-heal as `qrz.comAPIkey`.
+
+This is read-only: the logger never sends commands to the rig, only reads its frequency. Autofill only overwrites Band/Frequency while you're idle at a blank Call field with no QSO in progress and nothing being edited — once a callsign is typed the fields are locked in for that contact, exactly like the POTA/QRZ autofills already leave a non-blank field alone. Because it keeps tracking the rig continuously while idle, a manual Band/Frequency change made without also retuning the rig is overwritten by the next poll (every 2 seconds) — this is deliberate: while idle, the rig is treated as the authority on what band/frequency you're about to log on. Autofill is disabled entirely in POST (after-contest/backdated) mode, since that Band/Frequency describes a past contact at the typed Date/Time, not wherever the rig happens to be tuned right now; the status line keeps showing the live rig reading regardless.
+
+A status line under the solar-indices line on QSO Entry shows `Rig: <MHz> MHz (<band>)` when connected, `Rig: connecting…` while establishing the first poll, or `Rig: unavailable (...)` if `rigctld` can't be reached — the line is omitted entirely when rig control isn't configured. A frequency outside every supported CW band (out-of-band, a WARC/broadcast gap) is shown but never autofilled, so it can't push an invalid band into the entry form. Leaving the field blank disables rig control entirely; no network connection is attempted.
 
 ## DX Cluster
 

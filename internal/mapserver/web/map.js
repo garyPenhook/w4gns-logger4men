@@ -17,8 +17,8 @@ for(const [band,color] of Object.entries(colors)) {
 // Preferences contain only display controls, never cluster reports or credentials.
 const viewControls=['band','age','filters','paths','origin'];
 const callAreaIds=[...Array(10).keys()].map(n=>'ca'+n);
-try {const prefs=JSON.parse(localStorage.getItem('w4gns-map-view')||'{}'); for(const id of viewControls) if([...$(id).options].some(o=>o.value===prefs[id])) $(id).value=prefs[id]; if(Array.isArray(prefs.callAreas)) for(const id of callAreaIds) $(id).checked=prefs.callAreas.includes(id.slice(2));}catch{}
-function remember(){try{localStorage.setItem('w4gns-map-view',JSON.stringify({...Object.fromEntries(viewControls.map(id=>[id,$(id).value])),callAreas:callAreaIds.filter(id=>$(id).checked).map(id=>id.slice(2))}));}catch{}}
+try {const prefs=JSON.parse(localStorage.getItem('w4gns-map-view')||'{}'); for(const id of viewControls) if([...$(id).options].some(o=>o.value===prefs[id])) $(id).value=prefs[id]; if(Array.isArray(prefs.callAreas)) for(const id of callAreaIds) $(id).checked=prefs.callAreas.includes(id.slice(2)); if(typeof prefs.greyline==='boolean') $('greyline').checked=prefs.greyline;}catch{}
+function remember(){try{localStorage.setItem('w4gns-map-view',JSON.stringify({...Object.fromEntries(viewControls.map(id=>[id,$(id).value])),callAreas:callAreaIds.filter(id=>$(id).checked).map(id=>id.slice(2)),greyline:$('greyline').checked}));}catch{}}
 // callAreaDigit mirrors cmd/w4gns-logger/cluster_filters.go's Go function of
 // the same name: a numeric portable suffix (e.g. "W1AW/4") overrides the
 // base call's own digit; otherwise it's the first digit in the (longest, if
@@ -36,6 +36,36 @@ function callAreaAllowed(call){const checked=callAreaIds.filter(id=>$(id).checke
 function isUSA(loc){return loc?.Country==='United States';}
 function size(){const box=canvas.getBoundingClientRect(),dpr=window.devicePixelRatio||1; if(canvas.width!==Math.round(box.width*dpr)||canvas.height!==Math.round(box.height*dpr)){canvas.width=Math.round(box.width*dpr);canvas.height=Math.round(box.height*dpr);}ctx.setTransform(dpr,0,0,dpr,0,0);return [box.width,box.height];}
 function project(lon,lat,w,h){const unit=Math.min(w/360,h/180)*scale;return [w/2+lon*unit+pan[0],h/2-lat*unit+pan[1]];}
+// subsolarPoint gives the point on Earth directly under the sun right now,
+// from solar declination (a coarse yearly approximation, no equation of
+// time) and the sun's longitude (exact from UTC clock time: the subsolar
+// longitude is 0 at UTC noon and moves 15 deg/hour west). Good enough for a
+// visual greyline overlay, not for precise sunrise/sunset timing.
+function subsolarPoint(date){const dayOfYear=Math.floor((date-Date.UTC(date.getUTCFullYear(),0,0))/86400000);const decl=-23.44*Math.PI/180*Math.cos(2*Math.PI/365*(dayOfYear+10));const utcHours=date.getUTCHours()+date.getUTCMinutes()/60+date.getUTCSeconds()/3600;let lon=(12-utcHours)*15;lon=((lon+180)%360+360)%360-180;return {lat:decl*180/Math.PI,lon};}
+// terminatorLatitude solves for the day/night boundary latitude at a given
+// longitude: the locus of points where the sun sits exactly on the horizon,
+// derived from the subsolar point (see subsolarPoint) treating both as unit
+// vectors on the sphere and solving their dot product to zero.
+function terminatorLatitude(lon,sub){const declRad=sub.lat*Math.PI/180,hourAngle=(lon-sub.lon)*Math.PI/180,tanDecl=Math.tan(declRad)||1e-9;return Math.atan(-Math.cos(hourAngle)/tanDecl)*180/Math.PI;}
+// hemispherePolygon closes the terminator curve into a fillable ring by
+// running along one pole's latitude, producing either hemisphere as a single
+// equirectangular polygon. night=true closes along the night-side pole
+// (south when the sun's declination is non-negative, north otherwise);
+// night=false closes along the opposite (day-side) pole.
+function hemispherePolygon(sub,night){const pts=[];for(let lon=-180;lon<=180;lon+=2)pts.push([lon,Math.max(-90,Math.min(90,terminatorLatitude(lon,sub)))]);const nightPoleLat=sub.lat>=0?-90:90,poleLat=night?nightPoleLat:-nightPoleLat;pts.push([180,poleLat],[-180,poleLat]);return pts;}
+function fillHemisphere(poly,w,h,color){ctx.beginPath();poly.forEach(([lon,lat],i)=>{const [x,y]=project(lon,lat,w,h);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});ctx.closePath();ctx.fillStyle=color;ctx.fill();}
+// drawGreyline overlays day/night on top of this map's already very dark
+// theme (land/ocean fills sit close to black), where darkening the night
+// side alone barely changes on-screen luminance. Instead the day hemisphere
+// is lightened with a warm overlay — a strong, unambiguous contrast against
+// the unlit night side — while night gets a lighter darkening pass too, and
+// the terminator itself is drawn as a bold, high-contrast line so the
+// boundary reads clearly even before comparing hemisphere shading.
+function drawGreyline(w,h){if(!$('greyline').checked)return;const sub=subsolarPoint(new Date());
+  fillHemisphere(hemispherePolygon(sub,false),w,h,'rgba(255,214,140,0.22)');
+  fillHemisphere(hemispherePolygon(sub,true),w,h,'rgba(0,0,0,0.45)');
+  ctx.strokeStyle='rgba(255,225,150,0.95)';ctx.lineWidth=1.75;ctx.beginPath();for(let lon=-180;lon<=180;lon+=2){const lat=Math.max(-90,Math.min(90,terminatorLatitude(lon,sub))),[x,y]=project(lon,lat,w,h);if(lon===-180)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();
+  const [sx,sy]=project(sub.lon,sub.lat,w,h);ctx.fillStyle='#ffe27a';ctx.strokeStyle='#0b1724';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(sx,sy,4.5,0,Math.PI*2);ctx.fill();ctx.stroke();}
 function strokeRing(ring,w,h,close=false){ctx.beginPath(); ring.forEach(([lon,lat],i)=>{const [x,y]=project(lon,lat,w,h); if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});if(close)ctx.closePath();}
 // Spherical interpolation follows the short great-circle route. Degenerate
 // antipodal pairs have no unique route and deliberately draw no path.
@@ -44,6 +74,7 @@ function drawPath(a,b,w,h,color){const points=greatCircle(a,b);ctx.strokeStyle=c
 function draw(){const [w,h]=size();ctx.clearRect(0,0,w,h);ctx.fillStyle='#0b1724';ctx.fillRect(0,0,w,h);ctx.strokeStyle='#192e40';ctx.lineWidth=.6;for(let lon=-180;lon<=180;lon+=30){strokeRing([[lon,-90],[lon,90]],w,h);ctx.stroke();}for(let lat=-60;lat<=60;lat+=30){strokeRing([[-180,lat],[180,lat]],w,h);ctx.stroke();}
   ctx.fillStyle='#20394a';ctx.strokeStyle='#3b5667';ctx.lineWidth=.55;
   for(const polygon of world){ctx.beginPath();for(const ring of polygon){ring.forEach(([lon,lat],i)=>{const [x,y]=project(lon,lat,w,h);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});ctx.closePath();}ctx.fill('evenodd');ctx.stroke();}
+  drawGreyline(w,h);
   // US state outlines: cartographic context only, drawn under everything
   // else (paths/markers) — darker than the land fill so they read as a
   // visible seam rather than blending into it.
@@ -78,7 +109,7 @@ function render(){const active=document.activeElement,focusRoot=active?.closest(
  const busiest=busiestBand(now,age,search,origin);$('activeband').textContent=busiest?`Most active now: ${busiest.band} (${busiest.count}) — subject to change`:'';
  const unique=new Set(visible.map(key)),unknown=visible.filter(r=>!r.DXLocation).length;$('count').textContent=unique.size+' stations / bands · '+unknown+' unlocated';page=Math.max(0,Math.min(page,Math.ceil(visible.length/50)-1));const pageRows=visible.slice(page*50,page*50+50),tbody=$('rows');tbody.replaceChildren();for(const r of pageRows){const row=document.createElement('tr');if(key(r)===selected)row.className='selected';for(const [i,value] of [new Date(r.ReceivedAtUTC).toISOString().slice(11,19),r.DXCall,(r.FrequencyHz/1e6).toFixed(4)+' / '+r.Band,r.SpotterCall,locationText(r.DXLocation),r.Comment].entries()){const td=document.createElement('td');if(i===1){const b=document.createElement('button');b.textContent=value;b.onclick=()=>select(key(r));td.append(b);}else td.textContent=value;row.append(td);}tbody.append(row);}
  $('listcount').textContent=visible.length?`${page*50+1}–${page*50+pageRows.length} of ${visible.length}`:'0 reports';$('prev').disabled=page===0;$('next').disabled=(page+1)*50>=visible.length;$('empty').hidden=visible.length>0;details();draw();if(focusRoot&&active.tagName==='BUTTON')[...$(focusRoot).querySelectorAll('button')].find(b=>b.textContent===focusText)?.focus({preventScroll:true});}
-for(const id of ['band','age','filters','paths','origin','search',...callAreaIds])$(id).addEventListener('input',()=>{page=0;remember();render();});
+for(const id of ['band','age','filters','paths','origin','search','greyline',...callAreaIds])$(id).addEventListener('input',()=>{page=0;remember();render();});
 $('prev').onclick=()=>{page--;render();};$('next').onclick=()=>{page++;render();};
 function zoom(f){scale=Math.max(1,Math.min(8,scale*f));if(scale===1)pan=[0,0];draw();}
 $('zoomIn').onclick=()=>zoom(1.4);$('zoomOut').onclick=()=>zoom(1/1.4);$('reset').onclick=()=>{scale=1;pan=[0,0];draw();};$('fullscreen').onclick=()=>{const p=document.fullscreenElement?document.exitFullscreen():$('viewport').requestFullscreen();p?.catch(()=>{});};
@@ -90,4 +121,4 @@ fetch('world.json').then(r=>{if(!r.ok)throw Error();return r.json();}).then(data
 // means no state lines draw, not a map-wide error notice.
 fetch('us_states.json').then(r=>{if(!r.ok)throw Error();return r.json();}).then(data=>{usStates=data;draw();}).catch(()=>{});
 const stream=new EventSource('events');stream.onmessage=e=>{const packet=JSON.parse(e.data);online=true;lastPacket=Date.now();state=packet.State;if(packet.Reset)reports.clear();for(const r of packet.Reports)reports.set(r.EventID,r);for(const [id,r]of reports)if(id<packet.OldestID||Date.parse(r.ReceivedAtUTC)<Date.parse(packet.Now)-3600000)reports.delete(id);$('connection').textContent='● Logger connected';$('status').textContent=(state.Status||'Waiting for cluster')+(packet.AtCapacity?' · Report capacity reached; history may be truncated':'');$('home').textContent=state.Home?'★ '+state.Callsign+' · '+state.Home.Locator:'Home grid not configured';render();};stream.onerror=()=>{online=false;$('connection').textContent='Logger disconnected · reconnecting…';};
-function tick(){$('clock').textContent=new Date().toISOString().slice(11,19)+' UTC';if(online&&Date.now()-lastPacket>5000)$('connection').textContent='Logger stream stale · waiting…';if(!online)render();}tick();setInterval(tick,1000);
+function tick(){const now=new Date().toISOString().slice(11,19);$('clock').textContent=now+' UTC';$('mapclocktime').textContent=now;if(online&&Date.now()-lastPacket>5000)$('connection').textContent='Logger stream stale · waiting…';if(!online)render();}tick();setInterval(tick,1000);

@@ -245,6 +245,13 @@ func defaultLoTWWebPassPath() string {
 	return legacyOrStablePath("lotw.webpass", xdgConfigDir())
 }
 
+// defaultRigctldAddrPath resolves the rigctld (Hamlib) address file path used
+// when CWLOGGER_RIGCTLD_ADDR is unset, with the same legacy-cwd-file
+// preference as defaultQRZKeyPath.
+func defaultRigctldAddrPath() string {
+	return legacyOrStablePath("rigctld.addr", xdgConfigDir())
+}
+
 func legacyOrStablePath(legacyName, stableDir string) string {
 	if _, err := os.Stat(legacyName); err == nil {
 		return legacyName

@@ -1751,7 +1751,29 @@ every panel *and* scoring so they always agree.
 ## 4. Later / hardware-bound / niche
 
 - ⏳ **Band map** (seed from `cluster.go`; full value needs rig control).
-- ⏳ **Rig control (CAT)** — band/mode sync, frequency to log, F11/F12, QSY memory.
+- ✅ **Rig control (CAT), read-only cut (2026-09-09).** `rig.go` polls a
+  configured Hamlib `rigctld` (host:port entered in Station Setup, or
+  `CWLOGGER_RIGCTLD_ADDR`) every 2 seconds over `rigctld`'s simple "f"
+  get_freq protocol and auto-fills QSO Entry's Band/Frequency while the
+  operator is idle at a blank Call field (`rigAutofillEligible`) — never once
+  a callsign is typed, a QSO is in progress, or an existing QSO is being
+  edited, matching the POTA/QRZ "don't clobber operator input" rule; also
+  suppressed entirely in POST (backdated) mode, which shares the same Call
+  field but whose Band/Frequency describe a past contact, not whatever the
+  rig is tuned to right now. No commands are ever sent to the rig. A
+  `rigGeneration` counter (mirroring
+  `clusterGeneration`) invalidates a poll/tick chain left over from a
+  since-changed address so reconfiguring mid-session can't spawn parallel
+  chains. Still open: QSY control (send frequency to the rig, e.g. from a
+  clicked DX spot), mode sync/display, F11/F12, and QSY memory — track those
+  as a separate follow-up rather than folding them into this entry.
+- ⏳ **Recent QSOs search/filter (F9 browse table).** Not contest-specific —
+  general logger UX. `F9` browsing (README's "Browse, edit, and delete QSOs")
+  only supports `Up`/`Down` row navigation today; there's no way to jump to a
+  callsign, band, or date range once the log is large. Add an incremental
+  filter/search box (callsign substring at minimum; band/date as a stretch)
+  over the Recent QSOs table, scoped to the active station profile like the
+  table itself already is.
 - ⏳ **CW keyer + ESM + WinKey** — 8 memories w/ tokens, Enter-Sends-Message
   Run/S&P, speed/weight/QRS, cut numbers. Hardware I/O.
 - ⏳ **Voice keyer** (`.WAV` F1–F8) — out of scope for a TUI; noted only.

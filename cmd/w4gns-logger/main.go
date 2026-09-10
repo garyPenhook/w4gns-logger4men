@@ -51,7 +51,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.52.3"
+const appVersion = "1.54.0"
 
 type screen int
 
@@ -127,6 +127,7 @@ const (
 	stationLoTWPassField
 	stationLoTWLoginField
 	stationLoTWWebPassField
+	stationRigctldAddrField
 	stationFieldCount
 )
 
@@ -135,6 +136,7 @@ var stationFieldLabels = [stationFieldCount]string{
 	"Cat-Operator", "Cat-Assisted", "Cat-Power", "Cat-Station", "Address",
 	"QRZ XML User", "QRZ XML Pass",
 	"LoTW Station", "LoTW Cert Pass", "LoTW Login", "LoTW Web Pass",
+	"Rig Control (rigctld host:port)",
 }
 
 const (
@@ -366,6 +368,19 @@ type model struct {
 
 	solar    solarIndices
 	solarErr string
+
+	// rigctldAddr is "" when rig control isn't configured, in which case no
+	// poll is ever scheduled and rigLine() renders nothing. rigFreqMHz/rigBand
+	// hold the most recent successful poll; rigErr holds the most recent
+	// failure (kept alongside, not cleared, so the status line can show a
+	// stale-but-known reading the same way solarLine does).
+	rigctldAddr string
+	rigFreqMHz  string
+	rigBand     string
+	rigErr      string
+	// rigGeneration invalidates a poll/tick chain started for a
+	// since-changed rigctld address — see fetchRigStatusCmd's doc comment.
+	rigGeneration uint64
 
 	screen          screen
 	activeStation   stationProfile
@@ -679,6 +694,7 @@ func (m *model) openStationSetup() {
 		newStationPasswordInput(m.lotwPass),
 		newStationTextInput(m.lotwLogin, 24),
 		newStationPasswordInput(m.lotwWebPass),
+		newStationTextInput(m.rigctldAddr, 24),
 	}
 	m.screen = stationSetupScreen
 	m.focusStationField(stationNameField)
@@ -806,10 +822,30 @@ func (m *model) saveStationSetup() tea.Cmd {
 	m.lotwLogin = loadLoTWLogin()
 	m.lotwWebPass = loadLoTWWebPass()
 
+	previousRigctldAddr := m.rigctldAddr
+	if err := saveRigctldAddr(m.stationFields[stationRigctldAddrField].Value()); err != nil {
+		m.screen = qsoEntryScreen
+		m.focusField(fieldCall)
+		m.statusMsg = fmt.Sprintf("station profile %q saved, but rig control address failed to save: %v", saved.Name, err)
+		return m.connectClusterIfNeeded()
+	}
+	m.rigctldAddr = loadRigctldAddr()
+	var rigCmd tea.Cmd
+	if m.rigctldAddr != previousRigctldAddr {
+		// Bump the generation so any poll/tick chain still running for the
+		// old address (see fetchRigStatusCmd's doc comment) is recognized as
+		// stale by Update and dies instead of running alongside the new one.
+		m.rigGeneration++
+		m.rigFreqMHz, m.rigBand, m.rigErr = "", "", ""
+		if m.rigctldAddr != "" {
+			rigCmd = tea.Batch(fetchRigStatusCmd(m.rigctldAddr, m.rigGeneration), rigTickCmd(m.rigGeneration))
+		}
+	}
+
 	m.screen = qsoEntryScreen
 	m.focusField(fieldCall)
 	m.statusMsg = fmt.Sprintf("station profile %q saved", saved.Name)
-	return m.connectClusterIfNeeded()
+	return tea.Batch(m.connectClusterIfNeeded(), rigCmd)
 }
 
 func (m *model) openCluster() tea.Cmd {
@@ -1233,6 +1269,9 @@ func (m model) Init() tea.Cmd {
 	// connect this model was already flagged for.
 	if m.clusterConnecting && m.clusterClient == nil {
 		cmds = append(cmds, connectK3LR(m.activeStation.Callsign, m.clusterGeneration))
+	}
+	if m.rigctldAddr != "" {
+		cmds = append(cmds, fetchRigStatusCmd(m.rigctldAddr, m.rigGeneration), rigTickCmd(m.rigGeneration))
 	}
 	return tea.Batch(cmds...)
 }
@@ -2905,6 +2944,35 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	if message, ok := msg.(rigTickMsg); ok {
+		if message.generation != m.rigGeneration || m.rigctldAddr == "" {
+			// Either a stale chain (see fetchRigStatusCmd) or configuration
+			// was cleared since this tick was scheduled; let it die here
+			// rather than polling on behalf of an address nobody set anymore.
+			return m, nil
+		}
+		return m, tea.Batch(fetchRigStatusCmd(m.rigctldAddr, m.rigGeneration), rigTickCmd(m.rigGeneration))
+	}
+	if message, ok := msg.(rigStatusMsg); ok {
+		if message.generation != m.rigGeneration {
+			// Stale result for a since-changed/cleared address (see
+			// saveStationSetup); the current address's own poll is already
+			// in flight or about to be scheduled.
+			return m, nil
+		}
+		if message.err != nil {
+			m.rigErr = message.err.Error()
+		} else {
+			m.rigErr = ""
+			m.rigFreqMHz = formatRigFrequencyMHz(message.freqHz)
+			m.rigBand = message.band
+			if message.band != "" && m.rigAutofillEligible() {
+				m.fields[fieldBand].SetValue(message.band)
+				m.fields[fieldFrequency].SetValue(m.rigFreqMHz)
+			}
+		}
+		return m, nil
+	}
 	if message, ok := msg.(tea.WindowSizeMsg); ok {
 		m.termWidth, m.termHeight = message.Width, message.Height
 		m.table.SetHeight(m.recentRowsVisible())
@@ -4111,6 +4179,10 @@ func (m model) View() string {
 	}
 	b.WriteString("\n")
 	b.WriteString(solarStyle.Render(sanitizeClusterText(m.solarLine())))
+	if rigLine := m.rigLine(); rigLine != "" {
+		b.WriteString("\n")
+		b.WriteString(solarStyle.Render(sanitizeClusterText(rigLine)))
+	}
 	b.WriteString("\n\n")
 	if m.contestIndexError != "" {
 		b.WriteString(dupeStyle.Render("CONTEST ANALYSIS STALE — " + sanitizeClusterText(m.contestIndexError)))
@@ -4635,6 +4707,7 @@ func main() {
 	m.lotwLogin = loadLoTWLogin()
 	m.lotwWebPass = loadLoTWWebPass()
 	m.qrzXMLCreds = loadQRZXMLCredentials()
+	m.rigctldAddr = loadRigctldAddr()
 	// Connect to the DX cluster at startup, not only when the operator
 	// visits the DX Cluster (F3) screen, so the DX Spots panel on QSO Entry
 	// has something to show right away. connectClusterIfNeeded no-ops (and

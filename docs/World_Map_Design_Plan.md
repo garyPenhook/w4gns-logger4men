@@ -25,9 +25,17 @@ Implementation choices relative to the proposal below:
   at 500 distinct DX/band/spotter paths.
 - View preferences use browser local storage and therefore follow the current
   local origin; an assigned port change after restart can reset them.
-- Manual location overrides, Pacific centering, home-to-DX drawn lines, day/night
-  overlays, logger entry handoff, and a standalone executable remain extensions.
-  Home-to-DX distance/bearing is already shown as information in station details.
+- Manual location overrides, Pacific centering, home-to-DX drawn lines, logger
+  entry handoff, and a standalone executable remain extensions. Home-to-DX
+  distance/bearing is already shown as information in station details.
+- Day/night overlay (greyline) is implemented (2026-09-09): `map.js`'s
+  `subsolarPoint`/`terminatorLatitude`/`nightPolygon` compute the terminator
+  client-side from solar declination and the sun's subsolar longitude, with no
+  equation-of-time or refraction correction — a coarse approximation, same
+  spirit as the rest of the map's location data. Toggled by a `#greyline`
+  checkbox, persisted in the same `localStorage` view-preferences blob as the
+  other display controls, redrawn every `draw()` call so it tracks the
+  browser's own clock continuously without a server round trip.
 
 Validation includes Go tests/vet, targeted server/feed race checks, and Chromium
 fixture checks for selection, distinct spotters, filtering, search, safe text,
@@ -165,7 +173,7 @@ Do not extract station credentials/storage into shared web-facing types. If stan
 | 2. Useful companion map | Local launch, embedded whole-world map, CW spots, country fallback, home marker, age/band filters, details/list | A parsed fixture and a live feed place reports correctly; approximate/unknown locations are explicit; logger remains responsive. |
 | 3. Reliable activity paths | Selected spotter-to-DX paths, seam handling, aggregation, SSE replay/reset, bounded retention | Reconnect has no unexplained gaps/duplicates; disconnected spots age out; load and seam fixtures pass. |
 | 4. Operating polish | Independent filters, grid overrides, persisted view, accessibility, platform launch checks | Filter behavior is predictable, overlapping spots are selectable, and launch/close behavior works on supported platforms. |
-| Later | Day/night terminator, gray-line overlay, solar indices, optional logger handoff, standalone executable, explicit history/replay | Scope separately; prediction models and RF-strength heatmaps are outside the initial design. |
+| Later | Day/night terminator (delivered 2026-09-09), solar indices, optional logger handoff, standalone executable, explicit history/replay | Scope separately; prediction models and RF-strength heatmaps are outside the initial design. |
 
 MVP release requires phases 1–3 plus basic keyboard access, usable contrast, and error states. Phase 4 enhances the operating workflow; do not defer security or lifecycle correctness to it.
 
