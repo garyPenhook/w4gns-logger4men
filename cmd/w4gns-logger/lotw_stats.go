@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"sort"
+	"strconv"
 )
 
 // awardProgress is the worked-vs-confirmed tally for one award (DXCC/WAS/
@@ -20,7 +21,7 @@ type awardProgress struct {
 // and stationCallsign and returns it as a map for set comparison. key and
 // label are the same column for awards with no secondary display name (WAS/
 // WAZ/VUCC/IOTA); DXCC pairs its entity number with the country name.
-func (s *store) awardKeySet(query string, profileID int64, stationCallsign string) (map[string]string, error) {
+func (s *store) awardKeySet(query string, profileID int64, stationCallsign string, keyFilter func(string) bool) (map[string]string, error) {
 	rows, err := s.db.Query(query, profileID, stationCallsign)
 	if err != nil {
 		return nil, fmt.Errorf("award query: %w", err)
@@ -31,6 +32,9 @@ func (s *store) awardKeySet(query string, profileID int64, stationCallsign strin
 		var key, label string
 		if err := rows.Scan(&key, &label); err != nil {
 			return nil, fmt.Errorf("scan award row: %w", err)
+		}
+		if keyFilter != nil && !keyFilter(key) {
+			continue
 		}
 		set[key] = label
 	}
@@ -48,12 +52,12 @@ func (s *store) awardKeySet(query string, profileID int64, stationCallsign strin
 // VUCC/IOTA) require all contributing contacts to come from one operating
 // identity, so a profile that has logged under more than one callsign must
 // not have those callsigns' totals silently combined.
-func (s *store) awardProgressFor(profileID int64, stationCallsign, workedQuery, confirmedQuery string) (awardProgress, error) {
-	worked, err := s.awardKeySet(workedQuery, profileID, stationCallsign)
+func (s *store) awardProgressFor(profileID int64, stationCallsign, workedQuery, confirmedQuery string, keyFilter func(string) bool) (awardProgress, error) {
+	worked, err := s.awardKeySet(workedQuery, profileID, stationCallsign, keyFilter)
 	if err != nil {
 		return awardProgress{}, err
 	}
-	confirmed, err := s.awardKeySet(confirmedQuery, profileID, stationCallsign)
+	confirmed, err := s.awardKeySet(confirmedQuery, profileID, stationCallsign, keyFilter)
 	if err != nil {
 		return awardProgress{}, err
 	}
@@ -207,20 +211,45 @@ var (
 func (s *store) loadLoTWAwardStats(profileID int64, stationCallsign string) (lotwAwardStats, error) {
 	var stats lotwAwardStats
 	var err error
-	if stats.DXCC, err = s.awardProgressFor(profileID, stationCallsign, dxccWorkedQuery, dxccConfirmedQuery); err != nil {
+	if stats.DXCC, err = s.awardProgressFor(profileID, stationCallsign, dxccWorkedQuery, dxccConfirmedQuery, validDXCCNumberFilter()); err != nil {
 		return stats, err
 	}
-	if stats.WAS, err = s.awardProgressFor(profileID, stationCallsign, wasWorkedQuery, wasConfirmedQuery); err != nil {
+	if stats.WAS, err = s.awardProgressFor(profileID, stationCallsign, wasWorkedQuery, wasConfirmedQuery, nil); err != nil {
 		return stats, err
 	}
-	if stats.WAZ, err = s.awardProgressFor(profileID, stationCallsign, wazWorkedQuery, wazConfirmedQuery); err != nil {
+	if stats.WAZ, err = s.awardProgressFor(profileID, stationCallsign, wazWorkedQuery, wazConfirmedQuery, nil); err != nil {
 		return stats, err
 	}
-	if stats.VUCC, err = s.awardProgressFor(profileID, stationCallsign, vuccWorkedQuery, vuccConfirmedQuery); err != nil {
+	if stats.VUCC, err = s.awardProgressFor(profileID, stationCallsign, vuccWorkedQuery, vuccConfirmedQuery, nil); err != nil {
 		return stats, err
 	}
-	if stats.IOTA, err = s.awardProgressFor(profileID, stationCallsign, iotaWorkedQuery, iotaConfirmedQuery); err != nil {
+	if stats.IOTA, err = s.awardProgressFor(profileID, stationCallsign, iotaWorkedQuery, iotaConfirmedQuery, nil); err != nil {
 		return stats, err
 	}
 	return stats, nil
+}
+
+// validDXCCNumberFilter returns a key filter for the DXCC award's worked/
+// confirmed key sets (each key is the entity number as text, per
+// dxccWorkedQuery/dxccConfirmedQuery) that rejects any number not present in
+// the ARRL/ADIF entity table (see dxccTable.validNumbers): a malformed but
+// nonzero imported dxccNumber (e.g. "9999") is syntactically valid and passes
+// the existing "!= '0'" check, but isn't a real DXCC entity and shouldn't
+// count as one. Falls back to no filtering if the embedded table fails to
+// load — sharedDXCCTable already returns a cached, effectively infallible
+// result in practice (it errors only on a corrupt embedded asset), and other
+// callers throughout the app treat that as unreachable rather than degrading
+// each individual feature.
+func validDXCCNumberFilter() func(string) bool {
+	table, err := sharedDXCCTable()
+	if err != nil {
+		return nil
+	}
+	return func(key string) bool {
+		n, err := strconv.Atoi(key)
+		if err != nil {
+			return false
+		}
+		return table.IsValidDXCCNumber(n)
+	}
 }

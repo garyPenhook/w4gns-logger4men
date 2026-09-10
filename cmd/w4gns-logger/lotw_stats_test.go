@@ -336,6 +336,66 @@ func TestLoadLoTWAwardStatsWAZNormalizesConfirmedZonePadding(t *testing.T) {
 	}
 }
 
+// TestLoadLoTWAwardStatsDXCCExcludesInvalidEntityNumbers guards against a
+// malformed but nonzero imported dxccNumber (e.g. "9999", which has no
+// corresponding ARRL entity) counting as a distinct DXCC "entity" on either
+// the worked or confirmed side.
+func TestLoadLoTWAwardStatsDXCCExcludesInvalidEntityNumbers(t *testing.T) {
+	st, err := openStore(t.TempDir() + "/logger.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	valid := qso{
+		call: "W1AW", band: "20M", mode: "CW", time: time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC),
+		profileID: 1, dxccNumber: "291",
+	}
+	valid.timeOff = valid.time.Add(time.Minute)
+	validID, err := st.insertQSO(valid)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bogus := qso{
+		call: "W2AW", band: "20M", mode: "CW", time: time.Date(2026, 3, 1, 13, 0, 0, 0, time.UTC),
+		profileID: 1, dxccNumber: "9999",
+	}
+	bogus.timeOff = bogus.time.Add(time.Minute)
+	bogusID, err := st.insertQSO(bogus)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := st.db.Exec(
+		`INSERT INTO lotw_confirmation (profile_id, qso_id, call, band, dxcc, country, synced_at) VALUES (1, ?, 'W1AW', '20M', '291', 'UNITED STATES', ?)`,
+		validID, now,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.db.Exec(
+		`INSERT INTO lotw_confirmation (profile_id, qso_id, call, band, dxcc, country, synced_at) VALUES (1, ?, 'W2AW', '20M', '9999', 'NOWHERE', ?)`,
+		bogusID, now,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	stats, err := st.loadLoTWAwardStats(1, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.DXCC.Worked != 1 {
+		t.Fatalf("DXCC.Worked = %d, want 1 (entity 9999 has no ARRL entry)", stats.DXCC.Worked)
+	}
+	if stats.DXCC.Confirmed != 1 {
+		t.Fatalf("DXCC.Confirmed = %d, want 1 (entity 9999 has no ARRL entry)", stats.DXCC.Confirmed)
+	}
+	if len(stats.DXCC.Needed) != 0 {
+		t.Fatalf("DXCC.Needed = %v, want none", stats.DXCC.Needed)
+	}
+}
+
 // TestLoadLoTWAwardStatsExcludesUnmatchedConfirmations guards the README's
 // documented behavior ("An unmatched confirmation ... is still recorded,
 // just not counted in the stats above"): a lotw_confirmation row with no

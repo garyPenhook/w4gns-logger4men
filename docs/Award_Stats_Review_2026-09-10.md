@@ -4,17 +4,18 @@ An independent review of the LoTW-derived award statistics (DXCC/WAS/WAZ/VUCC/IO
 
 **The 2 high findings are fixed** (commit `0b43e13`): award totals now join confirmed rows to their matched QSO and drop unmatched confirmations (previously `Confirmed` could exceed `Worked`, contradicting the README), and every award query scopes to the active profile's `station_callsign` (blank/legacy rows still included) so a profile logged under more than one callsign no longer has incompatible identities silently combined. See `lotw_stats.go`, `lotw_stats_test.go`.
 
-**4 of the remaining 6 findings are now fixed (2026-09-10, follow-up pass):**
+**5 of the remaining 6 findings are now fixed (2026-09-10, follow-up passes):**
 
 - **Terminal control-sequence injection** — `stats_panel.go` now routes both `progress.Needed` labels and `m.statsSyncMsg` through `sanitizeClusterText` before rendering.
 - **60m/WAS exclusion** — `wasWorkedQuery`/`wasConfirmedQuery` in `lotw_stats.go` now exclude `band = '60M'`.
 - **Invalid award keys** — the WAZ confirmed-side query now normalizes `lotw_confirmation.cqz` (a TEXT column) the same way the worked-side `qso.cqz` (an INTEGER column) already was, so "05" and "5" collapse to one zone; the IOTA worked/confirmed queries now require the standard `AA-###` form (`iotaReferenceFilterSQL`), so free text no longer counts as a distinct IOTA entity. This was deliberately done as a SQL-side filter, not a `validateQSO` rejection: an earlier version of this fix added the check to `validateQSO`, which also gates the interactive edit path — a pre-existing row with a non-canonical `iota_ref` (e.g. backfilled from LoTW via `backfillQSOGeographyFromConfirmations`, which never calls `validateQSO`) would have permanently failed every edit to that row, even edits unrelated to IOTA. The `dxccNumber`-range half of this finding (a numeric-but-nonexistent DXCC entity number) is still open — see below.
-- **Doc/workflow drift** — `.github/pull_request_template.md`'s build-verification step now targets `./cmd/w4gns-logger`; `docs/ROADMAP.md`'s SD-contest counts corrected from 271 (261 entry-aware) to the actual 269 (259 entry-aware).
+- **Doc/workflow drift** — `.github/pull_request_template.md`'s build-verification step now targets `./cmd/w4gns-logger`; `docs/ROADMAP.md`'s SD-contest counts corrected from 271 (261 entry-aware) to the actual 269 (259 entry-aware); CI's `staticcheck`/`govulncheck` steps pinned to fixed versions instead of `@latest`.
 - **LoTW sync memory bound** — `syncLoTWConfirmations` now caps buffered records at `maxLoTWReportRecords` (500,000) before validating/committing, guarding against unbounded memory growth from a runaway or malformed response.
+- **Malformed `dxccNumber`** — the DXCC worked/confirmed key sets are now filtered against the real ARRL/ADIF entity list (`dxccTable.validNumbers`), so a garbage-but-numeric entity number like `"9999"` no longer counts as a spurious entity.
 
-Tests: `TestStatsPanelViewSanitizesUntrustedText`, `TestLoadLoTWAwardStatsWASExcludes60Meters`, `TestLoadLoTWAwardStatsWAZNormalizesConfirmedZonePadding`, `TestLoadLoTWAwardStatsIOTAExcludesMalformedReferences`.
+Tests: `TestStatsPanelViewSanitizesUntrustedText`, `TestLoadLoTWAwardStatsWASExcludes60Meters`, `TestLoadLoTWAwardStatsWAZNormalizesConfirmedZonePadding`, `TestLoadLoTWAwardStatsIOTAExcludesMalformedReferences`, `TestLoadLoTWAwardStatsDXCCExcludesInvalidEntityNumbers`.
 
-The remaining 2 findings (1 medium remainder — malformed `dxccNumber` — plus the award-eligibility-modeling medium finding, and the 2 low findings about `main.go` concentration and floating CI tool versions) are **not yet fixed** and are recorded below so they aren't lost. None are security-critical; all affect correctness/accuracy of the award panel or maintainability.
+The remaining finding — the award-eligibility-modeling medium finding (same-entity rules, award cutoffs, mode/category qualification, `credit_granted` consumption) — is **not yet fixed** and is recorded below so it isn't lost. It is not security-critical; it affects correctness/accuracy of the award panel. The `main.go` concentration low finding is tracked but explicitly needs no dedicated fix (see below).
 
 ## Open findings
 
@@ -40,9 +41,7 @@ The 60 m/WAS gap is now fixed (see above): the app supports 60 m in `bandplan.go
 
 ~~Effects: any nonblank string can count as an IOTA reference; WAZ values like `"5"` and `"05"` both pass the existing `BETWEEN 1 AND 40` range check in `lotw_stats.go` but remain separate distinct keys~~ — fixed: `lotw_stats.go`'s IOTA worked/confirmed queries now require the standard `AA-###` form (`iotaReferenceFilterSQL`), and the WAZ confirmed-side query normalizes `lotw_confirmation.cqz` (TEXT) the same way `qso.cqz` (INTEGER) already was, so zero-padded zones collapse to one key. Deliberately fixed as a SQL-side filter rather than a `validateQSO` rejection — see the note in the summary above about why a hard rejection there would have broken editing pre-existing rows.
 
-Still open: **a malformed but nonzero imported `dxccNumber` can become a spurious "entity."** Unlike `cqZone`/`iotaRef`, this can't be fixed with a simple format check — a garbage-but-numeric DXCC number (e.g. `"9999"`) is syntactically valid and would need a reverse lookup against the DXCC entity table to detect.
-
-**Correction:** Validate `dxccNumber` against the known DXCC entity table (same table `dxcc.go`'s callsign lookup already loads) at import time, or filter `dxccWorkedQuery`/`dxccConfirmedQuery` to only entity numbers present in that table.
+~~Still open: a malformed but nonzero imported `dxccNumber` can become a spurious "entity."~~ — fixed: `dxccTable` (`dxcc.go`) now carries the set of valid ARRL/ADIF entity numbers cross-referenced from `arrl_dxcc.dat`, and `loadLoTWAwardStats` (`lotw_stats.go`) filters both the DXCC worked and confirmed key sets through it via `validDXCCNumberFilter`, so a garbage-but-numeric value like `"9999"` no longer counts as a distinct entity. See `TestLoadLoTWAwardStatsDXCCExcludesInvalidEntityNumbers`.
 
 ### ~~Medium — Terminal control-sequence injection in the stats panel~~ (fixed)
 
@@ -60,9 +59,7 @@ Fixed: `syncLoTWConfirmations` now caps buffered records at `maxLoTWReportRecord
 
 - ~~`.github/pull_request_template.md:9` — the build-verification checklist item targets `.` instead of `./cmd/w4gns-logger`~~ — fixed.
 - ~~`docs/ROADMAP.md:155` and `:856`/`:878` — claims `sd_contests.json` has 271 events; the current file has 269~~ — fixed (261/259 entry-aware breakdown corrected too).
-- CI (`.github/workflows/*.yml`) runs `staticcheck@latest` and `govulncheck@latest` — GitHub Actions themselves are SHA-pinned, but these two tools float, so a CI run today can fail (or newly pass) for reasons unrelated to the diff being tested. Still open.
-
-**Correction:** Consider pinning `staticcheck`/`govulncheck` to specific versions with a periodic manual bump, trading build reproducibility for currency.
+- ~~CI (`.github/workflows/*.yml`) runs `staticcheck@latest` and `govulncheck@latest`~~ — fixed: pinned to `staticcheck@v0.8.1` and `govulncheck@v1.8.0`; bump manually going forward.
 
 ### Low — Core application remains highly concentrated
 

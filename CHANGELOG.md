@@ -1,5 +1,12 @@
 # Changelog
 
+### v1.55.3
+
+Second follow-up pass on the LoTW award-stats review (docs/Award_Stats_Review_2026-09-10.md):
+
+- Exclude a malformed-but-nonzero imported `dxccNumber` (e.g. `"9999"`) from counting as a spurious DXCC "entity": the DXCC worked/confirmed award queries now filter their key sets against the real ARRL/ADIF entity list already loaded for callsign lookups (`dxccTable`).
+- Pin CI's `staticcheck` and `govulncheck` to fixed versions instead of `@latest`, so a CI run no longer passes or fails for reasons unrelated to the diff being tested.
+
 ### v1.55.2
 
 Follow-up fixes from an independent review of the LoTW award-stats panel (docs/Award_Stats_Review_2026-09-10.md):

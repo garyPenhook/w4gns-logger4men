@@ -65,6 +65,17 @@ func (e dxccEntity) HasCoordinates() bool {
 type dxccTable struct {
 	exactAliases  map[string]dxccEntity
 	prefixByFirst map[byte][]dxccAlias
+	// validNumbers is the set of ARRL/ADIF DXCC entity numbers cross-referenced
+	// from arrl_dxcc.dat (see loadARRLDXCCNumbers) — the same authoritative
+	// list a callsign lookup resolves DXCCNumber from. Used to reject a
+	// syntactically valid but nonexistent entity number (e.g. imported ADIF
+	// data with a garbage dxcc field) rather than trusting it at face value.
+	validNumbers map[int]bool
+}
+
+// IsValidDXCCNumber reports whether n is a real ARRL/ADIF DXCC entity number.
+func (t *dxccTable) IsValidDXCCNumber(n int) bool {
+	return t.validNumbers[n]
 }
 
 // aliasOverridePattern matches a single AD1C per-alias override group so they
@@ -91,7 +102,10 @@ func loadDXCCTable() (*dxccTable, error) {
 	if err != nil {
 		return nil, err
 	}
-	table := &dxccTable{}
+	table := &dxccTable{validNumbers: make(map[int]bool, len(dxccNumbers))}
+	for _, number := range dxccNumbers {
+		table.validNumbers[number] = true
+	}
 	scanner := bufio.NewScanner(bytes.NewReader(data))
 	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
 
