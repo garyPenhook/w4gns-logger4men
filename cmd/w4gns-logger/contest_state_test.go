@@ -1292,6 +1292,48 @@ func TestContestStateWouldBeNewMultiplierIARUZoneAndHQ(t *testing.T) {
 	}
 }
 
+// TestContestStateIARUZonePointsUsesOperatorSentZoneNotCallsignZone guards a
+// real bug found in a domain review: pointCategoryZone's "same zone"
+// classification compared the worked station's exchanged zone against
+// stationITUZone (a cty.dat lookup on the station callsign) unconditionally,
+// ignoring what the operator actually declared as their own zone in Contest
+// Entry's Sent exchange field (q.stxString) — the same field IARU HF's own
+// sent_exchange_hint documents as carrying "RST + ITU Zone". A station
+// operating away from their callsign's cty.dat-default zone (portable
+// operation, an ambiguous prefix) had every genuinely-same-zone QSO
+// misclassified as same-continent/other-continent instead.
+func TestContestStateIARUZonePointsUsesOperatorSentZoneNotCallsignZone(t *testing.T) {
+	rules := &zonePointsRule{SameZone: 1, SameContinentDifferentZone: 3, OtherContinent: 5}
+
+	// The callsign resolves (via setStation) to zone 8, but the operator
+	// declared zone 14 as their own sent exchange for this QSO — e.g.
+	// portable operation across a zone boundary. The worked station also
+	// sent zone 14: a genuine same-zone QSO that the callsign-only
+	// comparison would have missed.
+	state := newContestState()
+	state.stationITUZone, state.stationZoneResolved = 8, true
+	q := qso{call: "K5ABC", band: "20M", srxString: "14", stxString: "14"}
+	state.record(q)
+	key := "K5ABC|20M"
+	if got := state.pointCategoryZone[key]; got != pointCategorySameCountry {
+		t.Fatalf("pointCategoryZone[%q] = %v, want pointCategorySameCountry (operator's declared zone 14 matches the worked station's zone 14)", key, got)
+	}
+	if got := state.zonePointsTotal(rules); got != 1 {
+		t.Fatalf("zonePointsTotal = %d, want 1 (SameZone), not the callsign-derived zone-8 mismatch", got)
+	}
+
+	// Blank sent exchange (e.g. logged before Contest Entry's Sent exchange
+	// field was filled in) still falls back to the callsign-derived zone —
+	// existing behavior for the common case is preserved.
+	state2 := newContestState()
+	state2.stationITUZone, state2.stationZoneResolved = 8, true
+	state2.record(qso{call: "K5DEF", band: "20M", srxString: "8", stxString: ""})
+	key2 := "K5DEF|20M"
+	if got := state2.pointCategoryZone[key2]; got != pointCategorySameCountry {
+		t.Fatalf("pointCategoryZone[%q] = %v, want pointCategorySameCountry (fallback to callsign-derived zone 8)", key2, got)
+	}
+}
+
 // TestContestStateScorePointsRuleHelvetiaCountryGroup exercises the Helvetia
 // Contest's own points formula (uska.ch rules §2.7): a Swiss (HB9) contact
 // scores the country-group value (10) regardless of the operator's own

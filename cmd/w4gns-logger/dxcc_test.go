@@ -57,6 +57,38 @@ func TestDXCCLookupPortableShortPrefixWinsOverLongerHomePrefix(t *testing.T) {
 	}
 }
 
+// TestDXCCLookupThreePartPortableCallResolvesOperatingLocation guards a real
+// bug found in a domain review: lookup used to split only on the first "/",
+// so a three-part portable call ("home/location/modifier") folded its
+// location and modifier segments into one unsplit string that usually
+// failed to resolve, silently falling back to the home call's own country
+// — "W4GNS/G/QRP" resolved to the United States instead of England.
+func TestDXCCLookupThreePartPortableCallResolvesOperatingLocation(t *testing.T) {
+	table, err := loadDXCCTable()
+	if err != nil {
+		t.Fatalf("loadDXCCTable returned error: %v", err)
+	}
+	for _, tc := range []struct {
+		call string
+		want string
+	}{
+		{"W4GNS/G/QRP", "England"},
+		{"K1ABC/G/P", "England"},
+		{"F/K1ABC/P", "France"},
+		{"VP9/W4GNS/M", "Bermuda"},
+		{"W4GNS/VP9/QRP", "Bermuda"},
+	} {
+		entity, ok := table.lookup(tc.call)
+		if !ok {
+			t.Errorf("lookup(%q) = not found, want %s", tc.call, tc.want)
+			continue
+		}
+		if entity.Country != tc.want {
+			t.Errorf("lookup(%q).Country = %q, want %q", tc.call, entity.Country, tc.want)
+		}
+	}
+}
+
 // TestDXCCLookupNormalizesLongitudeEastPositive verifies the cty.dat
 // west-positive longitude convention is negated to the standard
 // east-positive convention used by heading/distance math. United States

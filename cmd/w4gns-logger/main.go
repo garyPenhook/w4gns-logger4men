@@ -51,7 +51,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.54.0"
+const appVersion = "1.55.0"
 
 type screen int
 
@@ -337,6 +337,11 @@ type model struct {
 
 	qrzXMLCreds      qrzXMLCreds
 	qrzXMLSessionKey string
+	// qrzCredGeneration invalidates a map-feed QRZ geo-lookup's session-key
+	// result left over from since-changed credentials — see qrzMapGeoMsg's
+	// doc comment. Bumped in saveStationSetup alongside the existing
+	// qrzXMLSessionKey reset.
+	qrzCredGeneration uint64
 
 	backupInProgress         bool
 	cabrilloExportInProgress bool
@@ -786,8 +791,10 @@ func (m *model) saveStationSetup() tea.Cmd {
 	m.qrzXMLCreds = loadQRZXMLCredentials()
 	// Credentials may have changed (or been cleared), so the cached session
 	// key — tied to whichever account last logged in — is no longer valid
-	// for the next lookup.
+	// for the next lookup. qrzCredGeneration invalidates any map geo-lookup
+	// already in flight under the old credentials (see qrzMapGeoMsg).
 	m.qrzXMLSessionKey = ""
+	m.qrzCredGeneration++
 	m.qrzLookups = nil
 	m.qrzActiveLookup = 0
 
@@ -2003,7 +2010,19 @@ func (m *model) startQSOClockIfLeavingCall() {
 	m.statusMsg = "QSO timer started"
 }
 
+// autoFillPOTAReference is gated off entirely in POST (after-contest/
+// backdated) mode: it fills the POTA/IOTA Ref fields from what's spotted or
+// active right now (recentClusterPOTAReference/recentClusterIOTAReference
+// read live cluster spots against time.Now(), and lookupPOTASpot queries the
+// live POTA activation API), which has nothing to do with whether the
+// callsign being logged was actually activating that park at the typed
+// historical Date/Time. Domain review finding: without this guard, logging
+// a backdated contact for a callsign that happens to be POTA-spotted today
+// silently stamped today's park reference onto a days-old QSO.
 func (m *model) autoFillPOTAReference() tea.Cmd {
+	if m.postMode {
+		return nil
+	}
 	call := normalizeCall(m.fields[fieldCall].Value())
 	if call == "" {
 		return nil
@@ -2040,7 +2059,7 @@ func (m *model) startQRZGeoLookupIfNeeded(call string) tea.Cmd {
 	if !m.qrzGeoCache.startIfNeeded(call) {
 		return nil
 	}
-	return qrzMapGeoLookupCmd(m.qrzXMLCreds, m.qrzXMLSessionKey, call)
+	return qrzMapGeoLookupCmd(m.qrzXMLCreds, m.qrzXMLSessionKey, call, m.qrzCredGeneration)
 }
 
 // startPOTAGeoLookupIfNeeded returns a command to look up reference's POTA
@@ -2830,7 +2849,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if message, ok := msg.(qrzMapGeoMsg); ok {
-		if message.sessionKey != "" {
+		if message.sessionKey != "" && message.credGeneration == m.qrzCredGeneration {
 			m.qrzXMLSessionKey = message.sessionKey
 		}
 		if m.qrzGeoCache != nil {

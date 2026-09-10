@@ -356,6 +356,30 @@ func (c *contestState) setStation(callsign string) {
 	}
 }
 
+// ownIARUZone resolves the operator's own ITU zone for classifying q against
+// the IARU HF World Championship's zone-tiered pointsRule (Rule 4.2: the
+// exchange is each station's own ITU Zone). Prefers what the operator
+// actually declared as their sent exchange (q.stxString — the same
+// per-QSO-snapshotted text srxString already uses for the worked station's
+// side), falling back to stationITUZone (a cty.dat lookup on the station
+// callsign) only when the sent exchange is blank or doesn't parse as a zone
+// (e.g. logged before Contest Entry's Sent exchange field was filled in).
+// Domain review finding: scoring previously used stationITUZone
+// unconditionally, so a station whose actual operating zone differs from
+// their callsign's cty.dat-derived default (portable operation across a
+// zone boundary, a callsign whose prefix resolves ambiguously) had every
+// "same zone" QSO silently misclassified regardless of what they typed as
+// their own sent exchange.
+func (c *contestState) ownIARUZone(q qso) (int, bool) {
+	if zone := iaruExchangeZone(q.stxString); zone > 0 {
+		return zone, true
+	}
+	if c.stationZoneResolved {
+		return c.stationITUZone, true
+	}
+	return 0, false
+}
+
 // stationCountry resolves callsign's DXCC entity and returns its country
 // name (a cty.dat dxccEntity.Country value), or "" if callsign is blank or
 // doesn't resolve. This is eventDefinition.effectiveScoring's input for
@@ -426,7 +450,7 @@ func (c *contestState) record(q qso) {
 			c.pointCategoryZone[key] = pointCategorySpecial
 		} else if zone := iaruExchangeZone(q.srxString); zone > 0 {
 			recordMultiplierValue(c.iaruZoneByBand, c.iaruZoneAll, band, zone)
-			if c.stationZoneResolved && zone == c.stationITUZone {
+			if myZone, ok := c.ownIARUZone(q); ok && zone == myZone {
 				c.pointCategoryZone[key] = pointCategorySameCountry
 			}
 		}

@@ -793,6 +793,101 @@ func TestUpdateQSOOverwritesEditableFieldsOnly(t *testing.T) {
 	}
 }
 
+// TestUpdateQSOUnlinksStaleLoTWConfirmationOnCallChange guards a real bug
+// found in a domain review: a LoTW confirmation is matched to a QSO once, at
+// sync time, by callsign and band (lotw_confirmation.qso_id), and that match
+// is never re-evaluated afterward. Editing the QSO's callsign left the old
+// confirmation's qso_id pointing at the row unchanged, so
+// backfillQSOGeographyFromConfirmations could fill the edited (different)
+// contact's blank grid/state/IOTA from the confirmation of a station it was
+// never actually worked as. Changing the call (or band) must unlink the
+// stale confirmation — not delete it, just clear qso_id back to unmatched.
+func TestUpdateQSOUnlinksStaleLoTWConfirmationOnCallChange(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	q := validTestQSO()
+	q.call, q.band = "W1AW", "20M"
+	id, err := st.insertQSO(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.db.Exec(
+		`INSERT INTO lotw_confirmation (profile_id, qso_id, call, band, mode, qso_date, time_on, gridsquare, synced_at)
+		 VALUES (0, ?, 'W1AW', '20M', 'CW', '20260301', '1200', 'FN31', '2026-03-01T00:00:00Z')`, id); err != nil {
+		t.Fatal(err)
+	}
+
+	edited := q
+	edited.id = id
+	edited.call = "K1ZZ" // busted-call correction: this is a different station
+	if err := st.updateQSO(id, edited); err != nil {
+		t.Fatalf("updateQSO returned error: %v", err)
+	}
+
+	var qsoID any
+	if err := st.db.QueryRow(`SELECT qso_id FROM lotw_confirmation WHERE call = 'W1AW'`).Scan(&qsoID); err != nil {
+		t.Fatal(err)
+	}
+	if qsoID != nil {
+		t.Fatalf("lotw_confirmation.qso_id = %v after the call changed, want nil (unlinked, not left pointing at a different station's row)", qsoID)
+	}
+	if count, err := st.count(0); err != nil {
+		t.Fatal(err)
+	} else if count != 1 {
+		// Sanity: the confirmation row and its geography data must survive
+		// unlinking — this is "no longer matched," not "deleted."
+		t.Fatalf("qso count = %d, want 1", count)
+	}
+	var stillThere int
+	if err := st.db.QueryRow(`SELECT COUNT(*) FROM lotw_confirmation WHERE call = 'W1AW' AND gridsquare = 'FN31'`).Scan(&stillThere); err != nil {
+		t.Fatal(err)
+	}
+	if stillThere != 1 {
+		t.Fatalf("lotw_confirmation row for W1AW = %d, want 1 (unlinking must not delete the confirmation itself)", stillThere)
+	}
+}
+
+// TestUpdateQSOKeepsLoTWConfirmationLinkedWhenCallAndBandUnchanged is the
+// baseline TestUpdateQSOUnlinksStaleLoTWConfirmationOnCallChange guards
+// against regressing: editing an unrelated field (e.g. a note) must not
+// discard a still-valid confirmation link.
+func TestUpdateQSOKeepsLoTWConfirmationLinkedWhenCallAndBandUnchanged(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	q := validTestQSO()
+	q.call, q.band = "W1AW", "20M"
+	id, err := st.insertQSO(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.db.Exec(
+		`INSERT INTO lotw_confirmation (profile_id, qso_id, call, band, mode, qso_date, time_on, gridsquare, synced_at)
+		 VALUES (0, ?, 'W1AW', '20M', 'CW', '20260301', '1200', 'FN31', '2026-03-01T00:00:00Z')`, id); err != nil {
+		t.Fatal(err)
+	}
+
+	edited := q
+	edited.id = id
+	edited.comment = "worked via POTA activation"
+	if err := st.updateQSO(id, edited); err != nil {
+		t.Fatalf("updateQSO returned error: %v", err)
+	}
+
+	var qsoID int64
+	if err := st.db.QueryRow(`SELECT qso_id FROM lotw_confirmation WHERE call = 'W1AW'`).Scan(&qsoID); err != nil {
+		t.Fatal(err)
+	}
+	if qsoID != id {
+		t.Fatalf("lotw_confirmation.qso_id = %d after an unrelated edit, want %d (unchanged)", qsoID, id)
+	}
+}
+
 func TestDeleteQSORemovesRow(t *testing.T) {
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {

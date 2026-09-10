@@ -21,6 +21,56 @@ benchmark. Part 1 is the tracker; the appendices hold the detailed design.
 
 # Part 1 — Tracker
 
+## Domain review follow-up (2026-09-09)
+
+A secondhand report (from an external review pass, not this project's own
+prior sessions) claimed five defects. Each was independently verified against
+the actual code — reproduced first, not taken on faith — before fixing, per
+regression coverage:
+
+- ✅ **Multi-part portable calls resolved to the home country.**
+  `dxccTable.lookup` (`dxcc.go`) only split on the *first* `/`, so a
+  three-part call ("home/location/modifier", e.g. `W4GNS/G/QRP`) folded its
+  location and modifier into one unsplit string that usually failed to
+  resolve, silently falling back to the home call's own country — confirmed
+  empirically (`W4GNS/G/QRP` resolved to the United States, not England).
+  Every `/`-separated segment is now a candidate, tried shortest-first after
+  dropping pure modifiers, generalizing the existing "shorter side is the
+  location" two-segment rule. `TestDXCCLookupThreePartPortableCallResolvesOperatingLocation`.
+- ✅ **IARU HF scoring ignored the operator's own sent zone.** `setStation`
+  derived the operator's ITU zone purely from a cty.dat callsign lookup;
+  `pointCategoryZone`'s same-zone classification compared against that,
+  never against what the operator actually typed into Contest Entry's Sent
+  exchange field — the same field IARU-HF's own `sent_exchange_hint`
+  documents as carrying the operator's own zone. New `contestState.ownIARUZone`
+  prefers the per-QSO sent-exchange text (`q.stxString`), falling back to
+  the callsign-derived zone only when blank.
+  `TestContestStateIARUZonePointsUsesOperatorSentZoneNotCallsignZone`.
+- ✅ **POST mode could pick up today's live park reference.**
+  `autoFillPOTAReference` read live cluster spots and the live POTA
+  activation API (both keyed off `time.Now()`) with no regard for POST
+  (backdated) mode, so a callsign POTA-spotted today could stamp today's
+  park reference onto a days-old logged contact. Now no-ops entirely in POST
+  mode. `TestAutoFillPOTAReferenceSkippedInPostMode`.
+- ✅ **A second QRZ response path could restore a stale session.**
+  `qrzCallsignLookupMsg` (QSO Entry autofill) already had request-ID
+  staleness protection (R22, above); `qrzMapGeoMsg` (World Map location
+  lookups) restored `qrzXMLSessionKey` from any inbound response
+  unconditionally. A `qrzCredGeneration` counter, bumped in
+  `saveStationSetup` alongside the existing session-key reset, now gates it
+  the same way. `TestQrzMapGeoMsgIgnoresSessionKeyFromSupersededCredentials`.
+- ✅ **Editing a QSO's call/band left a stale LoTW confirmation attached.**
+  `lotw_confirmation.qso_id` is matched once at sync time and never
+  re-evaluated; `updateQSO` didn't touch it, so `backfillQSOGeographyFromConfirmations`
+  could fill an edited (now different) contact's blank grid/state/IOTA from
+  a confirmation that no longer matches its new identity. `updateQSO` now
+  unlinks (not deletes) any confirmation on a call/band change, inside the
+  same transaction as the edit itself.
+  `TestUpdateQSOUnlinksStaleLoTWConfirmationOnCallChange`.
+
+Verification: `go build`, `go vet`, `go test ./...`, and
+`go test -race -short ./...` all passed after every fix.
+
 ## Catalog-wide exchange verification & Cabrillo validators (2026-09-06, in progress)
 
 Started as three one-off confirmations (SEANET Contest, Colorado QSO Party, NJ

@@ -6,6 +6,7 @@ import (
 	"embed"
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -285,20 +286,28 @@ var portableCallSuffixes = map[string]bool{
 }
 
 // lookup resolves a callsign to its DXCC entity by trying the full call and,
-// for portable-style calls like "PJ4/W4GNS" or "W4GNS/PJ4", each side of the
-// slash, preferring an exact "=CALL" exception and otherwise the longest
-// matching prefix. This is a practical approximation, not a full
-// implementation of ARRL/WPX prefix-parsing rules for edge cases such as
-// numeral-suffix portable operation.
+// for portable-style calls like "PJ4/W4GNS" or "W4GNS/PJ4/QRP", each
+// slash-separated segment, preferring an exact "=CALL" exception and
+// otherwise the longest matching prefix. This is a practical approximation,
+// not a full implementation of ARRL/WPX prefix-parsing rules for edge cases
+// such as numeral-suffix portable operation.
 //
-// For a slash call, the shorter side is tried first and wins outright if it
-// resolves at all: in portable notation (e.g. "F/VE3ABC" or "VE3ABC/F") the
-// short side names the operating location, and it must win over the home
-// call's own prefix even when that prefix happens to match a longer table
-// entry — comparing alias-prefix match lengths instead (as an earlier
+// A call can carry more than one slash ("W4GNS/G/QRP": home call, operating
+// location, then a modifier), so every "/"-separated segment is a candidate,
+// not just the two sides of the first slash — an earlier version of this
+// function used strings.Index to find only the first slash, which for a
+// three-part call folded the second and third segments into one unsplit
+// string ("G/QRP") that usually failed to resolve as a whole and silently
+// fell back to the home call. Segments matching portableCallSuffixes (pure
+// modifiers with no location information) are dropped, and what remains is
+// tried shortest-first: in portable notation the shortest remaining segment
+// names the operating location and must win over the home call's own
+// (often longer) prefix even when that prefix happens to match a longer
+// table entry — comparing alias-prefix match lengths instead (as an earlier
 // version of this function did) let a home call like "VE3ABC" (matching the
 // 3-character "VE3" prefix) beat a genuine one-character location prefix
-// like "F", silently discarding the operating location.
+// like "F", silently discarding the operating location. Segments of equal
+// length keep their original left-to-right order (sort.SliceStable).
 func (t *dxccTable) lookup(call string) (dxccEntity, bool) {
 	call = normalizeCall(call)
 	if call == "" || t == nil {
@@ -307,21 +316,19 @@ func (t *dxccTable) lookup(call string) (dxccEntity, bool) {
 	if entity, ok := t.exactAliases[call]; ok {
 		return entity, true
 	}
-	idx := strings.Index(call, "/")
-	if idx < 0 {
+	if !strings.Contains(call, "/") {
 		return t.lookupCandidate(call)
 	}
-	short, long := call[:idx], call[idx+1:]
-	if len(long) < len(short) {
-		short, long = long, short
-	}
-	if !portableCallSuffixes[short] {
-		if entity, ok := t.lookupCandidate(short); ok {
-			return entity, true
+	segments := strings.Split(call, "/")
+	candidates := make([]string, 0, len(segments))
+	for _, segment := range segments {
+		if !portableCallSuffixes[segment] {
+			candidates = append(candidates, segment)
 		}
 	}
-	if !portableCallSuffixes[long] {
-		if entity, ok := t.lookupCandidate(long); ok {
+	sort.SliceStable(candidates, func(i, j int) bool { return len(candidates[i]) < len(candidates[j]) })
+	for _, candidate := range candidates {
+		if entity, ok := t.lookupCandidate(candidate); ok {
 			return entity, true
 		}
 	}

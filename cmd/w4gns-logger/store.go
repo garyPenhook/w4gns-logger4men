@@ -987,13 +987,36 @@ func (s *store) qsoByID(profileID, id int64) (qso, error) {
 // content, not when the contact happened). country/CQZ/ITUZ/DXCC are
 // refreshed via resolveDXCC exactly as insertQSO does, so correcting a
 // callsign also corrects the DXCC context resolved from it.
+//
+// A LoTW confirmation is matched to a QSO once, at sync time, by callsign
+// and band (see syncLoTWConfirmations/upsertLoTWConfirmation) and the match
+// is never re-evaluated afterward. If this edit changes the call or band,
+// any lotw_confirmation row still pointing at this id would otherwise keep
+// describing a different station's confirmed contact as this (now edited)
+// one — backfillQSOGeographyFromConfirmations would happily fill this row's
+// blank grid/state/IOTA from that stale confirmation, and the award stats in
+// lotw_stats.go would keep crediting it here. Domain review finding: this
+// went unhandled, so the fix below unlinks (not deletes — the confirmation
+// itself is still valid LoTW data) any confirmation matched to this id
+// whenever the identity it was matched on actually changes.
 func (s *store) updateQSO(id int64, q qso) error {
 	q.id = id
 	if err := validateQSO(q); err != nil {
 		return fmt.Errorf("validate qso: %w", err)
 	}
 	country, cqZone, ituZone, dxccNumber := resolveDXCC(q)
-	res, err := s.db.Exec(
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin update qso %d: %w", id, err)
+	}
+	defer tx.Rollback()
+
+	var previousCall, previousBand string
+	if err := tx.QueryRow(`SELECT call, band FROM qso WHERE id = ?`, id).Scan(&previousCall, &previousBand); err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("read previous call/band for qso %d: %w", id, err)
+	}
+
+	res, err := tx.Exec(
 		`UPDATE qso SET call = ?, band = ?, freq = NULLIF(?, ''), rst_sent = ?, rst_rcvd = ?, name = ?, qth = ?,
 			gridsquare = ?, state = ?, county = ?, email = ?, country = NULLIF(?, ''), dxcc = ?, cqz = ?, ituz = ?, sig = NULLIF(?, ''),
 			sig_info = NULLIF(?, ''), park_name = ?, iota_ref = ?, island_name = ?, comment = ?, contest_id = ?, stx = ?, stx_string = ?, srx = ?, srx_string = ?
@@ -1011,7 +1034,14 @@ func (s *store) updateQSO(id int64, q qso) error {
 	} else if n == 0 {
 		return fmt.Errorf("update qso %d: %w", id, sql.ErrNoRows)
 	}
-	return nil
+
+	if !strings.EqualFold(strings.TrimSpace(previousCall), strings.TrimSpace(q.call)) ||
+		!strings.EqualFold(strings.TrimSpace(previousBand), strings.TrimSpace(q.band)) {
+		if _, err := tx.Exec(`UPDATE lotw_confirmation SET qso_id = NULL WHERE qso_id = ?`, id); err != nil {
+			return fmt.Errorf("unlink stale LoTW confirmation for qso %d: %w", id, err)
+		}
+	}
+	return tx.Commit()
 }
 
 // setQSOUnscored flips the /X (logged-but-unscored) flag on one QSO. Unlike

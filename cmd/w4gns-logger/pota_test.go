@@ -81,3 +81,52 @@ func TestRecentClusterPOTAReferenceFindsCommentReference(t *testing.T) {
 		t.Fatalf("recentClusterPOTAReference() = %q, %t; want the newest spot's US-222, true", reference, ok)
 	}
 }
+
+// TestAutoFillPOTAReferenceSkippedInPostMode guards a real bug found in a
+// domain review: autoFillPOTAReference read live cluster spots and the live
+// POTA activation API against time.Now() with no regard for POST
+// (after-contest/backdated) mode, so logging a historical contact for a
+// callsign that happens to be POTA-spotted right now silently stamped
+// today's park reference onto a days-old QSO. It must now no-op entirely —
+// not even start the async live-lookup command — whenever POST mode is on.
+func TestAutoFillPOTAReferenceSkippedInPostMode(t *testing.T) {
+	st, err := openStore(t.TempDir() + "/logger.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.postMode = true
+	m.fields[fieldCall].SetValue("W4GNS")
+	m.clusterSpots = []clusterSpot{
+		{Callsign: "W4GNS", Comment: "POTA US-222", Received: time.Now().Add(-time.Minute)},
+	}
+	if cmd := m.autoFillPOTAReference(); cmd != nil {
+		t.Fatal("autoFillPOTAReference() returned a non-nil command in POST mode, want nil — no live lookup should start for a backdated entry")
+	}
+	if got := m.fields[fieldPOTARef].Value(); got != "" {
+		t.Fatalf("POTA Ref = %q after autoFillPOTAReference in POST mode, want unchanged/blank", got)
+	}
+}
+
+// TestAutoFillPOTAReferenceFillsOutsidePostMode is the baseline this guards
+// against regressing: the same recent cluster spot still autofills normally
+// when POST mode is off.
+func TestAutoFillPOTAReferenceFillsOutsidePostMode(t *testing.T) {
+	st, err := openStore(t.TempDir() + "/logger.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	m := initialModel(st)
+	m.fields[fieldCall].SetValue("W4GNS")
+	m.clusterSpots = []clusterSpot{
+		{Callsign: "W4GNS", Comment: "POTA US-222", Received: time.Now().Add(-time.Minute)},
+	}
+	m.autoFillPOTAReference()
+	if got := m.fields[fieldPOTARef].Value(); got != "US-222" {
+		t.Fatalf("POTA Ref = %q, want US-222 from the recent cluster spot", got)
+	}
+}

@@ -153,6 +153,40 @@ func TestMapFeedTapUsesCachedQRZLocationOverCountryReference(t *testing.T) {
 	}
 }
 
+// TestQrzMapGeoMsgIgnoresSessionKeyFromSupersededCredentials guards a real
+// bug found in a domain review: qrzMapGeoMsg's handler restored
+// m.qrzXMLSessionKey from any inbound response unconditionally, unlike the
+// QSO Entry auto-fill flow's qrzCallsignLookupMsg handler, which already got
+// a request-ID-based version of this same protection (R22 in
+// docs/ROADMAP.md). A map geo-lookup issued under old credentials could
+// therefore silently resurrect the old account's session after Station
+// Setup changed credentials and cleared it.
+func TestQrzMapGeoMsgIgnoresSessionKeyFromSupersededCredentials(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
+	if err != nil {
+		t.Fatalf("openStore returned error: %v", err)
+	}
+	defer st.Close()
+	m := initialModel(st)
+	m.qrzCredGeneration = 5 // credentials already changed once since startup
+
+	// A result stamped with a superseded generation (the lookup started
+	// before the most recent credential change) must not resurrect the
+	// session key.
+	updated, _ := m.Update(qrzMapGeoMsg{call: "W1AW", sessionKey: "OLD-SESSION", credGeneration: 4})
+	stale := updated.(model)
+	if stale.qrzXMLSessionKey != "" {
+		t.Fatalf("qrzXMLSessionKey = %q after a superseded-generation result, want unchanged (blank)", stale.qrzXMLSessionKey)
+	}
+
+	// A result stamped with the current generation is trusted normally.
+	updated, _ = stale.Update(qrzMapGeoMsg{call: "W1AW", sessionKey: "NEW-SESSION", credGeneration: 5})
+	fresh := updated.(model)
+	if fresh.qrzXMLSessionKey != "NEW-SESSION" {
+		t.Fatalf("qrzXMLSessionKey = %q, want NEW-SESSION from a current-generation result", fresh.qrzXMLSessionKey)
+	}
+}
+
 // TestMapFeedTapUsesCachedPOTALocationOverQRZ covers the POTA activation
 // location feature end to end through Update: once potaGeoCache has a park
 // location cached for a reference named in a spot's comment, that spot's
