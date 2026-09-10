@@ -18,7 +18,7 @@ import (
 // discipline as the solar-data and POTA/QRZ lookups.
 const (
 	rigctldDialTimeout = 2 * time.Second
-	rigctldIOTimeout    = 2 * time.Second
+	rigctldIOTimeout   = 2 * time.Second
 	// rigPollInterval balances a responsive band/frequency indicator against
 	// not hammering rigctld with short-lived connections. Hamlib's daemon is
 	// designed for frequent polling from logging software; this is a coarse,
