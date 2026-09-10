@@ -72,7 +72,7 @@ func TestLoadLoTWAwardStatsCountsWorkedAndConfirmed(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stats, err := st.loadLoTWAwardStats(1)
+	stats, err := st.loadLoTWAwardStats(1, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +181,7 @@ func TestLoadLoTWAwardStatsWASScopesToUSAAlaskaHawaiiAndFoldsDCIntoMaryland(t *t
 		t.Fatal(err)
 	}
 
-	stats, err := st.loadLoTWAwardStats(1)
+	stats, err := st.loadLoTWAwardStats(1, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,5 +196,125 @@ func TestLoadLoTWAwardStatsWASScopesToUSAAlaskaHawaiiAndFoldsDCIntoMaryland(t *t
 	}
 	if len(stats.WAS.Needed) != 0 {
 		t.Fatalf("WAS.Needed = %v, want none (everything worked is confirmed)", stats.WAS.Needed)
+	}
+}
+
+// TestLoadLoTWAwardStatsExcludesUnmatchedConfirmations guards the README's
+// documented behavior ("An unmatched confirmation ... is still recorded,
+// just not counted in the stats above"): a lotw_confirmation row with no
+// matching local QSO (qso_id NULL) must not inflate Confirmed, since a
+// Confirmed count that can exceed Worked contradicts the worked/needed set
+// semantics awardProgressFor relies on.
+func TestLoadLoTWAwardStatsExcludesUnmatchedConfirmations(t *testing.T) {
+	st, err := openStore(t.TempDir() + "/logger.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	id, err := st.insertQSO(qso{
+		call: "W1AW", band: "20M", mode: "CW", time: time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC),
+		timeOff:   time.Date(2026, 3, 1, 12, 1, 0, 0, time.UTC),
+		profileID: 1, dxccNumber: "291", country: "UNITED STATES", cqZone: "5",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	// Matched: qso_id set, joins to the QSO above.
+	if _, err := st.db.Exec(
+		`INSERT INTO lotw_confirmation (profile_id, qso_id, call, band, dxcc, country, cqz, synced_at) VALUES (1, ?, 'W1AW', '20M', '291', 'UNITED STATES', '5', ?)`,
+		id, now,
+	); err != nil {
+		t.Fatal(err)
+	}
+	// Unmatched: no local QSO for this confirmation (e.g. logged elsewhere).
+	if _, err := st.db.Exec(
+		`INSERT INTO lotw_confirmation (profile_id, call, band, dxcc, country, cqz, synced_at) VALUES (1, 'K1ABC', '20M', '223', 'ENGLAND', '5', ?)`,
+		now,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	stats, err := st.loadLoTWAwardStats(1, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.DXCC.Worked != 1 || stats.DXCC.Confirmed != 1 {
+		t.Fatalf("DXCC = %+v, want worked=1 confirmed=1 (unmatched ENGLAND confirmation must not count)", stats.DXCC)
+	}
+}
+
+// TestLoadLoTWAwardStatsScopesToStationCallsign guards the fix for combining
+// two different operating identities logged under one profile (e.g. a
+// callsign change, or a second operator sharing the profile): only QSOs
+// whose station_callsign matches the active profile's current callsign, or
+// have no station_callsign snapshot at all (pre-existing QSOs logged before
+// that column existed), may count toward award totals.
+func TestLoadLoTWAwardStatsScopesToStationCallsign(t *testing.T) {
+	st, err := openStore(t.TempDir() + "/logger.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	insert := func(q qso) int64 {
+		q.timeOff = q.time.Add(time.Minute)
+		id, err := st.insertQSO(q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+
+	// Logged under the profile's current callsign: must count.
+	currentID := insert(qso{
+		call: "W1AW", band: "20M", mode: "CW", time: time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC),
+		profileID: 1, dxccNumber: "291", country: "UNITED STATES", cqZone: "5",
+		stationCallsign: "N0CALL",
+	})
+	// Logged under a different callsign (e.g. profile reused by another
+	// operator, or a vanity callsign change): must not count.
+	insert(qso{
+		call: "G4ABC", band: "20M", mode: "CW", time: time.Date(2026, 3, 1, 13, 0, 0, 0, time.UTC),
+		profileID: 1, dxccNumber: "223", country: "ENGLAND", cqZone: "5",
+		stationCallsign: "OTHERCALL",
+	})
+	// No station_callsign snapshot at all (pre-existing data): must still
+	// count, so older logs don't lose their award progress.
+	legacyID := insert(qso{
+		call: "VK2ABC", band: "15M", mode: "CW", time: time.Date(2026, 3, 1, 14, 0, 0, 0, time.UTC),
+		profileID: 1, dxccNumber: "150", country: "AUSTRALIA", cqZone: "30",
+	})
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	for _, c := range []struct {
+		id               int64
+		call, dxcc, ctry string
+	}{
+		{currentID, "W1AW", "291", "UNITED STATES"},
+		{legacyID, "VK2ABC", "150", "AUSTRALIA"},
+	} {
+		if _, err := st.db.Exec(
+			`INSERT INTO lotw_confirmation (profile_id, qso_id, call, band, dxcc, country, cqz, synced_at) VALUES (1, ?, ?, '20M', ?, ?, '5', ?)`,
+			c.id, c.call, c.dxcc, c.ctry, now,
+		); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	stats, err := st.loadLoTWAwardStats(1, "N0CALL")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.DXCC.Worked != 2 {
+		t.Fatalf("DXCC.Worked = %d, want 2 (N0CALL + legacy, excluding OTHERCALL)", stats.DXCC.Worked)
+	}
+	if stats.DXCC.Confirmed != 2 {
+		t.Fatalf("DXCC.Confirmed = %d, want 2 (N0CALL + legacy, excluding OTHERCALL)", stats.DXCC.Confirmed)
+	}
+	if len(stats.DXCC.Needed) != 0 {
+		t.Fatalf("DXCC.Needed = %v, want none", stats.DXCC.Needed)
 	}
 }

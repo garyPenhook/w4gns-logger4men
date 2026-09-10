@@ -32,7 +32,7 @@ func (m *model) openStatsPanel() {
 // (local queries only), so it's safe to call on every panel open and after
 // every sync.
 func (m *model) refreshLoTWStats() {
-	stats, err := m.store.loadLoTWAwardStats(m.activeStation.ID)
+	stats, err := m.store.loadLoTWAwardStats(m.activeStation.ID, m.activeStation.Callsign)
 	if err != nil {
 		m.statusMsg = "stats: " + err.Error()
 		return
