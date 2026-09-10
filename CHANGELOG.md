@@ -1,5 +1,11 @@
 # Changelog
 
+### v1.55.4
+
+Closes out the last open item from the LoTW award-stats review (docs/Award_Stats_Review_2026-09-10.md) by taking its documented "narrow the framing" option rather than the riskier alternative:
+
+- Add a caption to the stats panel (`Ctrl+A`) stating its totals are rough progress tracking, not sponsor-certified award eligibility — same-entity, date-cutoff, mode/category, and operating-area rules still aren't modeled. Gating confirmed counts on LoTW's `credit_granted` field was considered instead, but rejected: `credit_granted` is blank for any operator who hasn't paid ARRL's DXCC membership fee even though the QSL itself is genuinely confirmed, so consuming it would silently zero out confirmed counts for a common, legitimate case rather than improve accuracy.
+
 ### v1.55.3
 
 Second follow-up pass on the LoTW award-stats review (docs/Award_Stats_Review_2026-09-10.md):

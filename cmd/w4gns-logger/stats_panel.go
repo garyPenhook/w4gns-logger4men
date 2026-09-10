@@ -154,6 +154,8 @@ func (m model) statsPanelView() string {
 	b.WriteString(screenHotkeys(m))
 	b.WriteString("\n")
 	b.WriteString(headerStyle.Render("Award/Analytics Stats — worked vs. LoTW-confirmed"))
+	b.WriteString("\n")
+	b.WriteString(helpStyle.Render("Rough progress tracking, not sponsor-certified totals: same-entity, date-cutoff, mode/category, and operating-area award rules aren't modeled."))
 	b.WriteString("\n\n")
 
 	if m.lotwStats == nil {
