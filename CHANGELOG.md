@@ -1,5 +1,10 @@
 # Changelog
 
+### v1.55.5
+
+- Shorten the casual (non-contest) dupe-check window from 15 to 10 minutes.
+- Fix a "stuck in a stale contest" dupe bug: the active contest selection persists across restarts (`restoreContestSelection`), and most catalog events use `dupe_scope: "call+band"`, which has no time bound at all. An operator who finished a contest and never explicitly returned to general logging stayed silently "in" that contest forever, so a station worked during it was rejected as a same-band dupe indefinitely — even a year later during unrelated general logging. A persisted contest selection older than 7 days is now dropped back to general logging on restore instead of resumed.
+
 ### v1.55.4
 
 Closes out the last open item from the LoTW award-stats review (docs/Award_Stats_Review_2026-09-10.md) by taking its documented "narrow the framing" option rather than the riskier alternative:

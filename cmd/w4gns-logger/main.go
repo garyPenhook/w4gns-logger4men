@@ -51,7 +51,7 @@ const cwMode = "CW"
 // appVersion is shown in the UI so a stale, not-yet-rebuilt binary is
 // obvious at a glance instead of silently missing recent features. Keep in
 // sync with the latest entry in CHANGELOG.md.
-const appVersion = "1.55.4"
+const appVersion = "1.55.5"
 
 type screen int
 
@@ -1571,7 +1571,7 @@ func (m *model) setDupeBaseline() {
 
 // dupeCheckScope resolves the contest_id/event/dupe_scope to check against
 // for the currently selected contest (blank fields mean "no known contest",
-// which isDupe treats as the casual 15-minute window). Shared by the live
+// which isDupe treats as the casual 10-minute window). Shared by the live
 // dupeWarning indicator (checkDupe) and the authoritative check performed
 // immediately before insert (logCurrentQSO), so both always agree.
 func (m model) dupeCheckScope() (contestID, eventID, dupeScope string) {
@@ -1615,7 +1615,7 @@ func (m *model) checkDupe() {
 	if _, ok := m.eventForContestID(); !ok {
 		if raw := strings.TrimSpace(m.contestFields[contestName].Value()); raw != "" && raw != m.contestScopeFallbackFor {
 			m.contestScopeFallbackFor = raw
-			m.statusMsg = fmt.Sprintf("contest %q not found in event catalog — dupe check uses the 15-minute casual window", raw)
+			m.statusMsg = fmt.Sprintf("contest %q not found in event catalog — dupe check uses the 10-minute casual window", raw)
 		}
 	}
 	dupe, err := m.entryDupe(call, contestID, eventID, dupeScope, time.Now())
@@ -2477,7 +2477,7 @@ func (m model) logCurrentQSO() (model, tea.Cmd) {
 	var startedAt, endedAt time.Time
 	if m.postMode {
 		// POST mode (SD's after-contest re-entry): postTime was parsed before
-		// duplicate checking so both persistence and the casual 15-minute
+		// duplicate checking so both persistence and the casual 10-minute
 		// duplicate window use the actual paper-log instant.
 		startedAt, endedAt = postTime, postTime
 	} else {

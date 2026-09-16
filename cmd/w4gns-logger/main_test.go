@@ -308,7 +308,7 @@ func TestF8IgnoresRepeatedPressesWhileBackupInProgress(t *testing.T) {
 
 // TestCheckDupeWarnsOnceForUnrecognizedContestName covers the case where an
 // operator free-types a contest name that isn't in the event catalog:
-// dupeScope silently falls back to the casual 15-minute window, so checkDupe
+// dupeScope silently falls back to the casual 10-minute window, so checkDupe
 // must surface that instead of failing silently — but only once per distinct
 // value, not on every keystroke.
 func TestCheckDupeWarnsOnceForUnrecognizedContestName(t *testing.T) {

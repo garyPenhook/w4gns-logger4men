@@ -114,7 +114,7 @@ type store struct {
 }
 
 const importBatchSize = 1_000
-const dupeWindow = 15 * time.Minute
+const dupeWindow = 10 * time.Minute
 
 func potaSignal(reference string) string {
 	if strings.TrimSpace(reference) == "" {
@@ -376,6 +376,13 @@ func (s *store) migrate() error {
 			if _, err := s.db.Exec("ALTER TABLE station_profile ADD COLUMN " + column.name + " " + column.definition); err != nil {
 				return fmt.Errorf("add station_profile.%s: %w", column.name, err)
 			}
+		}
+	}
+	if exists, err := s.columnExists("contest_selection", "updated_at"); err != nil {
+		return fmt.Errorf("inspect contest_selection schema: %w", err)
+	} else if !exists {
+		if _, err := s.db.Exec(`ALTER TABLE contest_selection ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''`); err != nil {
+			return fmt.Errorf("add contest_selection.updated_at: %w", err)
 		}
 	}
 	return nil
@@ -849,7 +856,7 @@ func (s *store) insertQSOChunk(ctx context.Context, qsos []qso) (int, error) {
 // isDupe reports whether call has already been worked on band, per the
 // dupe-check scope (call+band) described in the contest design doc.
 // isDupe reports whether call has already been worked on band. Outside a
-// contest (dupeScope blank) it uses the fixed 15-minute call+band window
+// contest (dupeScope blank) it uses the fixed 10-minute call+band window
 // suited to casual/POTA logging, where re-working the same station later the
 // same day is not a dupe. Inside a contest it honors the event's dupe_scope
 // instead of the fixed window:

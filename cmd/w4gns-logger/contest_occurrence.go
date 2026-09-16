@@ -173,11 +173,25 @@ func (m *model) saveContestSelection() {
 	if m.editingQSOID != 0 {
 		return
 	}
-	_, err := m.store.db.Exec(`INSERT INTO contest_selection(profile_id,contest_id,sent_exchange) VALUES(?,?,?) ON CONFLICT(profile_id) DO UPDATE SET contest_id=excluded.contest_id,sent_exchange=excluded.sent_exchange`, m.activeStation.ID, m.contestFields[contestName].Value(), m.contestFields[contestExchangeSent].Value())
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := m.store.db.Exec(`INSERT INTO contest_selection(profile_id,contest_id,sent_exchange,updated_at) VALUES(?,?,?,?) ON CONFLICT(profile_id) DO UPDATE SET contest_id=excluded.contest_id,sent_exchange=excluded.sent_exchange,updated_at=excluded.updated_at`, m.activeStation.ID, m.contestFields[contestName].Value(), m.contestFields[contestExchangeSent].Value(), now)
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("save contest selection: %v", err)
 	}
 }
+
+// contestSelectionMaxAge bounds how long a persisted contest selection is
+// trusted across restarts. Every catalog contest is a single weekend or
+// shorter, recurring sessions included (contestOccurrenceID rolls those
+// forward to today's slot on restore). A selection older than this was left
+// behind by an operator who forgot to return to general logging when the
+// contest ended — restoring it would otherwise leave dupe checks silently
+// scoped to that stale contest (dupe_scope "call+band" has no time window)
+// forever, rejecting a station worked in that contest as a dupe on any later
+// date, even a general (non-contest) QSO a year on. See
+// clearContestSelection's doc comment for the related startup-resurrection
+// bug this guards against.
+const contestSelectionMaxAge = 7 * 24 * time.Hour
 
 // clearContestSelection returns to general logging: no active contest, no
 // resumed serial, and the cleared selection is persisted immediately so a
@@ -205,8 +219,23 @@ func (m *model) clearContestSelection() {
 }
 
 func (m *model) restoreContestSelection() {
-	var id, exchange string
-	if err := m.store.db.QueryRow(`SELECT contest_id,sent_exchange FROM contest_selection WHERE profile_id=?`, m.activeStation.ID).Scan(&id, &exchange); err != nil {
+	var id, exchange, updatedAt string
+	if err := m.store.db.QueryRow(`SELECT contest_id,sent_exchange,updated_at FROM contest_selection WHERE profile_id=?`, m.activeStation.ID).Scan(&id, &exchange, &updatedAt); err != nil {
+		return
+	}
+	if id == "" {
+		return
+	}
+	if at, err := time.Parse(time.RFC3339, updatedAt); err == nil && time.Since(at) > contestSelectionMaxAge {
+		// The operator selected this contest more than a week ago and never
+		// explicitly returned to general logging (F-key/clearContestSelection
+		// would have refreshed updated_at). Don't resurrect it — see
+		// contestSelectionMaxAge's doc comment for the unbounded-dupe bug
+		// this avoids. An empty/pre-migration updated_at (err != nil) is
+		// treated as fresh rather than stale, so upgrading doesn't
+		// unexpectedly clear an active in-progress contest.
+		m.clearContestSelection()
+		m.statusMsg = fmt.Sprintf("contest %q selected over a week ago — returned to general logging", id)
 		return
 	}
 	m.contestFields[contestName].SetValue(id)

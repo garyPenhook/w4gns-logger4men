@@ -147,6 +147,35 @@ func TestClearContestSelectionReturnsToGeneralLoggingAcrossRestart(t *testing.T)
 	}
 }
 
+// TestRestoreContestSelectionExpiresStaleSelection reproduces the "stuck in
+// a year-old contest" bug: an operator who worked a contest and never
+// explicitly returned to general logging (e.g. never pressed 'c' on the
+// Event Catalog screen) had that contest selection resurrected by
+// restoreContestSelection on every future startup. Because most catalog
+// events use dupe_scope "call+band" — unbounded in time — a station worked
+// during that contest stayed a dupe forever, rejecting even an unrelated
+// general QSO with them a year later. A selection persisted long enough ago
+// must be dropped back to general logging instead of resumed.
+func TestRestoreContestSelectionExpiresStaleSelection(t *testing.T) {
+	m := reviewModel(t)
+	cwOpen := m.events[eventIndex(t, m.events, "CW-OPEN")]
+
+	stale := "CW-OPEN@2020"
+	staleUpdatedAt := time.Now().UTC().Add(-30 * 24 * time.Hour).Format(time.RFC3339)
+	if _, err := m.store.db.Exec(`INSERT INTO contest_selection(profile_id,contest_id,sent_exchange,updated_at) VALUES(?,?,?,?)`, m.activeStation.ID, stale, "GARY", staleUpdatedAt); err != nil {
+		t.Fatal(err)
+	}
+
+	m.restoreContestSelection()
+
+	if got := m.contestFields[contestName].Value(); got != "" {
+		t.Fatalf("contestName after restoring a month-old selection = %q, want blank (general logging)", got)
+	}
+	if _, ok := m.eventForContestID(); ok {
+		t.Fatalf("eventForContestID still resolves %v after a stale selection should have expired", cwOpen.ID)
+	}
+}
+
 // TestDXCCPortableLocationWinsOverHomeCallPrefix reproduces the asymmetric
 // portable-call resolution bug: "F/W4GNS" (location prefix first) correctly
 // resolved to France, but "W4GNS/F" (location suffix last) resolved to the

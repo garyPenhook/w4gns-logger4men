@@ -71,7 +71,7 @@ func TestRecentPOTASpotFillsParkNameWithoutAReference(t *testing.T) {
 // match instead of the newest in real use.
 func TestRecentClusterPOTAReferenceFindsCommentReference(t *testing.T) {
 	now := time.Date(2026, time.August, 31, 22, 30, 0, 0, time.UTC)
-	// Both spots are within the 15-minute dupe window, so only scan order
+	// Both spots are within the 10-minute dupe window, so only scan order
 	// distinguishes which reference wins.
 	spots := []clusterSpot{
 		{Callsign: "W4GNS", Comment: "cq POTA us-222", Received: now.Add(-time.Minute)},

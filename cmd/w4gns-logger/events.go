@@ -618,7 +618,7 @@ type eventSession struct {
 }
 
 // validDupeScope reports whether scope is one the dupe checker understands
-// (see store.isDupe): blank means the casual 15-minute window, "call+band"/
+// (see store.isDupe): blank means the casual 10-minute window, "call+band"/
 // "call+band+session" select contest-/session-wide checking scoped to a
 // band, and "call" drops the band scope entirely — ARRL Sweepstakes Rule 2.2
 // ("Each station may be contacted only once, regardless of band") is the

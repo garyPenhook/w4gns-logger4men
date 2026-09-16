@@ -496,7 +496,7 @@ func TestResolveDXCCFallsBackToLookupWhenNotImported(t *testing.T) {
 	}
 }
 
-func TestDupeCheckUsesFifteenMinuteWindow(t *testing.T) {
+func TestDupeCheckUsesTenMinuteWindow(t *testing.T) {
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {
 		t.Fatalf("openStore returned error: %v", err)
@@ -505,7 +505,7 @@ func TestDupeCheckUsesFifteenMinuteWindow(t *testing.T) {
 	now := time.Date(2026, time.August, 31, 18, 0, 0, 0, time.UTC)
 	q := validTestQSO()
 	q.call, q.band = "W4GNS", "20M"
-	q.time = now.Add(-14 * time.Minute)
+	q.time = now.Add(-9 * time.Minute)
 	q.timeOff = q.time.Add(time.Minute)
 	if _, err := st.insertQSO(q); err != nil {
 		t.Fatalf("insert current-window QSO: %v", err)
@@ -515,7 +515,7 @@ func TestDupeCheckUsesFifteenMinuteWindow(t *testing.T) {
 		t.Fatalf("dupe inside window = %t, err = %v", dupe, err)
 	}
 	q.call = "K1ABC"
-	q.time = now.Add(-16 * time.Minute)
+	q.time = now.Add(-11 * time.Minute)
 	q.timeOff = q.time.Add(time.Minute)
 	if _, err := st.insertQSO(q); err != nil {
 		t.Fatalf("insert older QSO: %v", err)
@@ -555,7 +555,7 @@ func TestDupeCheckHonorsCallBandSessionScope(t *testing.T) {
 
 // TestDupeCheckHonorsCallBandContestScope covers the majority (call+band)
 // dupe_scope: a dupe spans the whole contest (any session), and is not
-// bounded by the casual-logging 15-minute window.
+// bounded by the casual-logging 10-minute window.
 func TestDupeCheckHonorsCallBandContestScope(t *testing.T) {
 	st, err := openStore(filepath.Join(t.TempDir(), "logger.db"))
 	if err != nil {
