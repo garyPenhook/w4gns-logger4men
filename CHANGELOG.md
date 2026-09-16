@@ -1,5 +1,9 @@
 # Changelog
 
+### v1.55.6
+
+- Fix the "General Purpose" catalog entry (`SD-GENERAL`) itself being configured with `dupe_scope: "call+band"`, an unbounded-in-time contest dupe scope. Selecting it from the catalog resolved through `eventForContestID` like any real contest, so general logging silently inherited an all-time same-band dupe check instead of the intended 10-minute casual window — a station worked months or years earlier on a band was rejected as a dupe indefinitely. `dupe_scope` is now blank for this entry, which `isDupe` treats as the casual window.
+
 ### v1.55.5
 
 - Shorten the casual (non-contest) dupe-check window from 15 to 10 minutes.

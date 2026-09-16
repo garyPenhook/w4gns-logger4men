@@ -1814,16 +1814,9 @@
     "name": "General Purpose",
     "organizer": "",
     "kind": "contest",
-    "bands": [
-      "160M",
-      "80M",
-      "40M",
-      "20M",
-      "15M",
-      "10M"
-    ],
+    "bands": [],
     "sent_serial": false,
-    "dupe_scope": "call+band",
+    "dupe_scope": "",
     "sessions": [
       {
         "id": "ALL",
